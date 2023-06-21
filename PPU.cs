@@ -559,12 +559,8 @@ public class PPU
 
     public void RenderFrame(PictureBox pictureBox)
     {
-
-
         for (int scanline = 0; scanline < SCANLINE_COUNT; scanline++)
         {
-
-
             while (cpu.cycles < cycles + 113) ;
 
             // Render the background for the current scanline
