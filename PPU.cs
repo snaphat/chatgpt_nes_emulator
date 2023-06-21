@@ -451,9 +451,6 @@ public class PPU
 
     private void RenderSprites(int scanline)
     {
-        if (scanline > SCREEN_HEIGHT - 1)
-            return;
-
         // Boolean variable to track sprite 0 hit
         bool sprite0Hit = false;
 

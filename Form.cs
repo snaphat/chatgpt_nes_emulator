@@ -28,7 +28,7 @@ namespace Emulation
             AllocConsole();
 
             // Create an instance of the emulator and load the ROM
-            string romFilePath = "Super Mario Bros. (World).nes"; /* Provide the path to the ROM file */
+            string romFilePath = "scanline.nes"; /* Provide the path to the ROM file */
             emulator = new Emulator(romFilePath);
 
             // Setup the PictureBox

@@ -44,8 +44,8 @@ public class CPU
         PC = (ushort)((highByte << 8) | lowByte);
 
         // Simulate power-on/reset behavior by skipping the first read cycle
-        ReadMemory(PC);
-        PC++;
+        //ReadMemory(PC);
+        //PC++;
 
         // Disable interrupts
         I = true;
@@ -84,7 +84,7 @@ public class CPU
         string sHex = SP.ToString("X2");
         string addressHex = address.ToString("X2"); // Convert the opcode to a two-digit hexadecimal string
         string opcodeHex = opcode.ToString("X2"); // Convert the opcode to a two-digit hexadecimal string
-        Console.WriteLine("A:" + aHex + " X:" + xHex + " Y:" + yHex + " S:" + sHex + " $00:" + addressHex + ": " + Debug.OpToStr(opcode));
+        Console.WriteLine("A:" + aHex + " X:" + xHex + " Y:" + yHex + " S:" + sHex + " $00:" + addressHex + ": " + Debug.OpToStr(this, address));
     }
 
     public int cycles;
@@ -566,7 +566,7 @@ public class CPU
     }
 
     // Helper functions for reading from and writing to memory
-    private byte ReadMemory(ushort address)
+    public byte ReadMemory(ushort address)
     {
         return memory.Read(address);
     }
