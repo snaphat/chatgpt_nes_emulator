@@ -381,64 +381,64 @@ public class CPU
 
             // Shift Operations
             case 0x0A: // ASL Accumulator
-                ASL_Accumulator();
+                ASL();
                 break;
             case 0x06: // ASL Zero Page
-                ASL_ZeroPage();
+                ASL(ZeroPage());
                 break;
             case 0x0E: // ASL Absolute
-                ASL_Absolute();
+                ASL(Absolute());
                 break;
             case 0x16: // ASL Zero Page, X
-                ASL_ZeroPageX();
+                ASL(ZeroPageX());
                 break;
             case 0x1E: // ASL Absolute, X
-                ASL_AbsoluteX();
+                ASL(AbsoluteX());
                 break;
             case 0x4A: // LSR Accumulator
-                LSR_Accumulator();
+                LSR();
                 break;
             case 0x46: // LSR Zero Page
-                LSR_ZeroPage();
+                LSR(ZeroPage());
                 break;
             case 0x4E: // LSR Absolute
-                LSR_Absolute();
+                LSR(Absolute());
                 break;
             case 0x56: // LSR Zero Page, X
-                LSR_ZeroPageX();
+                LSR(ZeroPageX());
                 break;
             case 0x5E: // LSR Absolute, X
-                LSR_AbsoluteX();
+                LSR(AbsoluteX());
                 break;
             case 0x2A: // ROL Accumulator
-                ROL_Accumulator();
+                ROL();
                 break;
             case 0x26: // ROL Zero Page
-                ROL_ZeroPage();
+                ROL(ZeroPage());
                 break;
             case 0x2E: // ROL Absolute
-                ROL_Absolute();
+                ROL(Absolute());
                 break;
             case 0x36: // ROL Zero Page, X
-                ROL_ZeroPageX();
+                ROL(ZeroPageX());
                 break;
             case 0x3E: // ROL Absolute, X
-                ROL_AbsoluteX();
+                ROL(AbsoluteX());
                 break;
             case 0x6A: // ROR Accumulator
-                ROR_Accumulator();
+                ROR();
                 break;
             case 0x66: // ROR Zero Page
-                ROR_ZeroPage();
+                ROR(ZeroPage());
                 break;
             case 0x6E: // ROR Absolute
-                ROR_Absolute();
+                ROR(Absolute());
                 break;
             case 0x76: // ROR Zero Page, X
-                ROR_ZeroPageX();
+                ROR(ZeroPageX());
                 break;
             case 0x7E: // ROR Absolute, X
-                ROR_AbsoluteX();
+                ROR(AbsoluteX());
                 break;
 
             // Compare Operations
@@ -513,10 +513,10 @@ public class CPU
 
             // Jump/Call Operations
             case 0x4C: // JMP Absolute
-                JMP_Absolute();
+                JMP(Absolute());
                 break;
             case 0x6C: // JMP Indirect
-                JMP_Indirect();
+                JMP(Indirect());
                 break;
             case 0x20: // JSR
                 JSR(Absolute());
@@ -929,16 +929,15 @@ public class CPU
     }
 
     // Shift Operations
-    private void ASL_Accumulator()
+    private void ASL()
     {
         C = (A & 0x80) != 0;
         A <<= 1;
         UpdateZeroAndNegativeFlags(A);
     }
 
-    private void ASL_ZeroPage()
+    private void ASL(ushort address)
     {
-        byte address = ReadMemory(PC++);
         byte value = ReadMemory(address);
         C = (value & 0x80) != 0;
         value <<= 1;
@@ -946,46 +945,16 @@ public class CPU
         UpdateZeroAndNegativeFlags(value);
     }
 
-    private void ASL_Absolute()
-    {
-        ushort address = Absolute();
-        byte value = ReadMemory(address);
-        C = (value & 0x80) != 0;
-        value <<= 1;
-        WriteMemory(address, value);
-        UpdateZeroAndNegativeFlags(value);
-    }
 
-    private void ASL_ZeroPageX()
-    {
-        byte address = (byte)(ReadMemory(PC++) + X);
-        byte value = ReadMemory(address);
-        C = (value & 0x80) != 0;
-        value <<= 1;
-        WriteMemory(address, value);
-        UpdateZeroAndNegativeFlags(value);
-    }
-
-    private void ASL_AbsoluteX()
-    {
-        ushort address = (ushort)(Absolute() + X);
-        byte value = ReadMemory(address);
-        C = (value & 0x80) != 0;
-        value <<= 1;
-        WriteMemory(address, value);
-        UpdateZeroAndNegativeFlags(value);
-    }
-
-    private void LSR_Accumulator()
+    private void LSR()
     {
         C = (A & 0x01) != 0;
         A >>= 1;
         UpdateZeroAndNegativeFlags(A);
     }
 
-    private void LSR_ZeroPage()
+    private void LSR(ushort address)
     {
-        byte address = ReadMemory(PC++);
         byte value = ReadMemory(address);
         C = (value & 0x01) != 0;
         value >>= 1;
@@ -993,37 +962,7 @@ public class CPU
         UpdateZeroAndNegativeFlags(value);
     }
 
-    private void LSR_Absolute()
-    {
-        ushort address = Absolute();
-        byte value = ReadMemory(address);
-        C = (value & 0x01) != 0;
-        value >>= 1;
-        WriteMemory(address, value);
-        UpdateZeroAndNegativeFlags(value);
-    }
-
-    private void LSR_ZeroPageX()
-    {
-        byte address = (byte)(ReadMemory(PC++) + X);
-        byte value = ReadMemory(address);
-        C = (value & 0x01) != 0;
-        value >>= 1;
-        WriteMemory(address, value);
-        UpdateZeroAndNegativeFlags(value);
-    }
-
-    private void LSR_AbsoluteX()
-    {
-        ushort address = (ushort)(Absolute() + X);
-        byte value = ReadMemory(address);
-        C = (value & 0x01) != 0;
-        value >>= 1;
-        WriteMemory(address, value);
-        UpdateZeroAndNegativeFlags(value);
-    }
-
-    private void ROL_Accumulator()
+    private void ROL()
     {
         bool newC = (A & 0x80) != 0;
         A <<= 1;
@@ -1033,9 +972,8 @@ public class CPU
         UpdateZeroAndNegativeFlags(A);
     }
 
-    private void ROL_ZeroPage()
+    private void ROL(ushort address)
     {
-        byte address = ReadMemory(PC++);
         byte value = ReadMemory(address);
         bool newC = (value & 0x80) != 0;
         value <<= 1;
@@ -1046,44 +984,6 @@ public class CPU
         UpdateZeroAndNegativeFlags(value);
     }
 
-    private void ROL_Absolute()
-    {
-        ushort address = Absolute();
-        byte value = ReadMemory(address);
-        bool newC = (value & 0x80) != 0;
-        value <<= 1;
-        if (C)
-            value |= 0x01;
-        WriteMemory(address, value);
-        C = newC;
-        UpdateZeroAndNegativeFlags(value);
-    }
-
-    private void ROL_ZeroPageX()
-    {
-        byte address = (byte)(ReadMemory(PC++) + X);
-        byte value = ReadMemory(address);
-        bool newC = (value & 0x80) != 0;
-        value <<= 1;
-        if (C)
-            value |= 0x01;
-        WriteMemory(address, value);
-        C = newC;
-        UpdateZeroAndNegativeFlags(value);
-    }
-
-    private void ROL_AbsoluteX()
-    {
-        ushort address = (ushort)(Absolute() + X);
-        byte value = ReadMemory(address);
-        bool newC = (value & 0x80) != 0;
-        value <<= 1;
-        if (C)
-            value |= 0x01;
-        WriteMemory(address, value);
-        C = newC;
-        UpdateZeroAndNegativeFlags(value);
-    }
 
     private void ROR_Accumulator()
     {
@@ -1095,48 +995,8 @@ public class CPU
         UpdateZeroAndNegativeFlags(A);
     }
 
-    private void ROR_ZeroPage()
+    private void ROR(ushort address)
     {
-        byte address = ReadMemory(PC++);
-        byte value = ReadMemory(address);
-        bool newC = (value & 0x01) != 0;
-        value >>= 1;
-        if (C)
-            value |= 0x80;
-        WriteMemory(address, value);
-        C = newC;
-        UpdateZeroAndNegativeFlags(value);
-    }
-
-    private void ROR_Absolute()
-    {
-        ushort address = Absolute();
-        byte value = ReadMemory(address);
-        bool newC = (value & 0x01) != 0;
-        value >>= 1;
-        if (C)
-            value |= 0x80;
-        WriteMemory(address, value);
-        C = newC;
-        UpdateZeroAndNegativeFlags(value);
-    }
-
-    private void ROR_ZeroPageX()
-    {
-        byte address = (byte)(ReadMemory(PC++) + X);
-        byte value = ReadMemory(address);
-        bool newC = (value & 0x01) != 0;
-        value >>= 1;
-        if (C)
-            value |= 0x80;
-        WriteMemory(address, value);
-        C = newC;
-        UpdateZeroAndNegativeFlags(value);
-    }
-
-    private void ROR_AbsoluteX()
-    {
-        ushort address = (ushort)(Absolute() + X);
         byte value = ReadMemory(address);
         bool newC = (value & 0x01) != 0;
         value >>= 1;
@@ -1243,16 +1103,8 @@ public class CPU
     }
 
     // Jump/Call Operations
-    private void JMP_Absolute()
+    private void JMP(ushort address)
     {
-        PC = Absolute();
-    }
-
-    private void JMP_Indirect()
-    {
-        ushort address = Indirect();
-        if (address == 0)
-            throw new Exception("Shouldn't happen");
         PC = address;
     }
 
