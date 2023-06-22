@@ -830,6 +830,7 @@ public class CPU
     {
         byte result = (byte)(A & value);
         UpdateZeroAndNegativeFlags(result);
+        V = (value & 0x40) != 0;
     }
 
     private void BIT(ushort address)
