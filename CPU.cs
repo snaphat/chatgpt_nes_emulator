@@ -73,10 +73,6 @@ public class CPU
         UpdateNegativeFlag(value);
     }
 
-    private void UpdateCarryFlag(byte value1, byte value2)
-    {
-        C = value1 >= value2;
-    }
 
     public int cycles;
 
@@ -239,6 +235,7 @@ public class CPU
                 ADC(IndirectY());
                 break;
             case 0xE9: // SBC Immediate
+            case 0xEB: // SBC Immediate (Unofficial)
                 SBC(Immediate());
                 break;
             case 0xE5: // SBC Zero Page
@@ -590,7 +587,7 @@ public class CPU
                 NOPNOPNOP();
                 break;
 
-            case 0x02: // JAM (unofficial)
+            case 0x02: // STP (unofficial)
             case 0x12: // "
             case 0x22: // "
             case 0x32: // "
@@ -602,7 +599,7 @@ public class CPU
             case 0xB2: // "
             case 0xD2: // "
             case 0xF2: // "
-                JAM();
+                STP();
                 break;
 
             case 0x4B:
@@ -621,6 +618,203 @@ public class CPU
             case 0x6B:
                 ARR(Immediate());
                 break;
+
+            case 0xCB: // AXS Immediate
+                AXS(Immediate());
+                break;
+
+            case 0xBB: // LAS Absolute, Y
+                LAS(AbsoluteY());
+                break;
+
+            case 0xA7: // LAX Zero Page
+                LAX(ZeroPage());
+                break;
+            case 0xB7: // LAX Zero Page, Y
+                LAX(ZeroPageY());
+                break;
+            case 0xAF: // LAX Absolute
+                LAX(Absolute());
+                break;
+            case 0xBF: // LAX Absolute, Y
+                LAX(AbsoluteY());
+                break;
+            case 0xA3: // LAX (Zero Page, X)
+                LAX(IndirectX());
+                break;
+            case 0xB3: // LAX (Zero Page), Y
+                LAX(IndirectY());
+                break;
+
+            case 0xAB: // LXA Immediate
+                LXA(Immediate());
+                break;
+
+            case 0x87: // SAX Zero Page
+                SAX(ZeroPage());
+                break;
+            case 0x97: // SAX Zero Page, Y
+                SAX(ZeroPageY());
+                break;
+            case 0x8F: // SAX Absolute
+                SAX(Absolute());
+                break;
+            case 0x83: // SAX (Zero Page, X)
+                SAX(IndirectX());
+                break;
+
+            case 0x9F: // SHA Absolute, Y
+                SHA(AbsoluteY());
+                break;
+            case 0x93: // SHA Indirect, Y
+                SHA(IndirectY());
+                break;
+
+            case 0x9E: // SHX Absolute, Y
+                SHX(AbsoluteY());
+                break;
+
+            case 0x9C: // SHY Absolute, X
+                SHY(AbsoluteX());
+                break;
+
+            case 0x9B: // TAS Absolute, Y
+                TAS(AbsoluteY());
+                break;
+
+            case 0xC7: // DCP Zero Page
+                DCP(ZeroPage());
+                break;
+            case 0xD7: // DCP Zero Page, X
+                DCP(ZeroPageX());
+                break;
+            case 0xCF: // DCP Absolute
+                DCP(Absolute());
+                break;
+            case 0xDF: // DCP Absolute, X
+                DCP(AbsoluteX());
+                break;
+            case 0xDB: // DCP Absolute, Y
+                DCP(AbsoluteY());
+                break;
+            case 0xC3: // DCP Indirect, X
+                DCP(IndirectX());
+                break;
+            case 0xD3: // DCP Indirect, Y
+                DCP(IndirectY());
+                break;
+
+            case 0xE7: // ISC Zero Page
+                ISC(ZeroPage());
+                break;
+            case 0xF7: // ISC Zero Page, X
+                ISC(ZeroPageX());
+                break;
+            case 0xEF: // ISC Absolute
+                ISC(Absolute());
+                break;
+            case 0xFF: // ISC Absolute, X
+                ISC(AbsoluteX());
+                break;
+            case 0xFB: // ISC Absolute, Y
+                ISC(AbsoluteY());
+                break;
+            case 0xE3: // ISC Indirect, X
+                ISC(IndirectX());
+                break;
+            case 0xF3: // ISC Indirect, Y
+                ISC(IndirectY());
+                break;
+
+            case 0x27: // RLA Zero Page
+                RLA(ZeroPage());
+                break;
+            case 0x37: // RLA Zero Page, X
+                RLA(ZeroPageX());
+                break;
+            case 0x2F: // RLA Absolute
+                RLA(Absolute());
+                break;
+            case 0x3F: // RLA Absolute, X
+                RLA(AbsoluteX());
+                break;
+            case 0x3B: // RLA Absolute, Y
+                RLA(AbsoluteY());
+                break;
+            case 0x23: // RLA (Zero Page, X)
+                RLA(IndirectX());
+                break;
+            case 0x33: // RLA (Zero Page), Y
+                RLA(IndirectY());
+                break;
+
+            case 0x67: // RRA Zero Page
+                RRA(ZeroPage());
+                break;
+            case 0x77: // RRA Zero Page, X
+                RRA(ZeroPageX());
+                break;
+            case 0x6F: // RRA Absolute
+                RRA(Absolute());
+                break;
+            case 0x7F: // RRA Absolute, X
+                RRA(AbsoluteX());
+                break;
+            case 0x7B: // RRA Absolute, Y
+                RRA(AbsoluteY());
+                break;
+            case 0x63: // RRA (Zero Page, X)
+                RRA(IndirectX());
+                break;
+            case 0x73: // RRA (Zero Page), Y
+                RRA(IndirectY());
+                break;
+
+            case 0x07: // SLO Zero Page
+                SLO(ZeroPage());
+                break;
+            case 0x17: // SLO Zero Page, X
+                SLO(ZeroPageX());
+                break;
+            case 0x0F: // SLO Absolute
+                SLO(Absolute());
+                break;
+            case 0x1F: // SLO Absolute, X
+                SLO(AbsoluteX());
+                break;
+            case 0x1B: // SLO Absolute, Y
+                SLO(AbsoluteY());
+                break;
+            case 0x03: // SLO (Indirect, X)
+                SLO(IndirectX());
+                break;
+            case 0x13: // SLO (Indirect), Y
+                SLO(IndirectY());
+                break;
+
+            case 0x47: // SRE Zero Page
+                SRE(ZeroPage());
+                break;
+            case 0x57: // SRE Zero Page, X
+                SRE(ZeroPageX());
+                break;
+            case 0x4F: // SRE Absolute
+                SRE(Absolute());
+                break;
+            case 0x5F: // SRE Absolute, X
+                SRE(AbsoluteX());
+                break;
+            case 0x5B: // SRE Absolute, Y
+                SRE(AbsoluteY());
+                break;
+            case 0x43: // SRE (Indirect, X)
+                SRE(IndirectX());
+                break;
+            case 0x53: // SRE (Indirect), Y
+                SRE(IndirectY());
+                break;
+
+
             default:
                 throw new NotImplementedException($"Opcode {opcode:X2} is not implemented.");
         }
@@ -1074,7 +1268,7 @@ public class CPU
     {
         ushort result = (byte)(A - value);
         UpdateZeroAndNegativeFlags((byte)result);
-        UpdateCarryFlag(A, value);
+        C = A >= value;
     }
 
     private void CMP(ushort address)
@@ -1082,14 +1276,14 @@ public class CPU
         byte value = ReadMemory(address);
         ushort result = (byte)(A - value);
         UpdateZeroAndNegativeFlags((byte)result);
-        UpdateCarryFlag(A, value);
+        C = A >= value;
     }
 
     private void CPX(byte value)
     {
         ushort result = (byte)(X - value);
         UpdateZeroAndNegativeFlags((byte)result);
-        UpdateCarryFlag(X, value);
+        C = X >= value;
     }
 
     private void CPX(ushort address)
@@ -1097,14 +1291,14 @@ public class CPU
         byte value = ReadMemory(address);
         ushort result = (byte)(X - value);
         UpdateZeroAndNegativeFlags((byte)result);
-        UpdateCarryFlag(X, value);
+        C = X >= value;
     }
 
     private void CPY(byte value)
     {
         ushort result = (ushort)(Y - value);
         UpdateZeroAndNegativeFlags((byte)result);
-        UpdateCarryFlag(Y, value);
+        C = Y >= value;
     }
 
     private void CPY(ushort address)
@@ -1112,7 +1306,7 @@ public class CPU
         byte value = ReadMemory(address);
         ushort result = (ushort)(Y - value);
         UpdateZeroAndNegativeFlags((byte)result);
-        UpdateCarryFlag(Y, value);
+        C = Y >= value;
     }
 
     // Jump/Call Operations
@@ -1202,48 +1396,137 @@ public class CPU
         SP += 2; // Skip 2 bytes
     }
 
-    private void JAM()
+    private void STP()
     {
-        throw new InvalidOperationException($"Invalid JAM Instruction encountered.");
+        throw new InvalidOperationException($"STP Instruction encountered.");
     }
 
-    private void ALR(byte value)
+    private void ALR(byte operand)
     {
-        byte result = (byte)(A & value); // Perform bitwise AND operation with A and the immediate value
-        A = (byte)(result >> 1); // Shift the result right by 1 bit
-        UpdateZeroAndNegativeFlags(A); // Update zero and negative flags
-        C = (result & 0x01) != 0; // Set the carry flag based on the least significant bit of the result
+        AND(operand);
+        LSR();
     }
 
-    private void ANC(byte value)
+    private void ANC(byte operand)
     {
-        A &= value; // Perform bitwise AND operation with A and the immediate value
-        UpdateZeroAndNegativeFlags(A); // Update zero and negative flags
+        AND(operand);
+        UpdateZeroAndNegativeFlags(A);
         C = (A & 0x80) != 0; // Set the carry flag based on the value of the 7th bit of A
     }
 
     private void ANE(byte operand)
     {
-        A = (byte)(A & X & operand); // Perform the ANE operation
-        UpdateZeroAndNegativeFlags(A); // Update zero and negative flags
+        A = (byte)(A & X & operand);
+        UpdateZeroAndNegativeFlags(A);
     }
 
     private void ARR(byte operand)
     {
-        // Perform bitwise AND operation between A and the immediate operand
-        A &= operand;
-
-        // Perform a right shift on A
-        A >>= 1;
-
-        // Set bit 6 of A as the carry flag
-        C = (A & 0x40) != 0;
-
-        // Set bit 6 xor bit 5 of A as the overflow flag
-        V = ((A & 0x40) ^ ((A & 0x20) << 1)) != 0;
-
-        // Update zero and negative flags
+        AND(operand);
+        ROR();
         UpdateZeroAndNegativeFlags(A);
+        C = (A & 0x40) != 0; // Set bit 6 of A as the carry flag
+        V = ((A & 0x40) ^ ((A & 0x20) << 1)) != 0; // Set bit 6 xor bit 5 of A as the overflow flag
+    }
+
+    private void AXS(byte operand)
+    {
+        int result = (A & X) - operand;
+        X = (byte)(result & 0xFF);
+        UpdateZeroAndNegativeFlags(X);
+        C = result >= 0; // Set the carry flag based on the result without borrow
+    }
+
+    private void LAS(ushort address)
+    {
+        byte value = ReadMemory(address);
+        byte result = (byte)(value & SP);
+        A = result;
+        X = result;
+        SP = result;
+        UpdateZeroAndNegativeFlags(result);
+    }
+
+    private void LAX(ushort address)
+    {
+        LDA(address);
+        TAX();
+    }
+
+    private void LXA(byte operand)
+    {
+        byte result = (byte)(A & operand);
+        A = result;
+        X = result;
+        UpdateZeroAndNegativeFlags(result);
+    }
+
+    private void SAX(ushort address)
+    {
+        byte result = (byte)(A & X);
+        WriteMemory(address, result);
+    }
+
+    private void SHA(ushort address)
+    {
+        byte result = (byte)(A & X & ((address >> 8) + 1));
+        WriteMemory(address, result);
+    }
+
+    private void SHX(ushort address)
+    {
+        byte result = (byte)(X & ((address >> 8) + 1));
+        WriteMemory(address, result);
+    }
+
+    private void SHY(ushort address)
+    {
+        byte result = (byte)(Y & ((address >> 8) + 1));
+        WriteMemory(address, result);
+    }
+
+    private void TAS(ushort address)
+    {
+        byte result = (byte)(A & X);
+        SP = result;
+        result &= (byte)((address >> 8) + 1);
+        WriteMemory(address, result);
+    }
+
+    private void DCP(ushort address)
+    {
+        DEC(address);
+        CMP(address);
+    }
+
+    private void ISC(ushort address)
+    {
+        INC(address);
+        SBC(address);
+    }
+
+    private void RLA(ushort address)
+    {
+        ROL(address);
+        AND(address);
+    }
+
+    private void RRA(ushort address)
+    {
+        ROR(address);
+        ADC(address);
+    }
+
+    private void SLO(ushort address)
+    {
+        ASL(address);
+        ORA(address);
+    }
+
+    private void SRE(ushort address)
+    {
+        LSR(address);
+        EOR(address);
     }
 
     // Helper functions for stack operations
