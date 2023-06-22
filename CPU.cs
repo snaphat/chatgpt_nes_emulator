@@ -4,11 +4,11 @@ using System.Net;
 public class CPU
 {
     // Registers
-    private byte A; // Accumulator
+    public byte A; // Accumulator
     public byte X, Y; // General-purpose registers
-    private byte SP; // Stack pointer
-    private ushort PC; // Program counter
-    private byte P; // Processor status register
+    public byte SP; // Stack pointer
+    public ushort PC; // Program counter
+    public byte P; // Processor status register
 
     // Status Flags
     private bool C; // Carry flag
@@ -76,23 +76,12 @@ public class CPU
         C = value1 >= value2;
     }
 
-    private void DisplayInstructionOpcode(ushort address, byte opcode)
-    {
-        string aHex = A.ToString("X2");
-        string xHex = X.ToString("X2");
-        string yHex = Y.ToString("X2");
-        string sHex = SP.ToString("X2");
-        string addressHex = address.ToString("X2"); // Convert the opcode to a two-digit hexadecimal string
-        string opcodeHex = opcode.ToString("X2"); // Convert the opcode to a two-digit hexadecimal string
-        Console.WriteLine("A:" + aHex + " X:" + xHex + " Y:" + yHex + " S:" + sHex + " $00:" + addressHex + ": " + Debug.OpToStr(this, address));
-    }
-
     public int cycles;
 
     public void ExecuteNextInstruction()
     {
+        Debug.DisplayInstruction(this);
         byte opcode = ReadMemory(PC++);
-        DisplayInstructionOpcode((ushort)(PC - 1), opcode);
         switch (opcode)
         {
             // Transfer instructions
