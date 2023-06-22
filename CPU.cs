@@ -608,6 +608,19 @@ public class CPU
             case 0x4B:
                 ALR(Immediate());
                 break;
+
+            case 0x0B:
+            case 0x2B:
+                ANC(Immediate());
+                break;
+
+            case 0x8B:
+                ANE(Immediate());
+                break;
+
+            case 0x6B:
+                ARR(Immediate());
+                break;
             default:
                 throw new NotImplementedException($"Opcode {opcode:X2} is not implemented.");
         }
@@ -1200,6 +1213,37 @@ public class CPU
         A = (byte)(result >> 1); // Shift the result right by 1 bit
         UpdateZeroAndNegativeFlags(A); // Update zero and negative flags
         C = (result & 0x01) != 0; // Set the carry flag based on the least significant bit of the result
+    }
+
+    private void ANC(byte value)
+    {
+        A &= value; // Perform bitwise AND operation with A and the immediate value
+        UpdateZeroAndNegativeFlags(A); // Update zero and negative flags
+        C = (A & 0x80) != 0; // Set the carry flag based on the value of the 7th bit of A
+    }
+
+    private void ANE(byte operand)
+    {
+        A = (byte)(A & X & operand); // Perform the ANE operation
+        UpdateZeroAndNegativeFlags(A); // Update zero and negative flags
+    }
+
+    private void ARR(byte operand)
+    {
+        // Perform bitwise AND operation between A and the immediate operand
+        A &= operand;
+
+        // Perform a right shift on A
+        A >>= 1;
+
+        // Set bit 6 of A as the carry flag
+        C = (A & 0x40) != 0;
+
+        // Set bit 6 xor bit 5 of A as the overflow flag
+        V = ((A & 0x40) ^ ((A & 0x20) << 1)) != 0;
+
+        // Update zero and negative flags
+        UpdateZeroAndNegativeFlags(A);
     }
 
     // Helper functions for stack operations
