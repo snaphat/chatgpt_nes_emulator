@@ -555,8 +555,39 @@ public class CPU
             case 0x00: // BRK
                 BRK();
                 break;
-            case 0xEA: // NOP
+            case 0xEA: // NOP (official)
+            case 0x1A: // NOP 1-byte (unofficial)
+            case 0x3A: // NOP 1-byte (unofficial)
+            case 0x5A: // NOP 1-byte (unofficial)
+            case 0x7A: // NOP 1-byte (unofficial)
+            case 0xDA: // NOP 1-byte (unofficial)
+            case 0xFA: // NOP 1-byte (unofficial)
                 NOP();
+                break;
+            case 0x80: // NOP 2-byte Immediate (unofficial)
+            case 0x82: // NOP 2-byte Immediate (unofficial)
+            case 0xC2: // NOP 2-byte Immediate (unofficial)
+            case 0xE2: // NOP 2-byte Immediate (unofficial)
+            case 0x89: // NOP 2-byte Immediate (unofficial)
+            case 0x04: // NOP 2-byte Zero-Page (unofficial)
+            case 0x44: // NOP 2-byte Zero-Page (unofficial)
+            case 0x64: // NOP 2-byte Zero-Page (unofficial)
+            case 0x14: // NOP 2-byte Zero-Page, X (unofficial)
+            case 0x34: // NOP 2-byte Zero-Page, X (unofficial)
+            case 0x54: // NOP 2-byte Zero-Page, X (unofficial)
+            case 0x74: // NOP 2-byte Zero-Page, X (unofficial)
+            case 0xD4: // NOP 2-byte Zero-Page, X (unofficial)
+            case 0xF4: // NOP 2-byte Zero-Page, X (unofficial)
+                NOPNOP();
+                break;
+            case 0x0C: // NOP 3-byte Absolute (unofficial)
+            case 0x1C: // NOP 3-byte Absolute, X (unofficial)
+            case 0x3C: // NOP 3-byte Absolute, X (unofficial)
+            case 0x5C: // NOP 3-byte Absolute, X (unofficial)
+            case 0x7C: // NOP 3-byte Absolute, X (unofficial)
+            case 0xDC: // NOP 3-byte Absolute, X (unofficial)
+            case 0xFC: // NOP 3-byte Absolute, X (unofficial)
+                NOPNOPNOP();
                 break;
 
             default:
@@ -1276,6 +1307,16 @@ public class CPU
     private void NOP()
     {
         // Do nothing
+    }
+
+    private void NOPNOP()
+    {
+        SP++; // Skip byte
+    }
+
+    private void NOPNOPNOP()
+    {
+        SP += 2; // Skip 2 bytes
     }
 
     // Helper functions for stack operations
