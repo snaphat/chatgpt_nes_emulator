@@ -695,7 +695,7 @@ public class CPU
     private void PLP()
     {
         byte flags = PopStack();
-        P = (byte)((P & 0xCF) | (flags & 0xC0)); // ignore bit 4 (B flag) and bit 5 (unused flag)
+        P = (byte)((P & 0xCF) | (flags & 0x60)); // ignore bit 4 (B flag) and bit 5 (unused flag)
     }
 
     private void PHP()
@@ -1224,7 +1224,7 @@ public class CPU
     private void RTI()
     {
         byte flags = (byte)(PopStack() & 0xCF); // Ignore bits 5 and 4 from the stack value
-        P = (byte)((P & 0xC0) | flags); // Preserve bits 5 and 4 of P and update the rest with the stack value
+        P = (byte)((P & 0x60) | flags); // Preserve bits 5 and 4 of P and update the rest with the stack value
         PC = (ushort)(PopStack() | (PopStack() << 8));
     }
 
@@ -1264,15 +1264,14 @@ public class CPU
         V = false;
     }
 
-    // System Functions
     private void BRK()
     {
-        PC++;
-        PushStack((byte)((PC >> 8) & 0xFF));
-        PushStack((byte)(PC & 0xFF));
-        PushStack(P);
-        I = true;
-        PC = (ushort)((ReadMemory(0xFFFE) << 8) | ReadMemory(0xFFFD));
+        PC++; // Increment PC to point to the next instruction
+        PushStack((byte)(PC >> 8)); // Push high byte of PC onto the stack
+        PushStack((byte)(PC & 0xFF)); // Push low byte of PC onto the stack
+        PushStack((byte)(P | 0x30)); // Push P with B and U flags set to 1 onto the stack
+        I = true; // Set Interrupt flag to disable further interrupts
+        PC = (ushort)(ReadMemory(0xFFFE) | (ReadMemory(0xFFFF) << 8)); // Set PC to the interrupt vector address
     }
 
     private void NOP()
