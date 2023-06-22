@@ -985,7 +985,7 @@ public class CPU
     }
 
 
-    private void ROR_Accumulator()
+    private void ROR()
     {
         bool newC = (A & 0x01) != 0;
         A >>= 1;
