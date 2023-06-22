@@ -14,13 +14,15 @@
 
 
         // PPU registers
-        private byte ppuControl; // PPU Control Register (0x2000)
-        private byte ppuMask; // PPU Mask Register (0x2001)
-        private byte ppuStatus; // PPU Status Register (0x2002)
-        private byte oamAddress; // OAM Address Register (0x2003)
-        private ushort vramAddress; // PPU Address Register (0x2006)
-        private byte ppuScrollX; // PPU Scroll Register (X)
-        private byte ppuScrollY; // PPU Scroll Register (Y)
+        private volatile byte ppuControl; // PPU Control Register (0x2000)
+        private volatile byte ppuMask; // PPU Mask Register (0x2001)
+        private volatile int ppuStatus; // PPU Status Register (0x2002)
+        private volatile byte oamAddress; // OAM Address Register (0x2003)
+        private volatile ushort vramAddress; // PPU Address Register (0x2006)
+        private volatile byte ppuScrollX; // PPU Scroll Register (X)
+        private volatile byte ppuScrollY; // PPU Scroll Register (Y)
+
+        private volatile bool verticalBlankFlag;
 
         // Address latch for PPU Address Register (0x2006)
         private bool addressLatch;
@@ -59,6 +61,7 @@
         const int VBLANK_START_SCANLINE = 241;
 
         const byte VBLANK_FLAG = 1 << 7;
+        const byte SPRITE0_HIT_FLAG = 1 << 6;
         const byte NMI_FLAG = 1 << 7;
 
         // Screen buffer to store the rendered pixels
@@ -104,9 +107,9 @@
                     break;
 
                 case 0x2002: // PPU Status Register
-                    data = ppuStatus;
-                    // Clear the vertical blank flag in the status register
-                    ppuStatus &= 0xFF & ~VBLANK_FLAG;
+                    // Read and clear the vertical blank flag in the status register
+                    data = (byte)Interlocked.Or(ref ppuStatus, ~VBLANK_FLAG);
+
                     // Reset the address latch
                     addressLatch = false;
                     break;
@@ -527,24 +530,14 @@
             }
 
             // Set or unset sprite 0 hit flag
-            if (sprite0Hit && ((ppuStatus & NMI_FLAG) == 0) && scanline < SCREEN_HEIGHT)
+            if (sprite0Hit && ((ppuControl & NMI_FLAG) == 0) && scanline < SCREEN_HEIGHT)
             {
-                ppuStatus |= (1 << 6);
+                Interlocked.Or(ref ppuStatus, SPRITE0_HIT_FLAG);
             }
             else
             {
-                ppuStatus &= 0xBF;
+                Interlocked.Or(ref ppuStatus, ~SPRITE0_HIT_FLAG);
             }
-        }
-
-        public bool IsPPUEnabled()
-        {
-            byte ppuCtrl = ReadRegister(0x2000); // Read the value of PPUCTRL register
-
-            // Check the bit that indicates PPU enable/disable
-            bool isPPUEnabled = (ppuCtrl & 0x80) != 0; // Bit 7 (0x80) indicates PPU enable
-
-            return isPPUEnabled;
         }
 
         public bool isNmiPending;
@@ -566,7 +559,7 @@
                 if (scanline == VBLANK_START_SCANLINE)
                 {
                     // Set VBlank flag
-                    ppuStatus |= VBLANK_FLAG;
+                    Interlocked.Or(ref ppuStatus, VBLANK_FLAG);
 
                     // If the NMI interrupt is enabled, trigger the interrupt
                     if ((ppuControl & NMI_FLAG) != 0)
