@@ -557,39 +557,57 @@ public class CPU
                 break;
             case 0xEA: // NOP (official)
             case 0x1A: // NOP 1-byte (unofficial)
-            case 0x3A: // NOP 1-byte (unofficial)
-            case 0x5A: // NOP 1-byte (unofficial)
-            case 0x7A: // NOP 1-byte (unofficial)
-            case 0xDA: // NOP 1-byte (unofficial)
-            case 0xFA: // NOP 1-byte (unofficial)
+            case 0x3A: // "
+            case 0x5A: // "
+            case 0x7A: // "
+            case 0xDA: // "
+            case 0xFA: // "
                 NOP();
                 break;
             case 0x80: // NOP 2-byte Immediate (unofficial)
-            case 0x82: // NOP 2-byte Immediate (unofficial)
-            case 0xC2: // NOP 2-byte Immediate (unofficial)
-            case 0xE2: // NOP 2-byte Immediate (unofficial)
-            case 0x89: // NOP 2-byte Immediate (unofficial)
+            case 0x82: // "
+            case 0xC2: // "
+            case 0xE2: // "
+            case 0x89: // "
             case 0x04: // NOP 2-byte Zero-Page (unofficial)
-            case 0x44: // NOP 2-byte Zero-Page (unofficial)
-            case 0x64: // NOP 2-byte Zero-Page (unofficial)
+            case 0x44: // "
+            case 0x64: // "
             case 0x14: // NOP 2-byte Zero-Page, X (unofficial)
-            case 0x34: // NOP 2-byte Zero-Page, X (unofficial)
-            case 0x54: // NOP 2-byte Zero-Page, X (unofficial)
-            case 0x74: // NOP 2-byte Zero-Page, X (unofficial)
-            case 0xD4: // NOP 2-byte Zero-Page, X (unofficial)
-            case 0xF4: // NOP 2-byte Zero-Page, X (unofficial)
+            case 0x34: // "
+            case 0x54: // "
+            case 0x74: // "
+            case 0xD4: // "
+            case 0xF4: // "
                 NOPNOP();
                 break;
             case 0x0C: // NOP 3-byte Absolute (unofficial)
             case 0x1C: // NOP 3-byte Absolute, X (unofficial)
-            case 0x3C: // NOP 3-byte Absolute, X (unofficial)
-            case 0x5C: // NOP 3-byte Absolute, X (unofficial)
-            case 0x7C: // NOP 3-byte Absolute, X (unofficial)
-            case 0xDC: // NOP 3-byte Absolute, X (unofficial)
-            case 0xFC: // NOP 3-byte Absolute, X (unofficial)
+            case 0x3C: // "
+            case 0x5C: // "
+            case 0x7C: // "
+            case 0xDC: // "
+            case 0xFC: // "
                 NOPNOPNOP();
                 break;
 
+            case 0x02: // JAM (unofficial)
+            case 0x12: // "
+            case 0x22: // "
+            case 0x32: // "
+            case 0x42: // "
+            case 0x52: // "
+            case 0x62: // "
+            case 0x72: // "
+            case 0x92: // "
+            case 0xB2: // "
+            case 0xD2: // "
+            case 0xF2: // "
+                JAM();
+                break;
+
+            case 0x4B:
+                ALR(Immediate());
+                break;
             default:
                 throw new NotImplementedException($"Opcode {opcode:X2} is not implemented.");
         }
@@ -1317,6 +1335,19 @@ public class CPU
     private void NOPNOPNOP()
     {
         SP += 2; // Skip 2 bytes
+    }
+
+    private void JAM()
+    {
+        throw new InvalidOperationException($"Invalid JAM Instruction encountered.");
+    }
+
+    private void ALR(byte value)
+    {
+        byte result = (byte)(A & value); // Perform bitwise AND operation with A and the immediate value
+        A = (byte)(result >> 1); // Shift the result right by 1 bit
+        UpdateZeroAndNegativeFlags(A); // Update zero and negative flags
+        C = (result & 0x01) != 0; // Set the carry flag based on the least significant bit of the result
     }
 
     // Helper functions for stack operations
