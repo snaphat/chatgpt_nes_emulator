@@ -5,7 +5,7 @@ public class CPU
 {
     // Registers
     private byte A; // Accumulator
-    private byte X, Y; // General-purpose registers
+    public byte X, Y; // General-purpose registers
     private byte SP; // Stack pointer
     private ushort PC; // Program counter
     private byte P; // Processor status register

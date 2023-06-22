@@ -24,7 +24,7 @@ public static class Debug
         // Add other addressing modes if needed
     }
 
-public static readonly Dictionary<byte, (string mnemonic, AddressingMode mode)> opcodeMap = new()
+    public static readonly Dictionary<byte, (string mnemonic, AddressingMode mode)> opcodeMap = new()
 {
     { 0x00, ("BRK", AddressingMode.Implicit) },
     { 0x01, ("ORA", AddressingMode.IndexedIndirect) }, //  (Indirect, X)
@@ -187,26 +187,59 @@ public static readonly Dictionary<byte, (string mnemonic, AddressingMode mode)> 
         {
             var (mnemonic, mode) = opcodeData;
 
-            return mode switch
+            string instructionStr = mode switch
             {
                 AddressingMode.Implicit => $"{opcode:X2}        {mnemonic}",
                 AddressingMode.Immediate => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2}     {mnemonic} #{cpu.ReadMemory((ushort)(address + 1)):X2}",
                 AddressingMode.Absolute => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2} {cpu.ReadMemory((ushort)(address + 2)):X2}  {mnemonic} ${BitConverter.ToUInt16(new[] { cpu.ReadMemory((ushort)(address + 1)), cpu.ReadMemory((ushort)(address + 2)) }):X4}",
-                AddressingMode.Relative => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2}     {mnemonic} ${cpu.ReadMemory((ushort)(address + 1)) + (ushort)(address + 2):X4}",
+                AddressingMode.Relative => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2}     {mnemonic} ${((ushort)(address + 2) + (sbyte)cpu.ReadMemory((ushort)(address + 1))):X4}",
                 AddressingMode.AbsoluteX => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2} {cpu.ReadMemory((ushort)(address + 2)):X2}  {mnemonic} ${BitConverter.ToUInt16(new[] { cpu.ReadMemory((ushort)(address + 1)), cpu.ReadMemory((ushort)(address + 2)) }):X4},X",
                 AddressingMode.AbsoluteY => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2} {cpu.ReadMemory((ushort)(address + 2)):X2}  {mnemonic} ${BitConverter.ToUInt16(new[] { cpu.ReadMemory((ushort)(address + 1)), cpu.ReadMemory((ushort)(address + 2)) }):X4},Y",
                 AddressingMode.ZeroPage => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2}     {mnemonic} ${cpu.ReadMemory((ushort)(address + 1)):X2}",
                 AddressingMode.ZeroPageX => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2}     {mnemonic} ${cpu.ReadMemory((ushort)(address + 1)):X2},X",
-                AddressingMode.ZeroPageY => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2}     {mnemonic} ${cpu.ReadMemory((ushort)(address + 1)):X2},X",
+                AddressingMode.ZeroPageY => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2}     {mnemonic} ${cpu.ReadMemory((ushort)(address + 1)):X2},Y",
                 AddressingMode.IndexedIndirect => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2}     {mnemonic} (${cpu.ReadMemory((ushort)(address + 1)):X2},X)",
                 AddressingMode.IndirectIndexed => $"{opcode:X2} {cpu.ReadMemory((ushort)(address + 1)):X2}     {mnemonic} (${cpu.ReadMemory((ushort)(address + 1)):X2}),Y",
                 // Handle other addressing modes...
                 _ => $"Unknown addressing mode for opcode: {opcode:X2}"
             };
+
+            if ((mnemonic == "STA" || mnemonic == "LDA" || mnemonic == "STX" || mnemonic == "LDX" || mnemonic == "STY" || mnemonic == "LDY") && mode != AddressingMode.Immediate)
+            {
+                ushort addressToPrint = GetAddressToPrint(cpu, mode, address);
+                string previousValueStr = GetPreviousValueStr(cpu, addressToPrint);
+
+                instructionStr = $"{instructionStr} = {previousValueStr}";
+            }
+
+            return instructionStr;
         }
         else
         {
             return $"Unknown opcode: {opcode:X2}";
         }
+    }
+
+    private static ushort GetAddressToPrint(CPU cpu, AddressingMode mode, ushort address)
+    {
+        return mode switch
+        {
+            AddressingMode.ZeroPage => cpu.ReadMemory((ushort)(address + 1)),
+            AddressingMode.ZeroPageX => (ushort)(cpu.ReadMemory((ushort)(address + 1)) + cpu.X),
+            AddressingMode.ZeroPageY => (ushort)(cpu.ReadMemory((ushort)(address + 1)) + cpu.Y),
+            AddressingMode.Absolute => BitConverter.ToUInt16(new[] { cpu.ReadMemory((ushort)(address + 1)), cpu.ReadMemory((ushort)(address + 2)) }),
+            AddressingMode.AbsoluteX => (ushort)(BitConverter.ToUInt16(new[] { cpu.ReadMemory((ushort)(address + 1)), cpu.ReadMemory((ushort)(address + 2)) }) + cpu.X),
+            AddressingMode.AbsoluteY => (ushort)(BitConverter.ToUInt16(new[] { cpu.ReadMemory((ushort)(address + 1)), cpu.ReadMemory((ushort)(address + 2)) }) + cpu.Y),
+            AddressingMode.IndexedIndirect => cpu.ReadMemory((ushort)(cpu.ReadMemory((ushort)(address + 1)) + cpu.X)),
+            AddressingMode.IndirectIndexed => (ushort)(cpu.ReadMemory((ushort)(cpu.ReadMemory((ushort)(address + 1)))) + cpu.Y),
+            // Handle other addressing modes...
+            _ => throw new InvalidOperationException($"Invalid addressing mode for getting address to print: {mode}")
+        };
+    }
+
+    private static string GetPreviousValueStr(CPU cpu, ushort address)
+    {
+        byte previousValue = cpu.ReadMemory(address);
+        return $"#${previousValue:X2}";
     }
 }
