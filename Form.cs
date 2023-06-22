@@ -9,10 +9,7 @@ namespace Emulation
 {
     public partial class Form : System.Windows.Forms.Form
     {
-        private Emulator emulator;
-
-        private readonly object cpuLock = new object();
-        private readonly object ppuLock = new object();
+        private Emulator? emulator;
 
         [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -28,7 +25,7 @@ namespace Emulation
             AllocConsole();
 
             // Create an instance of the emulator and load the ROM
-            string romFilePath = "scanline.nes"; /* Provide the path to the ROM file */
+            const string romFilePath = "scanline.nes"; /* Provide the path to the ROM file */
             emulator = new Emulator(romFilePath);
 
             // Setup the PictureBox
@@ -40,8 +37,8 @@ namespace Emulation
             emulator.pictureBox = pictureBox1;
 
             // Start the CPU and PPU processing on separate threads
-            Thread cpuThread = new Thread(emulator.CPURun);
-            Thread ppuThread = new Thread(emulator.PPURun);
+            Thread cpuThread = new(emulator.CPURun);
+            Thread ppuThread = new(emulator.PPURun);
             cpuThread.Start();
             ppuThread.Start();
         }
@@ -52,7 +49,7 @@ namespace Emulation
             byte[] screenBuffer = ppu.GetScreenBuffer();
 
             // Create a Bitmap object to hold the NES frame
-            Bitmap frameBitmap = new Bitmap(256, 240, PixelFormat.Format8bppIndexed);
+            Bitmap frameBitmap = new(256, 240, PixelFormat.Format8bppIndexed);
 
             // Lock the bitmap data for faster manipulation
             BitmapData bitmapData = frameBitmap.LockBits(new Rectangle(0, 0, frameBitmap.Width, frameBitmap.Height),
