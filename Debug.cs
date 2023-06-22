@@ -181,13 +181,21 @@ public static class Debug
 
     public static void DisplayInstruction(CPU cpu)
     {
+        Console.WriteLine($"A:{cpu.A:X2} X:{cpu.X:X2} Y:{cpu.Y:X2} S:{cpu.SP:X2} P:{GetPFlags(cpu)} ${cpu.PC:X4}: {InstructionHexToString(cpu)}");
+    }
 
-        string aHex = cpu.A.ToString("X2");
-        string xHex = cpu.X.ToString("X2");
-        string yHex = cpu.Y.ToString("X2");
-        string sHex = cpu.SP.ToString("X2");
-        string pcHex = cpu.PC.ToString("X2"); // Convert the opcode to a two-digit hexadecimal string
-        Console.WriteLine("A:" + aHex + " X:" + xHex + " Y:" + yHex + " S:" + sHex + " $00:" + pcHex + ": " + InstructionHexToString(cpu));
+    private static string GetPFlags(CPU cpu)
+    {
+        string flags = "";
+        flags += cpu.N ? "N" : "n";
+        flags += cpu.V ? "V" : "v";
+        flags += 'u';
+        flags += cpu.B ? "B" : "b";
+        flags += cpu.D ? "D" : "d";
+        flags += cpu.I ? "I" : "i";
+        flags += cpu.Z ? "Z" : "z";
+        flags += cpu.C ? "C" : "c";
+        return flags;
     }
 
     public static string InstructionHexToString(CPU cpu)

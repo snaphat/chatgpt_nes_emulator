@@ -11,12 +11,14 @@ public class CPU
     public byte P; // Processor status register
 
     // Status Flags
-    private bool C; // Carry flag
-    private bool Z; // Zero flag
-    private bool I; // Interrupt disable flag
-    private bool D; // Decimal mode flag
-    private bool B; // Break flag
-    private bool N; // Negative flag
+    public bool N; // Negative flag
+    public bool V; // Overflow flag
+    public bool B; // Break flag
+    public bool D; // Decimal mode flag
+    public bool I; // Interrupt disable flag
+    public bool Z; // Zero flag
+    public bool C; // Carry flag
+
 
     // Other CPU components and functions
     private Memory memory;
@@ -30,13 +32,13 @@ public class CPU
         X = 0;
         Y = 0;
         SP = 0xFD;
-        P = 0x00; // Processor status register (default value)
-        C = false;
-        Z = false;
-        I = true;
-        D = false;
-        B = false;
         N = false;
+        V = false;
+        B = false;
+        D = false;
+        I = true;
+        Z = false;
+        C = false;
 
         // Set the program counter (PC) to the Reset Vector address
         byte lowByte = memory.Read(0xFFFC);
@@ -502,6 +504,12 @@ public class CPU
             case 0xF0: // BEQ
                 BEQ(Relative());
                 break;
+            case 0x70: // BVS
+                BVS(Relative());
+                break;
+            case 0x50: // BVC
+                BVC(Relative());
+                break;
 
             // Jump/Call Operations
             case 0x4C: // JMP Absolute
@@ -538,6 +546,9 @@ public class CPU
                 break;
             case 0xF8: // SED
                 SED();
+                break;
+            case 0xB8: // CLV
+                CLV();
                 break;
 
             // System Functions
@@ -683,12 +694,14 @@ public class CPU
 
     private void PLP()
     {
-        P = (byte)(PopStack() | 0x20); // Set bit 5 (unused) to 1
+        byte flags = PopStack();
+        P = (byte)((P & 0xCF) | (flags & 0xC0)); // ignore bit 4 (B flag) and bit 5 (unused flag)
     }
 
     private void PHP()
     {
-        PushStack((byte)(P | 0x10)); // Set bit 4 (unused) to 1
+        byte flags = (byte)(P | 0x30); // Set bit 4 (B flag) and bit 5 (unused flag) to 1
+        PushStack(flags);
     }
 
     // Arithmetic and Logical Operations
@@ -750,6 +763,7 @@ public class CPU
     {
         int sum = A + value + (C ? 1 : 0);
         C = sum > 0xFF;  // Update carry flag based on carry-out from bit 7
+        V = ((A ^ sum) & (value ^ sum) & 0x80) != 0;  // Update overflow flag
         A = (byte)sum;   // Store the lower 8 bits of the sum in the accumulator
         UpdateZeroAndNegativeFlags(A);
     }
@@ -764,6 +778,7 @@ public class CPU
     {
         int difference = A - value - (C ? 0 : 1);
         C = difference >= 0;
+        V = ((A ^ difference) & ((byte)~value ^ difference) & 0x80) != 0;  // Update overflow flag
         A = (byte)(difference & 0xFF);
         UpdateZeroAndNegativeFlags(A);
     }
@@ -1120,6 +1135,18 @@ public class CPU
             PC += (ushort)offset;
     }
 
+    private void BVC(sbyte offset)
+    {
+        if (!V)
+            PC += (ushort)offset;
+    }
+
+    private void BVS(sbyte offset)
+    {
+        if (!V)
+            PC += (ushort)offset;
+    }
+
     // Compare Operations
     private void CMP(byte value)
     {
@@ -1195,7 +1222,8 @@ public class CPU
 
     private void RTI()
     {
-        P = PopStack();
+        byte flags = (byte)(PopStack() & 0xCF); // Ignore bits 5 and 4 from the stack value
+        P = (byte)((P & 0xC0) | flags); // Preserve bits 5 and 4 of P and update the rest with the stack value
         PC = (ushort)(PopStack() | (PopStack() << 8));
     }
 
@@ -1228,6 +1256,11 @@ public class CPU
     private void SED()
     {
         D = true;
+    }
+
+    private void CLV()
+    {
+        V = false;
     }
 
     // System Functions
