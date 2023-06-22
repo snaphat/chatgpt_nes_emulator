@@ -695,13 +695,12 @@ public class CPU
     private void PLP()
     {
         byte flags = PopStack();
-        P = (byte)((P & 0xCF) | (flags & 0x60)); // ignore bit 4 (B flag) and bit 5 (unused flag)
+        P = (byte)((P & 0x60) | (flags & 0xCF)); // Preserve bit 4 (B flag) and bit 5 (unused flag) and update the rest with the stack value
     }
 
     private void PHP()
     {
-        byte flags = (byte)(P | 0x30); // Set bit 4 (B flag) and bit 5 (unused flag) to 1
-        PushStack(flags);
+        PushStack((byte)(P | 0x30)); // Push bit 4 (B flag) and bit 5 (unused flag) set to 1 onto the stack
     }
 
     // Arithmetic and Logical Operations
@@ -1223,8 +1222,8 @@ public class CPU
 
     private void RTI()
     {
-        byte flags = (byte)(PopStack() & 0xCF); // Ignore bits 5 and 4 from the stack value
-        P = (byte)((P & 0x60) | flags); // Preserve bits 5 and 4 of P and update the rest with the stack value
+        byte flags = PopStack();
+        P = (byte)((P & 0x60) | (flags & 0xCF)); // Preserve bit 4 (B flag) and bit 5 (unused flag) and update the rest with the stack value
         PC = (ushort)(PopStack() | (PopStack() << 8));
     }
 
@@ -1269,7 +1268,7 @@ public class CPU
         PC++; // Increment PC to point to the next instruction
         PushStack((byte)(PC >> 8)); // Push high byte of PC onto the stack
         PushStack((byte)(PC & 0xFF)); // Push low byte of PC onto the stack
-        PushStack((byte)(P | 0x30)); // Push P with B and U flags set to 1 onto the stack
+        PushStack((byte)(P | 0x30)); // Push bit 4 (B flag) and bit 5 (unused flag) set to 1 onto the stack
         I = true; // Set Interrupt flag to disable further interrupts
         PC = (ushort)(ReadMemory(0xFFFE) | (ReadMemory(0xFFFF) << 8)); // Set PC to the interrupt vector address
     }
@@ -1301,7 +1300,7 @@ public class CPU
         PushStack((byte)(PC & 0xFF));
 
         // Push the processor status register (P) to the stack
-        PushStack(P);
+        PushStack((byte)((P | 0x20) & 0xEF)); // Push bit 4 (B flag) set to 0 and bit 5 (unused flag) set to 1 onto the stack
 
         // Disable interrupts
         I = true;
@@ -1310,9 +1309,5 @@ public class CPU
         byte lowByte = memory.Read(0xFFFA);
         byte highByte = memory.Read(0xFFFB);
         PC = (ushort)((highByte << 8) | lowByte);
-
-        // Simulate power-on/reset behavior by skipping the first read cycle
-        //ReadMemory(PC);
-        //PC++;
     }
 }
