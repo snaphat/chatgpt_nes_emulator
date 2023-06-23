@@ -22,7 +22,7 @@
         private volatile byte ppuScrollX; // PPU Scroll Register (X)
         private volatile byte ppuScrollY; // PPU Scroll Register (Y)
 
-        private volatile bool verticalBlankFlag;
+        private byte dataBuffer = 0x00;
 
         // Address latch for PPU Address Register (0x2006)
         private bool addressLatch;
@@ -108,7 +108,7 @@
 
                 case 0x2002: // PPU Status Register
                     // Read and clear the vertical blank flag in the status register
-                    data = (byte)Interlocked.Or(ref ppuStatus, ~VBLANK_FLAG);
+                    data = (byte)Interlocked.Or(ref ppuStatus, 0xFF & ~VBLANK_FLAG);
 
                     // Reset the address latch
                     addressLatch = false;
@@ -130,7 +130,9 @@
                 case 0x2007: // VRAM Data Register
                     data = ReadVRAM(v);
                     // Increment v after reading
-                    v += (ushort)((ppuControl & 0x04) == 0 ? 1 : 32);
+                    v += (ushort)(((ppuControl & 0x04) != 0) ? 32 : 1);
+                    // Handle wrapping
+                    v &= 0x3FFF; // Apply a bitwise AND operation to limit the address within the VRAM address space
                     break;
 
                 case 0x4014: // DMA Register
@@ -203,10 +205,12 @@
                     WriteVRAM(v, value);
                     // Increment v after writing
                     v += (ushort)(((ppuControl & 0x04) != 0) ? 32 : 1);
+                    // Handle wrapping
+                    v &= 0x3FFF; // Apply a bitwise AND operation to limit the address within the VRAM address space
                     break;
 
                 case 0x4014: // DMA Register
-                             // Perform DMA transfer from CPU memory to OAM
+                    // Perform DMA transfer from CPU memory to OAM
                     ushort cpuAddress = (ushort)(value << 8);
                     for (int i = 0; i < 256; i++)
                     {
@@ -214,8 +218,10 @@
                         oamAddress++;
                         cpuAddress++;
                     }
-                    // DMA transfer takes 513 or 514 cycles
-                    //cpu.StallCycles += 513 + (cpu.Cycles % 2);
+                    // The DMA transfer takes 513 or 514 cycles to complete
+                    // You may need to account for the cycles spent on the DMA transfer
+                    // by adding extra cycles to the CPU's cycle count.
+                    // cpu.StallCycles += 513 + (cpu.Cycles % 2);
                     break;
 
                 default:
