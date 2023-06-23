@@ -168,7 +168,8 @@
             switch (address)
             {
                 case 0x2000: // PPU Control Register
-                    ppuControl = value;
+                    ppuControl = (byte)(0xFC & value); // ingore bits 1-2 for storing ppuControl
+                    t = (ushort)((t & 0xF3FF) | ((value & 0x03) << 10)); // Update bits 10-11 of t with bits 1-2 of value
                     break;
 
                 case 0x2001: // PPU Mask Register
