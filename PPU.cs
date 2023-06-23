@@ -18,17 +18,9 @@
         private volatile byte ppuMask; // PPU Mask Register (0x2001)
         private volatile int ppuStatus; // PPU Status Register (0x2002)
         private volatile byte oamAddress; // OAM Address Register (0x2003)
-        private volatile ushort vramAddress; // PPU Address Register (0x2006)
-        private volatile byte ppuScrollX; // PPU Scroll Register (X)
-        private volatile byte ppuScrollY; // PPU Scroll Register (Y)
-
-        private byte dataBuffer = 0x00;
-
-        // Address latch for PPU Address Register (0x2006)
-        private bool addressLatch;
-
-        // Scroll latch for PPU Scroll Register (0x2005)
-        private bool scrollLatch;
+        private bool ppuLatch;  // Address latch for PPU Address Register (0x2006) and Scroll Register (0x2005)
+        
+        private byte ppudataBuffer; // Internal read buffer for PPUDATA
 
         // Maximum number of sprites on the screen
         const int MAX_SPRITES = 64;
@@ -113,7 +105,7 @@
                         data = (byte)Interlocked.And(ref ppuStatus, ~VBLANK_FLAG);
 
                         // Reset the address latch
-                        addressLatch = false;
+                        w = false;
                     }
                     else
                     {
@@ -135,16 +127,31 @@
                     break;
 
                 case 0x2007: // VRAM Data Register
-                    data = dataBuffer; // Return the buffered value from the previous read
-                    if (!isDebugRead)
+                    if (v >= 0x0000 && v <= 0x3EFF)
                     {
-                        dataBuffer = ReadVRAM(v); // Read the current value from VRAM
+                        // Read from internal read buffer and update the buffer with the new value
+                        data = ppudataBuffer;
+                        if (!isDebugRead)
+                        {
+                            ppudataBuffer = ReadVRAM(v);
 
-                        // Increment v after reading
-                        v += (ushort)(((ppuControl & 0x04) != 0) ? 32 : 1);
-                        // Handle wrapping
-                        v &= 0x3FFF; // Apply a bitwise AND operation to limit the address within the VRAM address space
+                            // Increment the VRAM address based on the VRAM increment mode
+                            v += (ushort)((ppuControl & 0x04) != 0 ? 32 : 1);
+                        }
                     }
+                    else
+                    {
+                        // Read directly from VRAM and update the internal buffer
+                        data = ReadVRAM(v);
+                        if (!isDebugRead)
+                        {
+                            ppudataBuffer = data;
+
+                            // Increment the VRAM address based on the VRAM increment mode
+                            v += (ushort)((ppuControl & 0x04) != 0 ? 32 : 1);
+                        }
+                    }
+                    v &= 0x7FFF; // Handle VRAM address overflow
                     break;
 
                 case 0x4014: // DMA Register
@@ -183,34 +190,35 @@
                     break;
 
                 case 0x2005: // PPU Scroll Register
-                    if (scrollLatch)
+                    if (!w)
                     {
-                        // Second write (Y scroll)
-                        t = (ushort)((t & 0x0C1F) | ((value & 0x07) << 12) | ((value & 0xF8) << 2));
-                        scrollLatch = false;
+                        // First write to PPUSCROLL
+                        x = (byte)(value & 0x07); // Store fine X scroll
+                        t = (ushort)((t & 0xFFE0) | (value >> 3)); // Update coarse Y scroll in temporary VRAM address (t)
+                        w = true;
                     }
                     else
                     {
-                        // First write (X scroll)
-                        t = (ushort)((t & 0xFFE0) | (value >> 3));
-                        x = (byte)(value & 0x07);
-                        scrollLatch = true;
+                        // Second write to PPUSCROLL
+                        t = (ushort)((t & 0x8FFF) | ((value & 0x07) << 12)); // Update coarse X scroll in temporary VRAM address (t)
+                        t = (ushort)((t & 0xFC1F) | ((value & 0xF8) << 2)); // Update fine Y scroll in temporary VRAM address (t)
+                        w = false;
                     }
                     break;
 
                 case 0x2006: // PPU Address Register
-                    if (addressLatch)
+                    if (!w)
                     {
-                        // Second write (high byte)
-                        t = (ushort)((t & 0x80FF) | ((value & 0x3F) << 8));
-                        v = t;
-                        addressLatch = false;
+                        // First write to PPUADDR
+                        t = (ushort)((t & 0x00FF) | ((value & 0x3F) << 8)); // Clear upper bits of temporary VRAM address (t)
+                        w = true;
                     }
                     else
                     {
-                        // First write (low byte)
-                        t = (ushort)((t & 0xFF00) | value);
-                        addressLatch = true;
+                        // Second write to PPUADDR
+                        t = (ushort)((t & 0x00FF) | ((value & 0xFF) << 8)); // Preserve the lower bits of temporary VRAM address (t)
+                        v = t; // Copy temporary VRAM address (t) to current VRAM address (v)
+                        w = false;
                     }
                     break;
 
@@ -219,7 +227,7 @@
                     // Increment v after writing
                     v += (ushort)(((ppuControl & 0x04) != 0) ? 32 : 1);
                     // Handle wrapping
-                    v &= 0x3FFF; // Apply a bitwise AND operation to limit the address within the VRAM address space
+                    v &= 0x7FFF; // Apply a bitwise AND operation to limit the address within the VRAM address space
                     break;
 
                 case 0x4014: // DMA Register
