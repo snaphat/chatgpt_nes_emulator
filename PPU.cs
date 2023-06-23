@@ -107,11 +107,18 @@
                     break;
 
                 case 0x2002: // PPU Status Register
-                    // Read and clear the vertical blank flag in the status register
-                    data = (byte)Interlocked.And(ref ppuStatus, ~VBLANK_FLAG);
+                    if (!isDebugRead)
+                    {
+                        // Read and clear the vertical blank flag in the status register
+                        data = (byte)Interlocked.And(ref ppuStatus, ~VBLANK_FLAG);
 
-                    // Reset the address latch
-                    addressLatch = false;
+                        // Reset the address latch
+                        addressLatch = false;
+                    }
+                    else
+                    {
+                        data = (byte)ppuStatus;
+                    }
                     break;
 
                 case 0x2003: // OAM Address Register
@@ -124,7 +131,7 @@
 
                 case 0x2005: // PPU Scroll Register
                 case 0x2006: // PPU Address Register
-                             // These registers do not have readable values
+                    // These registers do not have readable values
                     break;
 
                 case 0x2007: // VRAM Data Register
@@ -141,7 +148,7 @@
                     break;
 
                 case 0x4014: // DMA Register
-                             // Invalid read operation on DMA register
+                    // Invalid read operation on DMA register
                     break;
 
                 default:
@@ -172,6 +179,7 @@
                 case 0x2004: // OAM Data Register
                     oam[oamAddress] = value;
                     oamAddress++;
+                    oamAddress &= 0xFF;
                     break;
 
                 case 0x2005: // PPU Scroll Register
@@ -221,6 +229,7 @@
                     {
                         oam[oamAddress] = memory.Read(cpuAddress);
                         oamAddress++;
+                        oamAddress &= 0xFF;
                         cpuAddress++;
                     }
                     // The DMA transfer takes 513 or 514 cycles to complete
