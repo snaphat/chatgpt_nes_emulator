@@ -255,9 +255,11 @@ namespace Emulation
             byte highByte = cpu.ReadMemory((ushort)(cpu.PC + 2), true);
             ushort absoluteAddress = BitConverter.ToUInt16(new[] { lowByte, highByte });
 
-            byte value = cpu.ReadMemory(absoluteAddress, true);
 
-            return $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4} = #${value:X2}";
+            var opString = $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4}";
+            if (mnemonic is "LDA" or "LDX" or "LDY" or "STA" or "STX" or "STY" or "ADC" or "SBC" or "INC" or "DEC")
+                opString += $" = #${cpu.ReadMemory(absoluteAddress, true):X2}";
+            return opString;
         }
 
         private static string GetRelativeAddressString(CPU cpu, byte opcode, string mnemonic)
@@ -274,9 +276,10 @@ namespace Emulation
             byte highByte = cpu.ReadMemory((ushort)(cpu.PC + 2), true);
             ushort absoluteAddress = (ushort)(BitConverter.ToUInt16(new[] { lowByte, highByte }) + cpu.X);
 
-            byte value = cpu.ReadMemory(absoluteAddress, true);
-
-            return $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4},X = #${value:X2}";
+            var opString = $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4},X";
+            if (mnemonic is "LDA" or "LDX" or "LDY" or "STA" or "STX" or "STY" or "ADC" or "SBC" or "INC" or "DEC")
+                opString += $" = #${cpu.ReadMemory(absoluteAddress, true):X2}";
+            return opString;
         }
 
         private static string GetAbsoluteYAddressString(CPU cpu, byte opcode, string mnemonic)
@@ -285,35 +288,42 @@ namespace Emulation
             byte highByte = cpu.ReadMemory((ushort)(cpu.PC + 2), true);
             ushort absoluteAddress = (ushort)(BitConverter.ToUInt16(new[] { lowByte, highByte }) + cpu.Y);
 
-            byte value = cpu.ReadMemory(absoluteAddress, true);
-
-            return $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4},Y = #${value:X2}";
+            var opString = $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4},Y";
+            if (mnemonic is "LDA" or "LDX" or "LDY" or "STA" or "STX" or "STY" or "ADC" or "SBC" or "INC" or "DEC")
+                opString += $" = #${cpu.ReadMemory(absoluteAddress, true):X2}";
+            return opString;
         }
 
         private static string GetZeroPageAddressString(CPU cpu, byte opcode, string mnemonic)
         {
             byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
-            byte value = cpu.ReadMemory(zeroPageAddress, true);
 
-            return $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2} = #${value:X2}";
+            var opString = $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2}";
+            if (mnemonic is "LDA" or "LDX" or "LDY" or "STA" or "STX" or "STY" or "ADC" or "SBC" or "INC" or "DEC")
+                opString += $" = #${cpu.ReadMemory(zeroPageAddress, true):X2}";
+            return opString;
         }
 
         private static string GetZeroPageXAddressString(CPU cpu, byte opcode, string mnemonic)
         {
             byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
             byte effectiveAddress = (byte)(zeroPageAddress + cpu.X);
-            byte value = cpu.ReadMemory(effectiveAddress, true);
 
-            return $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2},X @ ${effectiveAddress:X2} = #${value:X2}";
+            var opString = $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2},X @ ${effectiveAddress:X2}";
+            if (mnemonic is "LDA" or "LDX" or "LDY" or "STA" or "STX" or "STY" or "ADC" or "SBC" or "INC" or "DEC")
+                opString += $" = #${cpu.ReadMemory(effectiveAddress, true):X2}";
+            return opString;
         }
 
         private static string GetZeroPageYAddressString(CPU cpu, byte opcode, string mnemonic)
         {
             byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
             byte effectiveAddress = (byte)(zeroPageAddress + cpu.Y);
-            byte value = cpu.ReadMemory(effectiveAddress, true);
 
-            return $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2},Y @ ${effectiveAddress:X2} = #${value:X2}";
+            var opString = $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2},Y @ ${effectiveAddress:X2}";
+            if (mnemonic is "LDA" or "LDX" or "LDY" or "STA" or "STX" or "STY" or "ADC" or "SBC" or "INC" or "DEC")
+                opString += $" = #${cpu.ReadMemory(effectiveAddress, true):X2}";
+            return opString;
         }
 
         private static string GetIndexedIndirectAddressString(CPU cpu, byte opcode, string mnemonic)
@@ -321,9 +331,11 @@ namespace Emulation
             byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
             byte effectiveAddress = (byte)(zeroPageAddress + cpu.X);
             ushort indirectAddress = (ushort)(cpu.ReadMemory((ushort)(effectiveAddress + 1), true) << 8 | cpu.ReadMemory(effectiveAddress, true));
-            byte value = cpu.ReadMemory(indirectAddress, true);
 
-            return $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} (${zeroPageAddress:X2},X) @ {indirectAddress:X4} = #${value:X2}";
+            var opString = $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} (${zeroPageAddress:X2},X) @ {indirectAddress:X4}";
+            if (mnemonic is "LDA" or "LDX" or "LDY" or "STA" or "STX" or "STY" or "ADC" or "SBC" or "INC" or "DEC")
+                opString += $" = #${cpu.ReadMemory(indirectAddress, true):X2}";
+            return opString;
         }
 
         private static string GetIndirectIndexedAddressString(CPU cpu, byte opcode, string mnemonic)
@@ -331,9 +343,11 @@ namespace Emulation
             byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
             ushort indirectAddress = (ushort)(cpu.ReadMemory((ushort)(zeroPageAddress + 1), true) << 8 | cpu.ReadMemory(zeroPageAddress, true));
             ushort effectiveAddress = (ushort)(indirectAddress + cpu.Y);
-            byte value = cpu.ReadMemory(effectiveAddress, true);
 
-            return $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} (${zeroPageAddress:X2}),Y @ {effectiveAddress:X4} = #${value:X2}";
+            var opString = $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} (${zeroPageAddress:X2}),Y @ {effectiveAddress:X4}";
+            if (mnemonic is "LDA" or "LDX" or "LDY" or "STA" or "STX" or "STY" or "ADC" or "SBC" or "INC" or "DEC")
+                opString += $" = #${cpu.ReadMemory(effectiveAddress, true):X2}";
+            return opString;
         }
     }
 }
