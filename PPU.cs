@@ -108,7 +108,7 @@
 
                 case 0x2002: // PPU Status Register
                     // Read and clear the vertical blank flag in the status register
-                    data = (byte)Interlocked.Or(ref ppuStatus, 0xFF & ~VBLANK_FLAG);
+                    data = (byte)Interlocked.And(ref ppuStatus, ~VBLANK_FLAG);
 
                     // Reset the address latch
                     addressLatch = false;
@@ -542,7 +542,7 @@
             }
             else
             {
-                Interlocked.Or(ref ppuStatus, ~SPRITE0_HIT_FLAG);
+                Interlocked.And(ref ppuStatus, ~SPRITE0_HIT_FLAG);
             }
         }
 
