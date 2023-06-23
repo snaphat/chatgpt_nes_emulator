@@ -17,7 +17,7 @@
         }
 
         // Read a byte from the specified address in memory
-        public byte Read(ushort address)
+        public byte Read(ushort address, bool isDebugRead = false)
         {
             if (address < 0x2000)
             {
@@ -27,12 +27,12 @@
             else if (address >= 0x2000 && address <= 0x3FFF)
             {
                 // Access PPU registers
-                return ppu.ReadRegister(address);
+                return ppu.ReadRegister(address, isDebugRead);
             }
             else if (address == 0x4014)
             {
                 // Invalid read of register
-                return ppu.ReadRegister(address);
+                return ppu.ReadRegister(address, isDebugRead);
             }
             else if (address >= 0x8000 && address < 0xC000)
             {

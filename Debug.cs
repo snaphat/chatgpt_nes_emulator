@@ -244,25 +244,25 @@ namespace Emulation
 
         private static string GetImmediateAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte immediateValue = cpu.ReadMemory((ushort)(cpu.PC + 1));
+            byte immediateValue = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
 
             return $"{opcode:X2} {immediateValue:X2}     {mnemonic} #${immediateValue:X2}";
         }
 
         private static string GetAbsoluteAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte lowByte = cpu.ReadMemory((ushort)(cpu.PC + 1));
-            byte highByte = cpu.ReadMemory((ushort)(cpu.PC + 2));
+            byte lowByte = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
+            byte highByte = cpu.ReadMemory((ushort)(cpu.PC + 2), true);
             ushort absoluteAddress = BitConverter.ToUInt16(new[] { lowByte, highByte });
 
-            byte value = cpu.ReadMemory(absoluteAddress);
+            byte value = cpu.ReadMemory(absoluteAddress, true);
 
             return $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4} = #${value:X2}";
         }
 
         private static string GetRelativeAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte relativeOffset = cpu.ReadMemory((ushort)(cpu.PC + 1));
+            byte relativeOffset = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
             ushort targetAddress = (ushort)(cpu.PC + 2 + (sbyte)relativeOffset);
 
             return $"{opcode:X2} {relativeOffset:X2}     {mnemonic} ${targetAddress:X4}";
@@ -270,68 +270,68 @@ namespace Emulation
 
         private static string GetAbsoluteXAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte lowByte = cpu.ReadMemory((ushort)(cpu.PC + 1));
-            byte highByte = cpu.ReadMemory((ushort)(cpu.PC + 2));
+            byte lowByte = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
+            byte highByte = cpu.ReadMemory((ushort)(cpu.PC + 2), true);
             ushort absoluteAddress = (ushort)(BitConverter.ToUInt16(new[] { lowByte, highByte }) + cpu.X);
 
-            byte value = cpu.ReadMemory(absoluteAddress);
+            byte value = cpu.ReadMemory(absoluteAddress, true);
 
             return $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4},X = #${value:X2}";
         }
 
         private static string GetAbsoluteYAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte lowByte = cpu.ReadMemory((ushort)(cpu.PC + 1));
-            byte highByte = cpu.ReadMemory((ushort)(cpu.PC + 2));
+            byte lowByte = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
+            byte highByte = cpu.ReadMemory((ushort)(cpu.PC + 2), true);
             ushort absoluteAddress = (ushort)(BitConverter.ToUInt16(new[] { lowByte, highByte }) + cpu.Y);
 
-            byte value = cpu.ReadMemory(absoluteAddress);
+            byte value = cpu.ReadMemory(absoluteAddress, true);
 
             return $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4},Y = #${value:X2}";
         }
 
         private static string GetZeroPageAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1));
-            byte value = cpu.ReadMemory(zeroPageAddress);
+            byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
+            byte value = cpu.ReadMemory(zeroPageAddress, true);
 
             return $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2} = #${value:X2}";
         }
 
         private static string GetZeroPageXAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1));
+            byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
             byte effectiveAddress = (byte)(zeroPageAddress + cpu.X);
-            byte value = cpu.ReadMemory(effectiveAddress);
+            byte value = cpu.ReadMemory(effectiveAddress, true);
 
             return $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2},X @ ${effectiveAddress:X2} = #${value:X2}";
         }
 
         private static string GetZeroPageYAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1));
+            byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
             byte effectiveAddress = (byte)(zeroPageAddress + cpu.Y);
-            byte value = cpu.ReadMemory(effectiveAddress);
+            byte value = cpu.ReadMemory(effectiveAddress, true);
 
             return $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2},Y @ ${effectiveAddress:X2} = #${value:X2}";
         }
 
         private static string GetIndexedIndirectAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1));
+            byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
             byte effectiveAddress = (byte)(zeroPageAddress + cpu.X);
-            ushort indirectAddress = (ushort)(cpu.ReadMemory((ushort)(effectiveAddress + 1)) << 8 | cpu.ReadMemory(effectiveAddress));
-            byte value = cpu.ReadMemory(indirectAddress);
+            ushort indirectAddress = (ushort)(cpu.ReadMemory((ushort)(effectiveAddress + 1), true) << 8 | cpu.ReadMemory(effectiveAddress, true));
+            byte value = cpu.ReadMemory(indirectAddress, true);
 
             return $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} (${zeroPageAddress:X2},X) @ {indirectAddress:X4} = #${value:X2}";
         }
 
         private static string GetIndirectIndexedAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1));
-            ushort indirectAddress = (ushort)(cpu.ReadMemory((ushort)(zeroPageAddress + 1)) << 8 | cpu.ReadMemory(zeroPageAddress));
+            byte zeroPageAddress = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
+            ushort indirectAddress = (ushort)(cpu.ReadMemory((ushort)(zeroPageAddress + 1), true) << 8 | cpu.ReadMemory(zeroPageAddress, true));
             ushort effectiveAddress = (ushort)(indirectAddress + cpu.Y);
-            byte value = cpu.ReadMemory(effectiveAddress);
+            byte value = cpu.ReadMemory(effectiveAddress, true);
 
             return $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} (${zeroPageAddress:X2}),Y @ {effectiveAddress:X4} = #${value:X2}";
         }

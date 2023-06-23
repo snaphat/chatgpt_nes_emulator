@@ -818,9 +818,9 @@
         }
 
         // Helper functions for reading from and writing to memory
-        public byte ReadMemory(ushort address)
+        public byte ReadMemory(ushort address, bool isDebugRead = false)
         {
-            return memory.Read(address);
+            return memory.Read(address, isDebugRead);
         }
 
         private void WriteMemory(ushort address, byte value)

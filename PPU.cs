@@ -92,7 +92,7 @@
         }
 
         // Read a byte from the specified PPU register
-        public byte ReadRegister(ushort address)
+        public byte ReadRegister(ushort address, bool isDebugRead = false)
         {
             byte data = 0x00;
 
@@ -128,11 +128,16 @@
                     break;
 
                 case 0x2007: // VRAM Data Register
-                    data = ReadVRAM(v);
-                    // Increment v after reading
-                    v += (ushort)(((ppuControl & 0x04) != 0) ? 32 : 1);
-                    // Handle wrapping
-                    v &= 0x3FFF; // Apply a bitwise AND operation to limit the address within the VRAM address space
+                    data = dataBuffer; // Return the buffered value from the previous read
+                    if (!isDebugRead)
+                    {
+                        dataBuffer = ReadVRAM(v); // Read the current value from VRAM
+
+                        // Increment v after reading
+                        v += (ushort)(((ppuControl & 0x04) != 0) ? 32 : 1);
+                        // Handle wrapping
+                        v &= 0x3FFF; // Apply a bitwise AND operation to limit the address within the VRAM address space
+                    }
                     break;
 
                 case 0x4014: // DMA Register
