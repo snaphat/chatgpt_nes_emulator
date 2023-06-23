@@ -19,7 +19,7 @@
         private volatile int ppuStatus; // PPU Status Register (0x2002)
         private volatile byte oamAddress; // OAM Address Register (0x2003)
         private bool ppuLatch;  // Address latch for PPU Address Register (0x2006) and Scroll Register (0x2005)
-        
+
         private byte ppudataBuffer; // Internal read buffer for PPUDATA
 
         // Maximum number of sprites on the screen
@@ -213,7 +213,7 @@
                     else
                     {
                         // Second write to PPUADDR
-                        t = (ushort)((t & 0x00FF) | ((value & 0xFF) << 8)); // Preserve the lower bits of temporary VRAM address (t)
+                        t = (ushort)((t & 0xFF00) | (value & 0xFF)); // Preserve the lower bits of temporary VRAM address (t)
                         v = t; // Copy temporary VRAM address (t) to current VRAM address (v)
                         w = false;
                     }
