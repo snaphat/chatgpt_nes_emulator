@@ -1080,8 +1080,9 @@
         private void BIT(byte value)
         {
             byte result = (byte)(A & value);
-            UpdateZeroAndNegativeFlags(result);
+            N = (value & 0x80) != 0;
             V = (value & 0x40) != 0;
+            Z = result == 0;
         }
 
         private void BIT(ushort address)
