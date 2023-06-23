@@ -68,6 +68,8 @@
         private byte x; // Fine X scroll (3 bits)
         private bool w; // Write toggle flag
 
+        // Open bus value
+        private byte openBus;
 
         private Memory memory;
         private CPU cpu;
@@ -86,51 +88,45 @@
         // Read a byte from the specified PPU register
         public byte ReadRegister(ushort address, bool isDebugRead = false)
         {
-            byte data = 0x00;
-
             switch (address)
             {
                 case 0x2000: // PPU Control Register
-                    data = ppuControl;
                     break;
 
                 case 0x2001: // PPU Mask Register
-                    data = ppuMask;
                     break;
 
                 case 0x2002: // PPU Status Register
                     if (!isDebugRead)
                     {
                         // Read and clear the vertical blank flag in the status register
-                        data = (byte)Interlocked.And(ref ppuStatus, ~VBLANK_FLAG);
+                        openBus = (byte)Interlocked.And(ref ppuStatus, ~VBLANK_FLAG);
 
                         // Reset the address latch
                         w = false;
                     }
                     else
                     {
-                        data = (byte)ppuStatus;
+                        openBus = (byte)ppuStatus;
                     }
                     break;
 
                 case 0x2003: // OAM Address Register
-                    data = oamAddress;
                     break;
 
                 case 0x2004: // OAM Data Register
-                    data = oam[oamAddress];
+                    openBus = oam[oamAddress];
                     break;
 
                 case 0x2005: // PPU Scroll Register
                 case 0x2006: // PPU Address Register
-                    // These registers do not have readable values
                     break;
 
                 case 0x2007: // VRAM Data Register
                     if (v >= 0x0000 && v <= 0x3EFF)
                     {
                         // Read from internal read buffer and update the buffer with the new value
-                        data = ppudataBuffer;
+                        openBus = ppudataBuffer;
                         if (!isDebugRead)
                         {
                             ppudataBuffer = ReadVRAM(v);
@@ -142,10 +138,10 @@
                     else
                     {
                         // Read directly from VRAM and update the internal buffer
-                        data = ReadVRAM(v);
+                        openBus = ReadVRAM(v);
                         if (!isDebugRead)
                         {
-                            ppudataBuffer = data;
+                            ppudataBuffer = openBus;
 
                             // Increment the VRAM address based on the VRAM increment mode
                             v += (ushort)((ppuControl & 0x04) != 0 ? 32 : 1);
@@ -155,7 +151,6 @@
                     break;
 
                 case 0x4014: // DMA Register
-                    // Invalid read operation on DMA register
                     break;
 
                 default:
@@ -163,12 +158,13 @@
                     break;
             }
 
-            return data;
+            return openBus;
         }
 
         // Write a byte value to the specified PPU register
         public void WriteRegister(ushort address, byte value)
         {
+            openBus = value;
             switch (address)
             {
                 case 0x2000: // PPU Control Register
