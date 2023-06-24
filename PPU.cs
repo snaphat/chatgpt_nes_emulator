@@ -12,7 +12,6 @@
         private byte[] nameTable3 = new byte[0x0400]; // Nametable 3
         private byte[] paletteRAM = new byte[0x0040]; // Palette RAM
 
-
         // PPU registers
         private volatile byte ppuControl; // PPU Control Register (0x2000)
         private volatile byte ppuMask; // PPU Mask Register (0x2001)
@@ -21,6 +20,13 @@
         private bool ppuLatch;  // Address latch for PPU Address Register (0x2006) and Scroll Register (0x2005)
 
         private byte ppudataBuffer; // Internal read buffer for PPUDATA
+
+        const int NameTableWidth = 32;
+        const int NameTableHeight = 30;
+        const int NameTableSize = NameTableWidth * NameTableHeight;
+        const ushort NameTableAddress = 0x2000; // Address of the first name table
+        const int AttributeTableAddress = 0x23C0; // Address of the attribute table
+        const int PaletteMemoryAddress = 0x3F00;
 
         // Maximum number of sprites on the screen
         const int MAX_SPRITES = 64;
@@ -57,10 +63,7 @@
         const byte NMI_FLAG = 1 << 7;
 
         // Screen buffer to store the rendered pixels
-        private byte[] screenBuffer = new byte[SCREEN_WIDTH * SCREEN_HEIGHT];
-        private bool[] isSprite = new bool[SCREEN_WIDTH * SCREEN_HEIGHT];
-        private byte[] colorIndex = new byte[SCREEN_WIDTH * SCREEN_HEIGHT];
-        private bool[] isBackground = new bool[SCREEN_WIDTH * SCREEN_HEIGHT];
+        private byte[] screenBuffer = new byte[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
 
         // PPU registers
         private ushort v; // Current VRAM address (15 bits)
@@ -78,6 +81,20 @@
         {
             this.memory = memory;
             this.cpu = cpu;
+        }
+
+        public void Initialize()
+        {
+            if (!memory.mirrorVertical)
+            {
+                nameTable1 = nameTable0;
+                nameTable3 = nameTable2;
+            }
+            else
+            {
+                nameTable2 = nameTable0;
+                nameTable3 = nameTable1;
+            }
         }
 
         public byte[] GetScreenBuffer()
@@ -251,6 +268,16 @@
 
         private byte ReadVRAM(ushort address)
         {
+            if (address >= 0x3F00)
+            {
+                int realPaletteAddress = 0x3F00 + (address & 0x1F);
+                if (realPaletteAddress % 4 == 0)
+                {
+                    realPaletteAddress &= ~0x10;
+                }
+                address = (ushort)realPaletteAddress;
+            }
+
             if (address >= 0x0000 && address <= 0x0FFF)
             {
                 // Accessing Pattern Table 0
@@ -264,22 +291,22 @@
             else if (address >= 0x2000 && address <= 0x23FF)
             {
                 // Accessing Nametable 0
-                return nameTable0[address - 0x2000];
+                return nameTable0[address & 0x03FF];
             }
             else if (address >= 0x2400 && address <= 0x27FF)
             {
                 // Accessing Nametable 1
-                return nameTable1[address - 0x2400];
+                return nameTable1[address & 0x03FF];
             }
             else if (address >= 0x2800 && address <= 0x2BFF)
             {
                 // Accessing Nametable 2
-                return nameTable2[address - 0x2800];
+                return nameTable2[address & 0x03FF];
             }
             else if (address >= 0x2C00 && address <= 0x2FFF)
             {
                 // Accessing Nametable 3
-                return nameTable3[address - 0x2C00];
+                return nameTable3[address & 0x03FF];
             }
             else if (address >= 0x3F00 && address <= 0x3FFF)
             {
@@ -291,8 +318,18 @@
         }
 
         // Write a byte value to VRAM at the current VRAM address and increment the address
-        private void WriteVRAM(ushort address, byte value)
+        public void WriteVRAM(ushort address, byte value)
         {
+            if (address >= 0x3F00)
+            {
+                int realPaletteAddress = 0x3F00 + (address & 0x1F);
+                if (realPaletteAddress % 4 == 0)
+                {
+                    realPaletteAddress &= ~0x10;
+                }
+                address = (ushort)realPaletteAddress;
+            }
+
             if (address >= 0x0000 && address <= 0x0FFF)
             {
                 // Writing to Pattern Table 0
@@ -306,22 +343,22 @@
             else if (address >= 0x2000 && address <= 0x23FF)
             {
                 // Writing to Nametable 0
-                nameTable0[address - 0x2000] = value;
+                nameTable0[address & 0x03FF] = value;
             }
             else if (address >= 0x2400 && address <= 0x27FF)
             {
                 // Writing to Nametable 1
-                nameTable1[address - 0x2400] = value;
+                nameTable1[address & 0x03FF] = value;
             }
             else if (address >= 0x2800 && address <= 0x2BFF)
             {
-                // Writing to Nametable 2
-                nameTable2[address - 0x2800] = value;
+                // Accessing Nametable 2
+                nameTable2[address & 0x03FF] = value;
             }
             else if (address >= 0x2C00 && address <= 0x2FFF)
             {
-                // Writing to Nametable 3
-                nameTable3[address - 0x2C00] = value;
+                // Accessing Nametable 3
+                nameTable3[address & 0x03FF] = value;
             }
             else if (address >= 0x3F00 && address <= 0x3FFF)
             {
@@ -330,238 +367,114 @@
             }
         }
 
-        // Draw a scanline on the screen using the provided pixel colors
-        private void DrawScanline(int scanline, byte[] colors)
+        // Calculate the name table address
+        int CalculateNameTableAddress(int x, int y)
         {
-            // Draw the pixels on the screen
-            for (int i = 0; i < SCREEN_WIDTH; i++)
-            {
-                byte colorIndex = colors[i / 32];
-                byte color = ReadVRAM((ushort)(0x3F00 | (colorIndex & 0x3F))); // Read color from palette RAM via ReadVRAM
+            int tableX = x / 8; // Each tile is 8 pixels wide
+            int tableY = y / 8; // Each tile is 8 pixels high
 
-                // Calculate the index in the screen buffer based on the scanline and pixel position
-                int index = (scanline * SCREEN_WIDTH) + i;
-
-                // Set the color value in the screen buffer at the calculated index
-                screenBuffer[index] = color;
-            }
+            int offset = tableY * NameTableWidth + tableX;
+            return NameTableAddress + offset;
         }
 
-        // Render the background using name tables
-        private void RenderBackground(int scanline)
+        byte FetchPixelData(byte tileID, int pixelRow, int pixelCol)
         {
-            if (scanline > SCREEN_HEIGHT - 1)
-                return;
+            // Calculate the tile's address in the pattern table 1
+            int tileAddress = 0x1000 + (tileID * 16);
 
-            // Calculate the name table base address
-            // Step 1: Read control registers
-            ushort nameTableBaseAddress = (ushort)((ReadRegister(0x2000) & 0x03) * 0x0400);
-            ushort patternTableBaseAddress = (ushort)(((ReadRegister(0x2000) & 0x10) != 0) ? 0x1000 : 0x0000);
+            // Read the data for each plane of the tile from the pattern table
+            byte plane1 = ReadVRAM((ushort)(tileAddress + pixelRow));
+            byte plane2 = ReadVRAM((ushort)(tileAddress + pixelRow + 8));
 
+            // Combine the data from both planes to determine the color of the pixel
+            byte pixel1 = (byte)((plane1 >> (7 - pixelCol)) & 0x01); // Get the pixel from plane 1 in reverse order
+            byte pixel2 = (byte)((plane2 >> (7 - pixelCol)) & 0x01); // Get the pixel from plane 2 in reverse order
+            byte pixel = (byte)(pixel1 | (pixel2 << 1)); // Combine the pixels from both planes
 
-            // Calculate the tile index offset
-            byte tileIndexOffset = (byte)((scanline / 8) * 32);
-
-            // Calculate the attribute offset
-            ushort attributeOffset = (ushort)(((scanline / 32) * 8) + 0x03C0);
-
-            // Step 2: Calculate scroll position
-            byte coarseScrollX = (byte)(ppuScrollX >> 3);
-            byte fineScrollX = (byte)(ppuScrollX & 0x07);
-            byte coarseScrollY = (byte)(ppuScrollY >> 3);
-            byte fineScrollY = (byte)(ppuScrollY & 0x07);
-
-
-            // Calculate the name table index and tile column
-            byte tileColumn = (byte)(coarseScrollX % 32);
-
-            // Read the attribute byte for the current scanline
-            byte attributeByte = ReadVRAM((ushort)(nameTableBaseAddress + attributeOffset + (coarseScrollY / 4) * 8 + (coarseScrollX / 4)));
-
-            // Calculate the attribute value
-            byte attributeShift = (byte)(((coarseScrollX & 0x02) >> 1) + ((coarseScrollY & 0x02) << 1) * 2);
-            byte attribute = (byte)(((attributeByte >> attributeShift) & 0x03) << 2);
-
-            // Calculate the tile index for the current scanline
-            //ushort tileIndex = ReadVRAM((ushort)(nameTableBaseAddress + tileIndexOffset + tileColumn));
-            ushort tileIndex = ReadVRAM((ushort)(nameTableBaseAddress + tileIndexOffset + tileColumn + (coarseScrollY * 32)));
-
-
-            // Calculate the pattern address for the current scanline
-            ushort patternAddress = (ushort)(patternTableBaseAddress + tileIndex * 16 + fineScrollY);
-
-            // Read the pattern data for the current scanline
-            byte patternLow = ReadVRAM(patternAddress);
-            byte patternHigh = ReadVRAM((ushort)(patternAddress + 8));
-
-            byte[] pixels = new byte[8];
-
-            // Render the pixels for the current scanline
-            for (int i = 0; i < 8; i++)
-            {
-                // Calculate the bit position of the pixel within the pattern byte
-                byte bitPosition = (byte)(7 - fineScrollX);
-
-                // Extract the color value (0-3) for the pixel
-                byte pixelLow = (byte)((patternLow >> bitPosition) & 0x01);
-                byte pixelHigh = (byte)((patternHigh >> bitPosition) & 0x01);
-
-                int paletteIndex = ((pixelHigh << 1) | pixelLow) + attribute;
-
-                // Calculate the effective palette index based on the attribute
-                int effectivePaletteIndex = ((paletteIndex & 0x03) | (attribute << 2)) & 0x0F;
-
-                // Read the color value from the VRAM using the effective palette index
-                byte colorIndex = ReadVRAM((ushort)(0x3F00 + effectivePaletteIndex));
-
-                pixels[i] = colorIndex;
-
-                fineScrollX = (byte)((fineScrollX + 1) % 8);
-            }
-
-            // Draw the pixels on the screen
-            DrawScanline(scanline, pixels);
-
-            // Increment the tile column
-            tileColumn++;
-            if (tileColumn == 32)
-            {
-                tileColumn = 0;
-            }
-
-            // Calculate the VRAM address of the next tile
-            ushort nextTileIndex = (ushort)(nameTableBaseAddress + tileIndexOffset + tileColumn);
-            tileIndex = ReadVRAM(nextTileIndex);
-
-            // Calculate the pattern address of the next tile
-            patternAddress = (ushort)(patternTableBaseAddress + tileIndex * 16 + fineScrollY);
-
-            // Read the pattern data for the next tile
-            patternLow = ReadVRAM(patternAddress);
-            patternHigh = ReadVRAM((ushort)(patternAddress + 8));
-
-            fineScrollX = (byte)(ppuScrollX & 0x07);
-
-            // Render the pixels for the current scanline
-            for (int i = 0; i < 8; i++)
-            {
-                // Calculate the bit position of the pixel within the pattern byte
-                byte bitPosition = (byte)(7 - fineScrollX);
-
-                // Extract the color value (0-3) for the pixel
-                byte pixelLow = (byte)((patternLow >> bitPosition) & 0x01);
-                byte pixelHigh = (byte)((patternHigh >> bitPosition) & 0x01);
-
-                int paletteIndex = ((pixelHigh << 1) | pixelLow) + attribute;
-
-                // Calculate the effective palette index based on the attribute
-                int effectivePaletteIndex = ((paletteIndex & 0x03) | (attribute << 2)) & 0x0F;
-
-                // Read the color value from the VRAM using the effective palette index
-                byte colorIndex = ReadVRAM((ushort)(0x3F00 + effectivePaletteIndex));
-
-                pixels[i] = colorIndex;
-
-                fineScrollX = (byte)((fineScrollX + 1) % 8);
-            }
-
-            // Draw the next set of pixels on the screen
-            DrawScanline(scanline, pixels);
-
-            // Update the PPU state for the next scanline
-            ppuScrollX = (byte)((ppuScrollX + 1) % 512);
-            ppuScrollY = (byte)((ppuScrollY + 1) % 240);
+            return pixel;
         }
 
-        private void RenderSprites(int scanline)
+        // Fetch the attribute data based on the name table address
+        byte FetchAttributeData(int nameTableAddress)
         {
-            // Boolean variable to track sprite 0 hit
-            bool sprite0Hit = false;
+            // Find the corresponding attribute table address
+            int attributeTableAddress = nameTableAddress + 0x3C0;
 
-            // Check if the current scanline is within the visible screen area
-            if (scanline < SCREEN_HEIGHT)
+            // Calculate the tile coordinates
+            int tileIndex = nameTableAddress - 0x2000; // calculate the tile index relative to the start of the nametable
+            int tileX = tileIndex % 32; // calculate the X coordinate of the tile within the nametable
+            int tileY = tileIndex / 32; // calculate the Y coordinate of the tile within the nametable
+
+
+            // Find the attribute byte
+            int attributeByteAddress = attributeTableAddress + (tileY / 4) * 8 + (tileX / 4);
+            byte attributeByte = ReadVRAM((ushort)attributeByteAddress);
+
+            // Extract the correct bits
+            int offset = ((tileY % 4) / 2) * 2 + (tileX % 4) / 2;
+            int mask = 3 << offset;
+            byte palette = (byte)((attributeByte & mask) >> offset);
+
+            return palette;
+        }
+
+        // Get the color for a single pixel based on the pixel data and attribute data
+        byte[] GetPixelColor(byte pixelData, byte attributeData)
+        {
+            int paletteIndex = (pixelData & 0x03); // Mask the pixel data to ensure it's 2 bits
+
+            // Apply the attribute data to determine the correct palette index
+            int paletteOffset = (attributeData & 0x03) * 4;
+
+            // Fetch the color from the correct palette and color index
+            int finalPaletteIndex = PaletteMemoryAddress + paletteOffset + paletteIndex;
+            byte paletteColor = ReadVRAM((ushort)finalPaletteIndex);
+
+            return ColorMap.LUT[paletteColor];
+        }
+
+        // Render a single pixel at the specified position
+        void RenderPixel(int x, int y)
+        {
+            // Calculate the name table address for the current coordinates
+            int nameTableAddress = CalculateNameTableAddress(x, y);
+
+            // Read the tile ID from the name table
+            byte tileID = ReadVRAM((ushort)nameTableAddress);
+            if (tileID == 0x45)
+                Console.WriteLine();
+
+            // Calculate the tile position within the tile (0-7)
+            int tileX = x % 8;
+            int tileY = y % 8;
+
+            // Fetch the pixel data for the current tile and position
+            byte pixelData = FetchPixelData(tileID, tileY, tileX);
+
+            // Fetch the attribute data for the tile
+            byte attributeData = FetchAttributeData(nameTableAddress);
+
+            // Get the color for the current pixel
+            byte[] pixelColor = GetPixelColor(pixelData, attributeData);
+
+            if (tileID == 0x45)
+                Console.WriteLine(pixelData);
+
+            // Calculate the index in the screen buffer based on the scanline and pixel position
+            int index = (y * SCREEN_WIDTH * 3) + (x * 3);
+
+            // Set the RGB values in the screen buffer at the calculated index
+            screenBuffer[index] = pixelColor[2];     // Red component
+            screenBuffer[index + 1] = pixelColor[1]; // Green component
+            screenBuffer[index + 2] = pixelColor[0]; // Blue component
+        }
+
+        // Render the background
+        void RenderBackground(int currentScanline)
+        {
+            for (int x = 0; x < SCREEN_WIDTH; x++) // Assuming a screen width of 256 pixels
             {
-                // Iterate through the sprites in OAM
-                for (int i = 0; i < MAX_SPRITES; i++)
-                {
-                    // Get the sprite attributes from OAM
-                    byte y = oam[i * 4]; // Sprite Y position
-                    byte tileIndex = oam[i * 4 + 1]; // Sprite tile index
-                    byte attributes = oam[i * 4 + 2]; // Sprite attributes
-                    byte x = oam[i * 4 + 3]; // Sprite X position
-
-                    // Check if the sprite intersects with the current scanline
-                    //if (y <= scanline && y + SPRITE_HEIGHT > scanline)
-                    {
-                        // Calculate the Y offset within the sprite tile
-                        int yOffset = scanline - y;
-
-                        // If the sprite is vertically flipped, calculate the Y offset from the bottom of the sprite tile
-                        if ((attributes & SPRITE_ATTRIBUTE_VERTICAL_FLIP) != 0)
-                        {
-                            yOffset = SPRITE_HEIGHT - 1 - yOffset;
-                        }
-
-                        // Calculate the pattern table row address for the current scanline
-                        ushort patternTableAddressRow = (ushort)(((ppuControl & 0x08) != 0) ? 0x1000 : 0x0000);
-                        patternTableAddressRow += (ushort)(tileIndex * SPRITE_PATTERN_TABLE_ROW_SIZE + yOffset);
-
-                        // Read the sprite tile data from the pattern table
-                        byte tileLow = ReadVRAM(patternTableAddressRow);
-                        byte tileHigh = ReadVRAM((ushort)(patternTableAddressRow + 8));
-
-                        // Render the sprite pixel by pixel
-                        for (int xOffset = 0; xOffset < SPRITE_WIDTH; xOffset++)
-                        {
-                            // Calculate the X position within the screen buffer
-                            int screenX = x + xOffset;
-
-                            // Check if the pixel is within the visible screen area
-                            if (screenX >= 0 && screenX < SCREEN_WIDTH)
-                            {
-                                // Check if this is sprite 0 and the background/sprites are visible
-                                if (i == 0 && ((ppuMask & (1 << 3)) != 0) && ((ppuMask & (1 << 4)) != 0) && screenX >= 8)
-                                {
-                                    sprite0Hit = true;
-                                }
-
-                                // Calculate the bit position of the pixel within the tile byte
-                                byte bitPosition = (byte)(7 - xOffset);
-
-                                // Extract the color value (0-3) for the pixel
-                                byte pixelLow = (byte)((tileLow >> bitPosition) & 0x01);
-                                byte pixelHigh = (byte)((tileHigh >> bitPosition) & 0x01);
-
-                                // Combine the low and high bits to get the final pixel value
-                                byte pixelValue = (byte)((pixelHigh << 1) | pixelLow);
-
-                                // Only render the sprite pixel if it is not transparent
-                                if (pixelValue != 0)
-                                {
-                                    // Calculate the palette index based on the pixel value and sprite attributes
-                                    //int paletteIndex = ((pixelValue - 1) & 0x03) + ((attributes & 0x03) << 2);
-                                    int paletteIndex = ((pixelValue & 0x03) + 4) + ((attributes & 0x03) << 2);
-
-                                    // Get the color from VRAM using the palette index
-                                    byte colorIndex = ReadVRAM((ushort)(0x3F00 + paletteIndex));
-
-                                    // Set the pixel color in the screen buffer
-                                    screenBuffer[scanline * SCREEN_WIDTH + screenX] = colorIndex;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Set or unset sprite 0 hit flag
-            if (sprite0Hit && ((ppuControl & NMI_FLAG) == 0) && scanline < SCREEN_HEIGHT)
-            {
-                Interlocked.Or(ref ppuStatus, SPRITE0_HIT_FLAG);
-            }
-            else
-            {
-                Interlocked.And(ref ppuStatus, ~SPRITE0_HIT_FLAG);
+                RenderPixel(x, currentScanline);
             }
         }
 
@@ -575,10 +488,11 @@
                 while (cpu.cycles < cycles + 113) ;
 
                 // Render the background for the current scanline
-                RenderBackground(scanline);
+                if (scanline < SCREEN_HEIGHT)
+                    RenderBackground(scanline);
 
                 // Render the sprites for the current scanline
-                RenderSprites(scanline);
+                //RenderSprites(scanline);
 
                 // Check if we reached the start of the vertical blanking period
                 if (scanline == VBLANK_START_SCANLINE)

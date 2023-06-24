@@ -24,7 +24,10 @@
         public CPU(Memory memory)
         {
             this.memory = memory;
+        }
 
+        public void Initialize()
+        {
             // Initialize registers and flags
             A = 0;
             X = 0;

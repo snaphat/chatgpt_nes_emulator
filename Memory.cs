@@ -6,7 +6,11 @@
         private byte[] prgRom; // PRG-ROM data
         //private byte[] chrRom; // CHR-ROM data
 
-        private PPU? ppu;
+        public PPU? ppu;
+
+        public int mapper;
+        public bool mirrorVertical;
+        public bool fourScreenMirroring;
 
         public Memory()
         {
@@ -93,17 +97,50 @@
             Array.Clear(ram, 0x0100, 0x0100); // Clear the stack memory region
         }
 
-        public void SetPPU(PPU ppu)
+        // Set the PRG-ROM and CHR-ROM data
+        public void SetROMData(byte[] prgRomData, byte[] chrRomData, int mapperNumber, bool mirrorVertical, bool fourScreenMirroring)
         {
-            this.ppu = ppu;
+            this.mirrorVertical = mirrorVertical;
+            this.fourScreenMirroring = fourScreenMirroring;
+            switch (mapperNumber)
+            {
+                case 0x00:
+                    // Mapper 0 - Handle the logic to load data into VRAM for Mapper 0
+                    // ...
+                    mapper = 0;
+                    WriteCHRROMToVRAM_Mapper0(chrRomData);
+                    break;
+                default:
+                    throw new Exception($"Unsupported mapper: {mapperNumber}");
+            }
+
+            // Continue with the remaining code for setting PRG-ROM and CHR-ROM data
+            prgRom = prgRomData;
         }
 
-        // Set the PRG-ROM and CHR-ROM data
-        public void SetROMData(byte[] prgRomData, byte[] chrRomData)
+        private void WriteCHRROMToVRAM_Mapper0(byte[] chrRomData)
         {
-            _ = chrRomData;
-            prgRom = prgRomData;
-            //chrRom = chrRomData;
+            // Write CHR-ROM data to VRAM for Mapper 0
+
+            // CHR-ROM data size per bank in bytes
+            int chrRomBankSize = 0x2000;
+
+            // Calculate the number of CHR-ROM banks
+            int numChrRomBanks = chrRomData.Length / chrRomBankSize;
+
+            // Write each CHR-ROM bank to VRAM
+            for (int bank = 0; bank < numChrRomBanks; bank++)
+            {
+                int vramBankAddress = bank * chrRomBankSize;
+
+                // Copy the CHR-ROM bank data to VRAM using the provided Write API
+                for (int offset = 0; offset < chrRomBankSize; offset++)
+                {
+                    ushort vramAddress = (ushort)(vramBankAddress + offset);
+                    byte data = chrRomData[bank * chrRomBankSize + offset];
+                    ppu.WriteVRAM(vramAddress, data);
+                }
+            }
         }
     }
 }

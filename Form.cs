@@ -25,7 +25,7 @@ namespace Emulation
             AllocConsole();
 
             // Create an instance of the emulator and load the ROM
-            const string romFilePath = "scanline.nes"; /* Provide the path to the ROM file */
+            const string romFilePath = "Background2.nes"; /* Provide the path to the ROM file */
             emulator = new Emulator(romFilePath);
 
             // Setup the PictureBox
@@ -48,15 +48,15 @@ namespace Emulation
             PPU ppu = emulator.GetPPU();
             byte[] screenBuffer = ppu.GetScreenBuffer();
 
-            // Create a Bitmap object to hold the NES frame
-            Bitmap frameBitmap = new(256, 240, PixelFormat.Format8bppIndexed);
+            // Create a Bitmap object to hold the NES frame with Format32bppRgb pixel format
+            Bitmap frameBitmap = new Bitmap(256, 240, PixelFormat.Format24bppRgb);
 
             // Lock the bitmap data for faster manipulation
             BitmapData bitmapData = frameBitmap.LockBits(new Rectangle(0, 0, frameBitmap.Width, frameBitmap.Height),
-                                                        ImageLockMode.WriteOnly, frameBitmap.PixelFormat);
+                                                         ImageLockMode.WriteOnly, frameBitmap.PixelFormat);
 
             // Copy the pixel data from the screen buffer to the bitmap data
-            System.Runtime.InteropServices.Marshal.Copy(screenBuffer, 0, bitmapData.Scan0, screenBuffer.Length);
+            Marshal.Copy(screenBuffer, 0, bitmapData.Scan0, screenBuffer.Length);
 
             // Unlock the bitmap data
             frameBitmap.UnlockBits(bitmapData);
