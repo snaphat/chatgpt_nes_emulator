@@ -36,11 +36,9 @@ namespace Emulation
 
             emulator.pictureBox = pictureBox1;
 
-            // Start the CPU and PPU processing on separate threads
-            Thread cpuThread = new(emulator.CPURun);
-            Thread ppuThread = new(emulator.PPURun);
-            cpuThread.Start();
-            ppuThread.Start();
+            // Start the CPU and PPU processing on the same thread threads
+            Thread thread = new(emulator.Run);
+            thread.Start();
         }
 
         private void pictureBox1_Paint(object sender, PaintEventArgs e)

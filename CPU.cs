@@ -19,15 +19,16 @@
         public bool C; // Carry flag
 
         // Other CPU components and functions
-        private readonly Memory memory;
+        private Emulator? emulator;
+        private Memory? memory;
+        private PPU? ppu;
 
-        public CPU(Memory memory)
+        public void Initialize(Emulator emulator, Memory memory, PPU ppu)
         {
+            this.emulator = emulator;
             this.memory = memory;
-        }
+            this.ppu = ppu;
 
-        public void Initialize()
-        {
             // Initialize registers and flags
             A = 0;
             X = 0;
@@ -52,9 +53,6 @@
 
             // Disable interrupts
             I = true;
-
-            // Initialize stack memory (if applicable)
-            memory.ClearStack();
         }
 
         // Functions to update status flags
@@ -73,8 +71,6 @@
             UpdateZeroFlag(value);
             UpdateNegativeFlag(value);
         }
-
-        public int cycles;
 
         public void ExecuteNextInstruction()
         {
@@ -817,7 +813,6 @@
                 default:
                     throw new NotImplementedException($"Opcode {opcode:X2} is not implemented.");
             }
-            cycles++;
         }
 
         // Helper functions for reading from and writing to memory

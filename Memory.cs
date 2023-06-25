@@ -3,7 +3,7 @@
     public class Memory
     {
         private readonly byte[] ram = new byte[0x0800]; // 2KB of RAM
-        private byte[] prgRom; // PRG-ROM data
+        private byte[]? prgRom; // PRG-ROM data
         //private byte[] chrRom; // CHR-ROM data
 
         public PPU? ppu;
@@ -12,8 +12,9 @@
         public bool mirrorVertical;
         public bool fourScreenMirroring;
 
-        public Memory()
+        public void Initialize(PPU ppu)
         {
+            this.ppu = ppu;
             for (int i = 0; i < ram.Length; i++)
             {
                 ram[i] = 0xFF;
@@ -92,13 +93,8 @@
             }
         }
 
-        public void ClearStack()
-        {
-            Array.Clear(ram, 0x0100, 0x0100); // Clear the stack memory region
-        }
-
         // Set the PRG-ROM and CHR-ROM data
-        public void SetROMData(byte[] prgRomData, byte[] chrRomData, int mapperNumber, bool mirrorVertical, bool fourScreenMirroring)
+        private void SetROMData(byte[] prgRomData, byte[] chrRomData, int mapperNumber, bool mirrorVertical, bool fourScreenMirroring)
         {
             this.mirrorVertical = mirrorVertical;
             this.fourScreenMirroring = fourScreenMirroring;
@@ -116,6 +112,87 @@
 
             // Continue with the remaining code for setting PRG-ROM and CHR-ROM data
             prgRom = prgRomData;
+        }
+
+        public void LoadROM(string romFilePath)
+        {
+            byte[] romData = File.ReadAllBytes(romFilePath);
+
+            // Check if the ROM file is in the iNES format
+            bool iNESFormat = false;
+            bool NES20Format = false;
+            bool fourScreenMirroring = false;
+            bool mirrorVertical = false;
+
+            if (romData.Length >= 16 && romData[0] == 'N' && romData[1] == 'E' && romData[2] == 'S' && romData[3] == 0x1A)
+            {
+                iNESFormat = true;
+
+                // Check if the ROM file is in the NES 2.0 format
+                if ((romData[7] & 0x0C) == 0x08)
+                {
+                    NES20Format = true;
+                }
+
+                // Extract the mirroring type from the 6th byte of the ROM data
+                byte flags6 = romData[5];
+                byte flags8 = romData[7];
+
+                if (NES20Format)
+                {
+                    switch (flags8 & 0x03)
+                    {
+                        case 0: // Horizontal Mirroring
+                            mirrorVertical = false;
+                            break;
+                        case 1: // Vertical Mirroring
+                            mirrorVertical = true;
+                            break;
+                        case 2: // Four Screen Mirroring
+                            fourScreenMirroring = true;
+                            break;
+                        case 3: // Mapper Controlled
+                                // This needs to be handled in your mapper implementation
+                            break;
+                    }
+                }
+                else if (iNESFormat)
+                {
+                    mirrorVertical = (flags6 & 0x01) == 1; // If the 0th bit is 1, it's vertical mirroring
+                }
+            }
+
+            // Extract the PRG-ROM and CHR-ROM data
+            int prgRomOffset = iNESFormat ? 16 : 0;  // Adjust the offset based on the header format
+            int prgRomSize = romData[4] * 16384;  // PRG-ROM size (in 16KB units)
+            int chrRomSize = romData[5] * 8192;   // CHR-ROM size (in 8KB units)
+
+            byte[] prgRomData = new byte[prgRomSize];
+            Array.Copy(romData, prgRomOffset, prgRomData, 0, prgRomSize);
+
+            byte[] chrRomData = new byte[chrRomSize];
+            Array.Copy(romData, prgRomOffset + prgRomSize, chrRomData, 0, chrRomSize);
+
+            // Determine the mapper number
+            byte mapperNumber;
+
+            if (iNESFormat)
+            {
+                mapperNumber = (byte)(((romData[6] & 0xF0) >> 4) | (romData[7] & 0xF0));
+            }
+            else if (NES20Format)
+            {
+                // Extract the mapper number from the NES 2.0 header
+                mapperNumber = (byte)((romData[8] & 0x0F) | ((romData[9] & 0xF0) >> 4));
+            }
+            else
+            {
+                Console.WriteLine("Invalid ROM file format.");
+                return;
+            }
+
+            // Set the PRG-ROM, CHR-ROM, mapper number and mirroring type in the memory
+            SetROMData(prgRomData, chrRomData, mapperNumber, mirrorVertical, fourScreenMirroring);
         }
 
         private void WriteCHRROMToVRAM_Mapper0(byte[] chrRomData)

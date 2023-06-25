@@ -2,6 +2,9 @@
 {
     public class PPU
     {
+        private int dot = 0;
+        private int scanline = 0;
+
         private byte[] oam = new byte[0x0100]; // Object Attribute Memory
 
         private byte[] patternTable0 = new byte[0x1000]; // Pattern Table 0
@@ -13,9 +16,9 @@
         private byte[] paletteRAM = new byte[0x0040]; // Palette RAM
 
         // PPU registers
-        private volatile byte ppuControl; // PPU Control Register (0x2000)
+        public volatile byte ppuControl; // PPU Control Register (0x2000)
         private volatile byte ppuMask; // PPU Mask Register (0x2001)
-        private volatile int ppuStatus; // PPU Status Register (0x2002)
+        public volatile int ppuStatus; // PPU Status Register (0x2002)
         private volatile byte oamAddress; // OAM Address Register (0x2003)
         private bool ppuLatch;  // Address latch for PPU Address Register (0x2006) and Scroll Register (0x2005)
 
@@ -55,7 +58,8 @@
         // Height of the screen in pixels
         const int SCREEN_HEIGHT = 240;
 
-        const int SCANLINE_COUNT = 262;
+        public const int DOTS_PER_SCANLINE = 341;
+        public const int SCANLINES_PER_FRAME = 262;
         const int VBLANK_START_SCANLINE = 241;
 
         const byte VBLANK_FLAG = 1 << 7;
@@ -74,17 +78,16 @@
         // Open bus value
         private byte openBus;
 
-        private Memory memory;
-        private CPU cpu;
+        private Emulator? emulator;
+        private Memory? memory;
+        private CPU? cpu;
 
-        public PPU(Memory memory, CPU cpu)
+        public void Initialize(Emulator emulator, Memory memory, CPU cpu)
         {
+            this.emulator = emulator;
             this.memory = memory;
             this.cpu = cpu;
-        }
 
-        public void Initialize()
-        {
             if (!memory.mirrorVertical)
             {
                 nameTable1 = nameTable0;
@@ -434,15 +437,13 @@
         }
 
         // Render a single pixel at the specified position
-        void RenderPixel(int x, int y)
+        public void RenderPixel(int x, int y)
         {
             // Calculate the name table address for the current coordinates
             int nameTableAddress = CalculateNameTableAddress(x, y);
 
             // Read the tile ID from the name table
             byte tileID = ReadVRAM((ushort)nameTableAddress);
-            if (tileID == 0x45)
-                Console.WriteLine();
 
             // Calculate the tile position within the tile (0-7)
             int tileX = x % 8;
@@ -457,9 +458,6 @@
             // Get the color for the current pixel
             byte[] pixelColor = GetPixelColor(pixelData, attributeData);
 
-            if (tileID == 0x45)
-                Console.WriteLine(pixelData);
-
             // Calculate the index in the screen buffer based on the scanline and pixel position
             int index = (y * SCREEN_WIDTH * 3) + (x * 3);
 
@@ -469,52 +467,50 @@
             screenBuffer[index + 2] = pixelColor[0]; // Blue component
         }
 
-        // Render the background
-        void RenderBackground(int currentScanline)
+        public void RenderCycle()
         {
-            for (int x = 0; x < SCREEN_WIDTH; x++) // Assuming a screen width of 256 pixels
+            // Check if we're rendering a visible scanline
+            if (scanline < SCREEN_HEIGHT)
             {
-                RenderPixel(x, currentScanline);
+                // Perform cycle-based rendering operations here
+
+                // Render a pixel for each dot on a visible scanline
+                if (dot < SCREEN_WIDTH)
+                {
+                    RenderPixel(dot, scanline);
+                }
+            }
+
+            // Check if we reached the start of the vertical blanking period (dot 0 of scanline 241)
+            if (scanline == VBLANK_START_SCANLINE && dot == 0)
+            {
+                // Set VBlank flag
+                Interlocked.Or(ref ppuStatus, VBLANK_FLAG);
+
+                // If the NMI interrupt is enabled, trigger the interrupt
+                if ((ppuControl & NMI_FLAG) != 0)
+                {
+                    emulator.isNmiPending = true;
+                }
+            }
+
+            // Update dot and scanline
+            dot++;
+            if (dot >= DOTS_PER_SCANLINE)
+            {
+                dot = 0;
+                scanline++;
+                if (scanline >= SCANLINES_PER_FRAME)
+                {
+                    scanline = 0;
+                }
             }
         }
 
-        public bool isNmiPending;
-        int cycles = 0;
-
-        public void RenderFrame(PictureBox pictureBox)
+        public bool ShouldRenderFrame()
         {
-            for (int scanline = 0; scanline < SCANLINE_COUNT; scanline++)
-            {
-                while (cpu.cycles < cycles + 113) ;
-
-                // Render the background for the current scanline
-                if (scanline < SCREEN_HEIGHT)
-                    RenderBackground(scanline);
-
-                // Render the sprites for the current scanline
-                //RenderSprites(scanline);
-
-                // Check if we reached the start of the vertical blanking period
-                if (scanline == VBLANK_START_SCANLINE)
-                {
-                    // Set VBlank flag
-                    Interlocked.Or(ref ppuStatus, VBLANK_FLAG);
-
-                    // If the NMI interrupt is enabled, trigger the interrupt
-                    if ((ppuControl & NMI_FLAG) != 0)
-                    {
-                        isNmiPending = true;
-                    }
-                }
-
-                // Trigger the PictureBox to be redrawn on the UI thread
-                pictureBox.Invoke((MethodInvoker)delegate
-                {
-                    pictureBox.Invalidate();
-                });
-                cycles = cpu.cycles;
-            }
-
+            // A frame should be rendered when we're at the start of a new frame (dot 0, scanline 0)
+            return dot == 0 && scanline == 0;
         }
     }
 }
