@@ -430,10 +430,24 @@
             return (ushort)(address + X);
         }
 
+        private bool IsPageBoundaryCrossed_AbsoluteX()
+        {
+            ushort address = (ushort)(ReadMemory(PC) | (ReadMemory(PC + 1) << 8));
+            ushort finalAddress = (ushort)(address + X);
+            return (address & 0xFF00) != (finalAddress & 0xFF00);
+        }
+
         private ushort AbsoluteY()
         {
             ushort address = (ushort)(ReadMemory(PC++) | (ReadMemory(PC++) << 8));
             return (ushort)(address + Y);
+        }
+
+        private bool IsPageBoundaryCrossed_AbsoluteY()
+        {
+            ushort address = (ushort)(ReadMemory(PC) | (ReadMemory(PC + 1) << 8));
+            ushort finalAddress = (ushort)(address + Y);
+            return (address & 0xFF00) != (finalAddress & 0xFF00);
         }
 
         private ushort Indirect()
@@ -459,6 +473,15 @@
             ushort address = ReadMemory(zeroPageAddress);
             address |= (ushort)(ReadMemory((byte)(zeroPageAddress + 1)) << 8);
             return (ushort)(address + Y);
+        }
+
+        private bool IsPageBoundaryCrossed_IndirectY()
+        {
+            byte zeroPageAddress = ReadMemory(PC);
+            ushort address = ReadMemory(zeroPageAddress);
+            address |= (ushort)(ReadMemory((byte)(zeroPageAddress + 1)) << 8);
+            ushort finalAddress = (ushort)(address + Y);
+            return (address & 0xFF00) != (finalAddress & 0xFF00);
         }
 
         private sbyte Relative()
@@ -611,12 +634,14 @@
         private void LDA_AbsoluteX()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = () => LDA_(AbsoluteX());
         }
 
         private void LDA_AbsoluteY()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => LDA_(AbsoluteY());
         }
 
@@ -629,6 +654,7 @@
         private void LDA_IndirectY()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
             pendingOperation = () => LDA_(IndirectY());
         }
 
@@ -671,6 +697,7 @@
         private void LDX_AbsoluteY()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => LDX_(AbsoluteY());
         }
 
@@ -713,6 +740,7 @@
         private void LDY_AbsoluteX()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = () => LDY_(AbsoluteX());
         }
 
@@ -849,12 +877,14 @@
         private void ADC_AbsoluteX()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = () => ADC_(AbsoluteX());
         }
 
         private void ADC_AbsoluteY()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => ADC_(AbsoluteY());
         }
 
@@ -867,6 +897,7 @@
         private void ADC_IndirectY()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
             pendingOperation = () => ADC_(IndirectY());
         }
 
@@ -912,12 +943,14 @@
         private void SBC_AbsoluteX()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = () => SBC_(AbsoluteX());
         }
 
         private void SBC_AbsoluteY()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => SBC_(AbsoluteY());
         }
 
@@ -930,6 +963,7 @@
         private void SBC_IndirectY()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
             pendingOperation = () => SBC_(IndirectY());
         }
 
@@ -975,12 +1009,14 @@
         private void AND_AbsoluteX()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = () => AND_(AbsoluteX());
         }
 
         private void AND_AbsoluteY()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => AND_(AbsoluteY());
         }
 
@@ -993,6 +1029,7 @@
         private void AND_IndirectY()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
             pendingOperation = () => AND_(IndirectY());
         }
 
@@ -1035,12 +1072,14 @@
         private void ORA_AbsoluteX()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = () => ORA_(AbsoluteX());
         }
 
         private void ORA_AbsoluteY()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => ORA_(AbsoluteY());
         }
 
@@ -1053,6 +1092,7 @@
         private void ORA_IndirectY()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
             pendingOperation = () => ORA_(IndirectY());
         }
 
@@ -1096,12 +1136,14 @@
         private void EOR_AbsoluteX()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = () => EOR_(AbsoluteX());
         }
 
         private void EOR_AbsoluteY()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => EOR_(AbsoluteY());
         }
 
@@ -1114,6 +1156,7 @@
         private void EOR_IndirectY()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
             pendingOperation = () => EOR_(IndirectY());
         }
 
@@ -1494,13 +1537,15 @@
 
         private void CMP_AbsoluteX()
         {
-            remainingCycles = 4; //+1 if page boundary is crossed
+            remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = () => CMP_(AbsoluteX());
         }
 
         private void CMP_AbsoluteY()
         {
-            remainingCycles = 4; //+1 if page boundary is crossed
+            remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => CMP_(AbsoluteY());
         }
 
@@ -1512,7 +1557,8 @@
 
         private void CMP_IndirectY()
         {
-            remainingCycles = 5; //+1 if page boundary is crossed
+            remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
             pendingOperation = () => CMP_(IndirectY());
         }
 
@@ -1901,6 +1947,7 @@
         private void NOP_AbsoluteX()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = NOP_AbsoluteX_;
         }
 
@@ -1982,6 +2029,7 @@
         private void LAS_AbsoluteY()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => LAS_(AbsoluteY());
         }
 
@@ -2016,6 +2064,7 @@
         private void LAX_AbsoluteY()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = () => LAX_(AbsoluteY());
         }
 
@@ -2028,6 +2077,7 @@
         private void LAX_IndirectY()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
             pendingOperation = () => LAX_(IndirectY());
         }
 
@@ -2084,6 +2134,7 @@
         private void SHA_AbsoluteY()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => SHA_(AbsoluteY());
         }
 
@@ -2102,6 +2153,7 @@
         private void SHX_AbsoluteY()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => SHX_(AbsoluteY());
         }
 
@@ -2115,6 +2167,7 @@
         private void SHY_AbsoluteX()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
             pendingOperation = () => SHY_(AbsoluteX());
         }
 
@@ -2127,6 +2180,7 @@
         private void TAS_AbsoluteY()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
+            if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => TAS_(AbsoluteY());
         }
 
