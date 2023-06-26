@@ -432,7 +432,7 @@
 
         private bool IsPageBoundaryCrossed_AbsoluteX()
         {
-            ushort address = (ushort)(ReadMemory(PC) | (ReadMemory(PC + 1) << 8));
+            ushort address = (ushort)(ReadMemory(PC) | (ReadMemory((ushort)(PC + 1)) << 8));
             ushort finalAddress = (ushort)(address + X);
             return (address & 0xFF00) != (finalAddress & 0xFF00);
         }
@@ -445,7 +445,7 @@
 
         private bool IsPageBoundaryCrossed_AbsoluteY()
         {
-            ushort address = (ushort)(ReadMemory(PC) | (ReadMemory(PC + 1) << 8));
+            ushort address = (ushort)(ReadMemory(PC) | (ReadMemory((ushort)(PC + 1)) << 8));
             ushort finalAddress = (ushort)(address + Y);
             return (address & 0xFF00) != (finalAddress & 0xFF00);
         }
@@ -487,6 +487,22 @@
         private sbyte Relative()
         {
             return (sbyte)ReadMemory(PC++);
+        }
+
+        private int BranchCyclesNeeded_Relative(bool condition)
+        {
+            byte offset = ReadMemory(PC);
+            if (condition)
+            {
+                ushort newAddress = (ushort)(PC + offset);
+                if ((PC & 0xFF00) != (newAddress & 0xFF00))
+                {
+                    // Crossing a page boundary
+                    return 2;
+                }
+                return 1;
+            }
+            return 0;
         }
 
         private void TAX()
@@ -1646,6 +1662,7 @@
         private void BNE_Relative()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            remainingCycles += BranchCyclesNeeded_Relative(!Z);
             pendingOperation = () => BNE_(Relative());
         }
 
@@ -1658,6 +1675,7 @@
         private void BEQ_Relative()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            remainingCycles += BranchCyclesNeeded_Relative(Z);
             pendingOperation = () => BEQ_(Relative());
         }
         private void BEQ_(sbyte offset)
@@ -1670,6 +1688,7 @@
         private void BPL_Relative()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            remainingCycles += BranchCyclesNeeded_Relative(!N);
             pendingOperation = () => BPL_(Relative());
         }
 
@@ -1682,6 +1701,7 @@
         private void BMI_Relative()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            remainingCycles += BranchCyclesNeeded_Relative(N);
             pendingOperation = () => BMI_(Relative());
         }
 
@@ -1694,6 +1714,7 @@
         private void BCC_Relative()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            remainingCycles += BranchCyclesNeeded_Relative(!C);
             pendingOperation = () => BCC_(Relative());
         }
 
@@ -1706,6 +1727,7 @@
         private void BCS_Relative()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            remainingCycles += BranchCyclesNeeded_Relative(C);
             pendingOperation = () => BCS_(Relative());
         }
 
@@ -1718,6 +1740,7 @@
         private void BVC_Relative()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            remainingCycles += BranchCyclesNeeded_Relative(!V);
             pendingOperation = () => BVC_(Relative());
         }
 
@@ -1730,12 +1753,13 @@
         private void BVS_Relative()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            remainingCycles += BranchCyclesNeeded_Relative(V);
             pendingOperation = () => BVS_(Relative());
         }
 
         private void BVS_(sbyte offset)
         {
-            if (!V)
+            if (V)
                 PC += (ushort)offset;
         }
 
