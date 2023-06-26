@@ -16,8 +16,8 @@
 
             memory.Initialize(ppu);
             memory.LoadROM(romFilePath);
-            cpu.Initialize(this, memory, ppu);
-            ppu.Initialize(this, memory, cpu);
+            cpu.Initialize(this, memory);
+            ppu.Initialize(this, memory);
         }
 
         public PPU GetPPU()
@@ -46,13 +46,6 @@
                     {
                         pictureBox.Invalidate();
                     });
-                }
-
-                // Check if an NMI is pending and handle it if necessary
-                if (isNmiPending)
-                {
-                    cpu.HandleNMI();
-                    isNmiPending = false;
                 }
             }
         }

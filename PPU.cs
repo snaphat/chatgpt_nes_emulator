@@ -20,8 +20,6 @@
         private volatile byte ppuMask; // PPU Mask Register (0x2001)
         public volatile int ppuStatus; // PPU Status Register (0x2002)
         private volatile byte oamAddress; // OAM Address Register (0x2003)
-        private bool ppuLatch;  // Address latch for PPU Address Register (0x2006) and Scroll Register (0x2005)
-
         private byte ppudataBuffer; // Internal read buffer for PPUDATA
 
         const int NameTableWidth = 32;
@@ -80,13 +78,11 @@
 
         private Emulator? emulator;
         private Memory? memory;
-        private CPU? cpu;
 
-        public void Initialize(Emulator emulator, Memory memory, CPU cpu)
+        public void Initialize(Emulator emulator, Memory memory)
         {
             this.emulator = emulator;
             this.memory = memory;
-            this.cpu = cpu;
 
             if (!memory.mirrorVertical)
             {

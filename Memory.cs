@@ -61,11 +61,6 @@
         {
             if (address < 0x2000)
             {
-                if (address == 0 && value == 4)
-                {
-                    var a = address % 0x0800;
-                    a = a + a;
-                }
                 // Write to RAM
                 ram[address % 0x0800] = value;
             }

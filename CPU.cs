@@ -2,10 +2,12 @@
 {
     public class CPU
     {
-        // Registers
+        private int remainingCycles;
+
+        // Internal Registers
         public byte A; // Accumulator
         public byte X, Y; // General-purpose registers
-        public byte SP; // Stack pointer
+        public byte S; // Stack pointer
         public ushort PC; // Program counter
         public byte P; // Processor status register
 
@@ -18,22 +20,23 @@
         public bool Z; // Zero flag
         public bool C; // Carry flag
 
+        // next instruction to execute
+        Action pendingOperation = () => { };
+
         // Other CPU components and functions
         private Emulator? emulator;
         private Memory? memory;
-        private PPU? ppu;
 
-        public void Initialize(Emulator emulator, Memory memory, PPU ppu)
+        public void Initialize(Emulator emulator, Memory memory)
         {
             this.emulator = emulator;
             this.memory = memory;
-            this.ppu = ppu;
 
             // Initialize registers and flags
             A = 0;
             X = 0;
             Y = 0;
-            SP = 0xFD;
+            S = 0xFD;
             N = false;
             V = false;
             B = false;
@@ -74,741 +77,308 @@
 
         public void ExecuteNextInstruction()
         {
+
+            if (remainingCycles > 0)
+            {
+                // Stall execution for required cycle count
+                remainingCycles--;
+                return;
+            }
+
+            // Display debug information
             Debug.DisplayInstruction(this);
+
+            // Execute pending operation
+            pendingOperation();
+
+            // Check if an NMI is pending and handle it if necessary
+            if (emulator.isNmiPending)
+            {
+                NMI();
+                return;
+            }
+
+            // Lookup next operation
             byte opcode = ReadMemory(PC++);
             switch (opcode)
             {
-                // Transfer instructions
-                case 0xAA: // TAX
-                    TAX();
-                    break;
-                case 0xA8: // TAY
-                    TAY();
-                    break;
-                case 0xBA: // TSX
-                    TSX();
-                    break;
-                case 0x8A: // TXA
-                    TXA();
-                    break;
-                case 0x9A: // TXS
-                    TXS();
-                    break;
-                case 0x98: // TYA
-                    TYA();
-                    break;
-                case 0x68: // PLA
-                    PLA();
-                    break;
-                case 0x48: // PHA
-                    PHA();
-                    break;
-                case 0x28: // PLP
-                    PLP();
-                    break;
-                case 0x08: // PHP
-                    PHP();
-                    break;
+                // Register Transfers
+                case 0xAA: TAX(); break;
+                case 0x8A: TXA(); break;
+                case 0xA8: TAY(); break;
+                case 0x98: TYA(); break;
+                case 0xBA: TSX(); break;
+                case 0x9A: TXS(); break;
+                case 0x68: PLA(); break;
+                case 0x48: PHA(); break;
+                case 0x28: PLP(); break;
+                case 0x08: PHP(); break;
 
-                // Load/Store Operations
-                case 0xA9: // LDA Immediate
-                    LDA(Immediate());
-                    break;
-                case 0xA5: // LDA Zero Page
-                    LDA(ZeroPage());
-                    break;
-                case 0xAD: // LDA Absolute
-                    LDA(Absolute());
-                    break;
-                case 0xB5: // LDA Zero Page, X
-                    LDA(ZeroPageX());
-                    break;
-                case 0xBD: // LDA Absolute, X
-                    LDA(AbsoluteX());
-                    break;
-                case 0xB9: // LDA Absolute, Y
-                    LDA(AbsoluteY());
-                    break;
-                case 0xA1: // LDA Indirect, X
-                    LDA(IndirectX());
-                    break;
-                case 0xB1: // LDA Indirect, Y
-                    LDA(IndirectY());
-                    break;
-                case 0xA2: // LDX Immediate
-                    LDX(Immediate());
-                    break;
-                case 0xA6: // LDX Zero Page
-                    LDX(ZeroPage());
-                    break;
-                case 0xAE: // LDX Absolute
-                    LDX(Absolute());
-                    break;
-                case 0xB6: // LDX Zero Page, Y
-                    LDX(ZeroPageY());
-                    break;
-                case 0xBE: // LDX Absolute, Y
-                    LDX(AbsoluteY());
-                    break;
-                case 0xA0: // LDY Immediate
-                    LDY(Immediate());
-                    break;
-                case 0xA4: // LDY Zero Page
-                    LDY(ZeroPage());
-                    break;
-                case 0xAC: // LDY Absolute
-                    LDY(Absolute());
-                    break;
-                case 0xB4: // LDY Zero Page, X
-                    LDY(ZeroPageX());
-                    break;
-                case 0xBC: // LDY Absolute, X
-                    LDY(AbsoluteX());
-                    break;
-                case 0x85: // STA Zero Page
-                    STA(ZeroPage());
-                    break;
-                case 0x8D: // STA Absolute
-                    STA(Absolute());
-                    break;
-                case 0x95: // STA Zero Page, X
-                    STA(ZeroPageX());
-                    break;
-                case 0x9D: // STA Absolute, X
-                    STA(AbsoluteX());
-                    break;
-                case 0x99: // STA Absolute, Y
-                    STA(AbsoluteY());
-                    break;
-                case 0x81: // STA Indirect, X
-                    STA(IndirectX());
-                    break;
-                case 0x91: // STA Indirect, Y
-                    STA(IndirectY());
-                    break;
-                case 0x86: // STX Zero Page
-                    STX(ZeroPage());
-                    break;
-                case 0x8E: // STX Absolute
-                    STX(Absolute());
-                    break;
-                case 0x96: // STX Zero Page, Y
-                    STX(ZeroPageY());
-                    break;
-                case 0x84: // STY Zero Page
-                    STY(ZeroPage());
-                    break;
-                case 0x8C: // STY Absolute
-                    STY(Absolute());
-                    break;
-                case 0x94: // STY Zero Page, X
-                    STY(ZeroPageX());
-                    break;
+                // Load and Store Operations
+                case 0xA9: LDA_Immediate(); break;
+                case 0xA5: LDA_ZeroPage(); break;
+                case 0xB5: LDA_ZeroPageX(); break;
+                case 0xAD: LDA_Absolute(); break;
+                case 0xBD: LDA_AbsoluteX(); break;
+                case 0xB9: LDA_AbsoluteY(); break;
+                case 0xA1: LDA_IndirectX(); break;
+                case 0xB1: LDA_IndirectY(); break;
+                case 0xA2: LDX_Immediate(); break;
+                case 0xA6: LDX_ZeroPage(); break;
+                case 0xB6: LDX_ZeroPageY(); break;
+                case 0xAE: LDX_Absolute(); break;
+                case 0xBE: LDX_AbsoluteY(); break;
+                case 0xA0: LDY_Immediate(); break;
+                case 0xA4: LDY_ZeroPage(); break;
+                case 0xB4: LDY_ZeroPageX(); break;
+                case 0xAC: LDY_Absolute(); break;
+                case 0xBC: LDY_AbsoluteX(); break;
+                case 0x85: STA_ZeroPage(); break;
+                case 0x95: STA_ZeroPageX(); break;
+                case 0x8D: STA_Absolute(); break;
+                case 0x9D: STA_AbsoluteX(); break;
+                case 0x99: STA_AbsoluteY(); break;
+                case 0x81: STA_IndirectX(); break;
+                case 0x91: STA_IndirectY(); break;
+                case 0x86: STX_ZeroPage(); break;
+                case 0x96: STX_ZeroPageY(); break;
+                case 0x8E: STX_Absolute(); break;
+                case 0x84: STY_ZeroPage(); break;
+                case 0x94: STY_ZeroPageX(); break;
+                case 0x8C: STY_Absolute(); break;
 
-                // Arithmetic Operations
-                case 0x69: // ADC Immediate
-                    ADC(Immediate());
-                    break;
-                case 0x65: // ADC Zero Page
-                    ADC(ZeroPage());
-                    break;
-                case 0x6D: // ADC Absolute
-                    ADC(Absolute());
-                    break;
-                case 0x75: // ADC Zero Page, X
-                    ADC(ZeroPageX());
-                    break;
-                case 0x7D: // ADC Absolute, X
-                    ADC(AbsoluteX());
-                    break;
-                case 0x79: // ADC Absolute, Y
-                    ADC(AbsoluteY());
-                    break;
-                case 0x61: // ADC Indirect, X
-                    ADC(IndirectX());
-                    break;
-                case 0x71: // ADC Indirect, Y
-                    ADC(IndirectY());
-                    break;
-                case 0xE9: // SBC Immediate
-                case 0xEB: // SBC Immediate (Unofficial)
-                    SBC(Immediate());
-                    break;
-                case 0xE5: // SBC Zero Page
-                    SBC(ZeroPage());
-                    break;
-                case 0xED: // SBC Absolute
-                    SBC(Absolute());
-                    break;
-                case 0xF5: // SBC Zero Page, X
-                    SBC(ZeroPageX());
-                    break;
-                case 0xFD: // SBC Absolute, X
-                    SBC(AbsoluteX());
-                    break;
-                case 0xF9: // SBC Absolute, Y
-                    SBC(AbsoluteY());
-                    break;
-                case 0xE1: // SBC Indirect, X
-                    SBC(IndirectX());
-                    break;
-                case 0xF1: // SBC Indirect, Y
-                    SBC(IndirectY());
-                    break;
-                case 0x29: // AND Immediate
-                    AND(Immediate());
-                    break;
-                case 0x25: // AND Zero Page
-                    AND(ZeroPage());
-                    break;
-                case 0x2D: // AND Absolute
-                    AND(Absolute());
-                    break;
-                case 0x35: // AND Zero Page, X
-                    AND(ZeroPageX());
-                    break;
-                case 0x3D: // AND Absolute, X
-                    AND(AbsoluteX());
-                    break;
-                case 0x39: // AND Absolute, Y
-                    AND(AbsoluteY());
-                    break;
-                case 0x21: // AND Indirect, X
-                    AND(IndirectX());
-                    break;
-                case 0x31: // AND Indirect, Y
-                    AND(IndirectY());
-                    break;
-                case 0x49: // EOR Immediate
-                    EOR(Immediate());
-                    break;
-                case 0x45: // EOR Zero Page
-                    EOR(ZeroPage());
-                    break;
-                case 0x4D: // EOR Absolute
-                    EOR(Absolute());
-                    break;
-                case 0x55: // EOR Zero Page, X
-                    EOR(ZeroPageX());
-                    break;
-                case 0x5D: // EOR Absolute, X
-                    EOR(AbsoluteX());
-                    break;
-                case 0x59: // EOR Absolute, Y
-                    EOR(AbsoluteY());
-                    break;
-                case 0x41: // EOR Indirect, X
-                    EOR(IndirectX());
-                    break;
-                case 0x51: // EOR Indirect, Y
-                    EOR(IndirectY());
-                    break;
-                case 0x09: // ORA Immediate
-                    ORA(Immediate());
-                    break;
-                case 0x05: // ORA Zero Page
-                    ORA(ZeroPage());
-                    break;
-                case 0x0D: // ORA Absolute
-                    ORA(Absolute());
-                    break;
-                case 0x15: // ORA Zero Page, X
-                    ORA(ZeroPageX());
-                    break;
-                case 0x1D: // ORA Absolute, X
-                    ORA(AbsoluteX());
-                    break;
-                case 0x19: // ORA Absolute, Y
-                    ORA(AbsoluteY());
-                    break;
-                case 0x01: // ORA Indirect, X
-                    ORA(IndirectX());
-                    break;
-                case 0x11: // ORA Indirect, Y
-                    ORA(IndirectY());
-                    break;
-                case 0x24: // BIT Zero Page
-                    BIT(ZeroPage());
-                    break;
-                case 0x2C: // BIT Absolute
-                    BIT(Absolute());
-                    break;
+                // Arithmetic and Logical Operations
+                case 0x69: ADC_Immediate(); break;
+                case 0x65: ADC_ZeroPage(); break;
+                case 0x75: ADC_ZeroPageX(); break;
+                case 0x6D: ADC_Absolute(); break;
+                case 0x7D: ADC_AbsoluteX(); break;
+                case 0x79: ADC_AbsoluteY(); break;
+                case 0x61: ADC_IndirectX(); break;
+                case 0x71: ADC_IndirectY(); break;
+                case 0xE9: SBC_Immediate(); break;
+                case 0xE5: SBC_ZeroPage(); break;
+                case 0xF5: SBC_ZeroPageX(); break;
+                case 0xED: SBC_Absolute(); break;
+                case 0xFD: SBC_AbsoluteX(); break;
+                case 0xF9: SBC_AbsoluteY(); break;
+                case 0xE1: SBC_IndirectX(); break;
+                case 0xF1: SBC_IndirectY(); break;
+                case 0x29: AND_Immediate(); break;
+                case 0x25: AND_ZeroPage(); break;
+                case 0x35: AND_ZeroPageX(); break;
+                case 0x2D: AND_Absolute(); break;
+                case 0x3D: AND_AbsoluteX(); break;
+                case 0x39: AND_AbsoluteY(); break;
+                case 0x21: AND_IndirectX(); break;
+                case 0x31: AND_IndirectY(); break;
+                case 0x09: ORA_Immediate(); break;
+                case 0x05: ORA_ZeroPage(); break;
+                case 0x15: ORA_ZeroPageX(); break;
+                case 0x0D: ORA_Absolute(); break;
+                case 0x1D: ORA_AbsoluteX(); break;
+                case 0x19: ORA_AbsoluteY(); break;
+                case 0x01: ORA_IndirectX(); break;
+                case 0x11: ORA_IndirectY(); break;
+                case 0x49: EOR_Immediate(); break;
+                case 0x45: EOR_ZeroPage(); break;
+                case 0x55: EOR_ZeroPageX(); break;
+                case 0x4D: EOR_Absolute(); break;
+                case 0x5D: EOR_AbsoluteX(); break;
+                case 0x59: EOR_AbsoluteY(); break;
+                case 0x41: EOR_IndirectX(); break;
+                case 0x51: EOR_IndirectY(); break;
+                case 0x24: BIT_ZeroPage(); break;
+                case 0x2C: BIT_Absolute(); break;
 
-                // Increment/Decrement Operations
-                case 0xE6: // INC Zero Page
-                    INC(ZeroPage());
-                    break;
-                case 0xEE: // INC Absolute
-                    INC(Absolute());
-                    break;
-                case 0xF6: // INC Zero Page, X
-                    INC(ZeroPageX());
-                    break;
-                case 0xFE: // INC Absolute, X
-                    INC(AbsoluteX());
-                    break;
-                case 0xC6: // DEC Zero Page
-                    DEC(ZeroPage());
-                    break;
-                case 0xCE: // DEC Absolute
-                    DEC(Absolute());
-                    break;
-                case 0xD6: // DEC Zero Page, X
-                    DEC(ZeroPageX());
-                    break;
-                case 0xDE: // DEC Absolute, X
-                    DEC(AbsoluteX());
-                    break;
-                case 0xE8: // INX
-                    INX();
-                    break;
-                case 0xC8: // INY
-                    INY();
-                    break;
-                case 0xCA: // DEX
-                    DEX();
-                    break;
-                case 0x88: // DEY
-                    DEY();
-                    break;
+                // Increment and Decrement Operations
+                case 0xE6: INC_ZeroPage(); break;
+                case 0xEE: INC_Absolute(); break;
+                case 0xF6: INC_ZeroPageX(); break;
+                case 0xFE: INC_AbsoluteX(); break;
+                case 0xC6: DEC_ZeroPage(); break;
+                case 0xD6: DEC_ZeroPageX(); break;
+                case 0xCE: DEC_Absolute(); break;
+                case 0xDE: DEC_AbsoluteX(); break;
+                case 0xE8: INX(); break;
+                case 0xC8: INY(); break;
+                case 0xCA: DEX(); break;
+                case 0x88: DEY(); break;
 
                 // Shift Operations
-                case 0x0A: // ASL Accumulator
-                    ASL();
-                    break;
-                case 0x06: // ASL Zero Page
-                    ASL(ZeroPage());
-                    break;
-                case 0x0E: // ASL Absolute
-                    ASL(Absolute());
-                    break;
-                case 0x16: // ASL Zero Page, X
-                    ASL(ZeroPageX());
-                    break;
-                case 0x1E: // ASL Absolute, X
-                    ASL(AbsoluteX());
-                    break;
-                case 0x4A: // LSR Accumulator
-                    LSR();
-                    break;
-                case 0x46: // LSR Zero Page
-                    LSR(ZeroPage());
-                    break;
-                case 0x4E: // LSR Absolute
-                    LSR(Absolute());
-                    break;
-                case 0x56: // LSR Zero Page, X
-                    LSR(ZeroPageX());
-                    break;
-                case 0x5E: // LSR Absolute, X
-                    LSR(AbsoluteX());
-                    break;
-                case 0x2A: // ROL Accumulator
-                    ROL();
-                    break;
-                case 0x26: // ROL Zero Page
-                    ROL(ZeroPage());
-                    break;
-                case 0x2E: // ROL Absolute
-                    ROL(Absolute());
-                    break;
-                case 0x36: // ROL Zero Page, X
-                    ROL(ZeroPageX());
-                    break;
-                case 0x3E: // ROL Absolute, X
-                    ROL(AbsoluteX());
-                    break;
-                case 0x6A: // ROR Accumulator
-                    ROR();
-                    break;
-                case 0x66: // ROR Zero Page
-                    ROR(ZeroPage());
-                    break;
-                case 0x6E: // ROR Absolute
-                    ROR(Absolute());
-                    break;
-                case 0x76: // ROR Zero Page, X
-                    ROR(ZeroPageX());
-                    break;
-                case 0x7E: // ROR Absolute, X
-                    ROR(AbsoluteX());
-                    break;
+                case 0x0A: ASL(); break;
+                case 0x06: ASL_ZeroPage(); break;
+                case 0x16: ASL_ZeroPageX(); break;
+                case 0x0E: ASL_Absolute(); break;
+                case 0x1E: ASL_AbsoluteX(); break;
+                case 0x4A: LSR(); break;
+                case 0x46: LSR_ZeroPage(); break;
+                case 0x56: LSR_ZeroPageX(); break;
+                case 0x4E: LSR_Absolute(); break;
+                case 0x5E: LSR_AbsoluteX(); break;
+                case 0x2A: ROL(); break;
+                case 0x26: ROL_ZeroPage(); break;
+                case 0x36: ROL_ZeroPageX(); break;
+                case 0x2E: ROL_Absolute(); break;
+                case 0x3E: ROL_AbsoluteX(); break;
+                case 0x6A: ROR(); break;
+                case 0x66: ROR_ZeroPage(); break;
+                case 0x76: ROR_ZeroPageX(); break;
+                case 0x6E: ROR_Absolute(); break;
+                case 0x7E: ROR_AbsoluteX(); break;
 
                 // Compare Operations
-                case 0xC9: // CMP Immediate
-                    CMP(Immediate());
-                    break;
-                case 0xC5: // CMP Zero Page
-                    CMP(ZeroPage());
-                    break;
-                case 0xCD: // CMP Absolute
-                    CMP(Absolute());
-                    break;
-                case 0xD5: // CMP Zero Page, X
-                    CMP(ZeroPageX());
-                    break;
-                case 0xDD: // CMP Absolute, X
-                    CMP(AbsoluteX());
-                    break;
-                case 0xD9: // CMP Absolute, Y
-                    CMP(AbsoluteY());
-                    break;
-                case 0xC1: // CMP Indirect, X
-                    CMP(IndirectX());
-                    break;
-                case 0xD1: // CMP Indirect, Y
-                    CMP(IndirectY());
-                    break;
-                case 0xE0: // CPX Immediate
-                    CPX(Immediate());
-                    break;
-                case 0xE4: // CPX Zero Page
-                    CPX(ZeroPage());
-                    break;
-                case 0xEC: // CPX Absolute
-                    CPX(Absolute());
-                    break;
-                case 0xC0: // CPY Immediate
-                    CPY(Immediate());
-                    break;
-                case 0xC4: // CPY Zero Page
-                    CPY(ZeroPage());
-                    break;
-                case 0xCC: // CPY Absolute
-                    CPY(Absolute());
-                    break;
+                case 0xC9: CMP_Immediate(); break;
+                case 0xC5: CMP_ZeroPage(); break;
+                case 0xD5: CMP_ZeroPageX(); break;
+                case 0xCD: CMP_Absolute(); break;
+                case 0xDD: CMP_AbsoluteX(); break;
+                case 0xD9: CMP_AbsoluteY(); break;
+                case 0xC1: CMP_IndirectX(); break;
+                case 0xD1: CMP_IndirectY(); break;
+                case 0xE0: CPX_Immediate(); break;
+                case 0xE4: CPX_ZeroPage(); break;
+                case 0xEC: CPX_Absolute(); break;
+                case 0xC0: CPY_Immediate(); break;
+                case 0xC4: CPY_ZeroPage(); break;
+                case 0xCC: CPY_Absolute(); break;
 
                 // Branching Operations
-                case 0x10: // BPL
-                    BPL(Relative());
-                    break;
-                case 0x30: // BMI
-                    BMI(Relative());
-                    break;
-                case 0x90: // BCC
-                    BCC(Relative());
-                    break;
-                case 0xB0: // BCS
-                    BCS(Relative());
-                    break;
-                case 0xD0: // BNE
-                    BNE(Relative());
-                    break;
-                case 0xF0: // BEQ
-                    BEQ(Relative());
-                    break;
-                case 0x70: // BVS
-                    BVS(Relative());
-                    break;
-                case 0x50: // BVC
-                    BVC(Relative());
-                    break;
+                case 0xD0: BNE_Relative(); break;
+                case 0xF0: BEQ_Relative(); break;
+                case 0x10: BPL_Relative(); break;
+                case 0x30: BMI_Relative(); break;
+                case 0x90: BCC_Relative(); break;
+                case 0xB0: BCS_Relative(); break;
+                case 0x50: BVC_Relative(); break;
+                case 0x70: BVS_Relative(); break;
 
-                // Jump/Call Operations
-                case 0x4C: // JMP Absolute
-                    JMP(Absolute());
-                    break;
-                case 0x6C: // JMP Indirect
-                    JMP(Indirect());
-                    break;
-                case 0x20: // JSR
-                    JSR(Absolute());
-                    break;
-                case 0x60: // RTS
-                    RTS();
-                    break;
-                case 0x40: // RTI
-                    RTI();
-                    break;
+                // Jump and Call Operations
+                case 0x4C: JMP_Absolute(); break;
+                case 0x6C: JMP_Indirect(); break;
+                case 0x20: JSR_Absolute(); break;
+                case 0x60: RTS(); break;
+                case 0x40: RTI(); break;
 
                 // Status Flag Operations
-                case 0x18: // CLC
-                    CLC();
-                    break;
-                case 0x38: // SEC
-                    SEC();
-                    break;
-                case 0x58: // CLI
-                    CLI();
-                    break;
-                case 0x78: // SEI
-                    SEI();
-                    break;
-                case 0xD8: // CLD
-                    CLD();
-                    break;
-                case 0xF8: // SED
-                    SED();
-                    break;
-                case 0xB8: // CLV
-                    CLV();
-                    break;
+                case 0x18: CLC(); break;
+                case 0x38: SEC(); break;
+                case 0x58: CLI(); break;
+                case 0x78: SEI(); break;
+                case 0xD8: CLD(); break;
+                case 0xF8: SED(); break;
+                case 0xB8: CLV(); break;
 
                 // System Functions
-                case 0x00: // BRK
-                    BRK();
-                    break;
-                case 0xEA: // NOP (official)
-                case 0x1A: // NOP 1-byte (unofficial)
-                case 0x3A: // "
-                case 0x5A: // "
-                case 0x7A: // "
-                case 0xDA: // "
-                case 0xFA: // "
-                    NOP();
-                    break;
-                case 0x80: // NOP 2-byte Immediate (unofficial)
-                case 0x82: // "
-                case 0xC2: // "
-                case 0xE2: // "
-                case 0x89: // "
-                case 0x04: // NOP 2-byte Zero-Page (unofficial)
-                case 0x44: // "
-                case 0x64: // "
+                case 0x00: BRK(); break;
+                case 0xEA: NOP(); break;
+
+                // Unofficial Instructions
+                case 0xEB: SBC_Immediate(); break;
+                case 0x1A:
+                case 0x3A:
+                case 0x5A:
+                case 0x7A:
+                case 0xDA:
+                case 0xFA: NOP(); break;
+                case 0x80:
+                case 0x82:
+                case 0x89:
+                case 0xC2:
+                case 0xE2: NOP_Immediate(); break;
+                case 0x04:
+                case 0x44:
+                case 0x64: NOP_ZeroPage(); break;
                 case 0x14: // NOP 2-byte Zero-Page, X (unofficial)
-                case 0x34: // "
-                case 0x54: // "
-                case 0x74: // "
-                case 0xD4: // "
-                case 0xF4: // "
-                    NOPNOP();
-                    break;
-                case 0x0C: // NOP 3-byte Absolute (unofficial)
-                case 0x1C: // NOP 3-byte Absolute, X (unofficial)
-                case 0x3C: // "
-                case 0x5C: // "
-                case 0x7C: // "
-                case 0xDC: // "
-                case 0xFC: // "
-                    NOPNOPNOP();
-                    break;
-
-                case 0x02: // STP (unofficial)
-                case 0x12: // "
-                case 0x22: // "
-                case 0x32: // "
-                case 0x42: // "
-                case 0x52: // "
-                case 0x62: // "
-                case 0x72: // "
-                case 0x92: // "
-                case 0xB2: // "
-                case 0xD2: // "
-                case 0xF2: // "
-                    STP();
-                    break;
-
-                case 0x4B:
-                    ALR(Immediate());
-                    break;
-
+                case 0x34:
+                case 0x54:
+                case 0x74:
+                case 0xD4:
+                case 0xF4: NOP_ZeroPageX(); break;
+                case 0x0C: NOP_Absolute(); break;
+                case 0x1C:
+                case 0x3C:
+                case 0x5C:
+                case 0x7C:
+                case 0xDC:
+                case 0xFC: NOP_AbsoluteX(); break;
+                case 0x02:
+                case 0x12:
+                case 0x22:
+                case 0x32:
+                case 0x42:
+                case 0x52:
+                case 0x62:
+                case 0x72:
+                case 0x92:
+                case 0xB2:
+                case 0xD2:
+                case 0xF2: STP(); break;
+                case 0x4B: ALR_Immediate(); break;
                 case 0x0B:
-                case 0x2B:
-                    ANC(Immediate());
-                    break;
-
-                case 0x8B:
-                    ANE(Immediate());
-                    break;
-
-                case 0x6B:
-                    ARR(Immediate());
-                    break;
-
-                case 0xCB: // AXS Immediate
-                    AXS(Immediate());
-                    break;
-
-                case 0xBB: // LAS Absolute, Y
-                    LAS(AbsoluteY());
-                    break;
-
-                case 0xA7: // LAX Zero Page
-                    LAX(ZeroPage());
-                    break;
-                case 0xB7: // LAX Zero Page, Y
-                    LAX(ZeroPageY());
-                    break;
-                case 0xAF: // LAX Absolute
-                    LAX(Absolute());
-                    break;
-                case 0xBF: // LAX Absolute, Y
-                    LAX(AbsoluteY());
-                    break;
-                case 0xA3: // LAX (Zero Page, X)
-                    LAX(IndirectX());
-                    break;
-                case 0xB3: // LAX (Zero Page), Y
-                    LAX(IndirectY());
-                    break;
-
-                case 0xAB: // LXA Immediate
-                    LXA(Immediate());
-                    break;
-
-                case 0x87: // SAX Zero Page
-                    SAX(ZeroPage());
-                    break;
-                case 0x97: // SAX Zero Page, Y
-                    SAX(ZeroPageY());
-                    break;
-                case 0x8F: // SAX Absolute
-                    SAX(Absolute());
-                    break;
-                case 0x83: // SAX (Zero Page, X)
-                    SAX(IndirectX());
-                    break;
-
-                case 0x9F: // SHA Absolute, Y
-                    SHA(AbsoluteY());
-                    break;
-                case 0x93: // SHA Indirect, Y
-                    SHA(IndirectY());
-                    break;
-
-                case 0x9E: // SHX Absolute, Y
-                    SHX(AbsoluteY());
-                    break;
-
-                case 0x9C: // SHY Absolute, X
-                    SHY(AbsoluteX());
-                    break;
-
-                case 0x9B: // TAS Absolute, Y
-                    TAS(AbsoluteY());
-                    break;
-
-                case 0xC7: // DCP Zero Page
-                    DCP(ZeroPage());
-                    break;
-                case 0xD7: // DCP Zero Page, X
-                    DCP(ZeroPageX());
-                    break;
-                case 0xCF: // DCP Absolute
-                    DCP(Absolute());
-                    break;
-                case 0xDF: // DCP Absolute, X
-                    DCP(AbsoluteX());
-                    break;
-                case 0xDB: // DCP Absolute, Y
-                    DCP(AbsoluteY());
-                    break;
-                case 0xC3: // DCP Indirect, X
-                    DCP(IndirectX());
-                    break;
-                case 0xD3: // DCP Indirect, Y
-                    DCP(IndirectY());
-                    break;
-
-                case 0xE7: // ISC Zero Page
-                    ISC(ZeroPage());
-                    break;
-                case 0xF7: // ISC Zero Page, X
-                    ISC(ZeroPageX());
-                    break;
-                case 0xEF: // ISC Absolute
-                    ISC(Absolute());
-                    break;
-                case 0xFF: // ISC Absolute, X
-                    ISC(AbsoluteX());
-                    break;
-                case 0xFB: // ISC Absolute, Y
-                    ISC(AbsoluteY());
-                    break;
-                case 0xE3: // ISC Indirect, X
-                    ISC(IndirectX());
-                    break;
-                case 0xF3: // ISC Indirect, Y
-                    ISC(IndirectY());
-                    break;
-
-                case 0x27: // RLA Zero Page
-                    RLA(ZeroPage());
-                    break;
-                case 0x37: // RLA Zero Page, X
-                    RLA(ZeroPageX());
-                    break;
-                case 0x2F: // RLA Absolute
-                    RLA(Absolute());
-                    break;
-                case 0x3F: // RLA Absolute, X
-                    RLA(AbsoluteX());
-                    break;
-                case 0x3B: // RLA Absolute, Y
-                    RLA(AbsoluteY());
-                    break;
-                case 0x23: // RLA (Zero Page, X)
-                    RLA(IndirectX());
-                    break;
-                case 0x33: // RLA (Zero Page), Y
-                    RLA(IndirectY());
-                    break;
-
-                case 0x67: // RRA Zero Page
-                    RRA(ZeroPage());
-                    break;
-                case 0x77: // RRA Zero Page, X
-                    RRA(ZeroPageX());
-                    break;
-                case 0x6F: // RRA Absolute
-                    RRA(Absolute());
-                    break;
-                case 0x7F: // RRA Absolute, X
-                    RRA(AbsoluteX());
-                    break;
-                case 0x7B: // RRA Absolute, Y
-                    RRA(AbsoluteY());
-                    break;
-                case 0x63: // RRA (Zero Page, X)
-                    RRA(IndirectX());
-                    break;
-                case 0x73: // RRA (Zero Page), Y
-                    RRA(IndirectY());
-                    break;
-
-                case 0x07: // SLO Zero Page
-                    SLO(ZeroPage());
-                    break;
-                case 0x17: // SLO Zero Page, X
-                    SLO(ZeroPageX());
-                    break;
-                case 0x0F: // SLO Absolute
-                    SLO(Absolute());
-                    break;
-                case 0x1F: // SLO Absolute, X
-                    SLO(AbsoluteX());
-                    break;
-                case 0x1B: // SLO Absolute, Y
-                    SLO(AbsoluteY());
-                    break;
-                case 0x03: // SLO (Indirect, X)
-                    SLO(IndirectX());
-                    break;
-                case 0x13: // SLO (Indirect), Y
-                    SLO(IndirectY());
-                    break;
-
-                case 0x47: // SRE Zero Page
-                    SRE(ZeroPage());
-                    break;
-                case 0x57: // SRE Zero Page, X
-                    SRE(ZeroPageX());
-                    break;
-                case 0x4F: // SRE Absolute
-                    SRE(Absolute());
-                    break;
-                case 0x5F: // SRE Absolute, X
-                    SRE(AbsoluteX());
-                    break;
-                case 0x5B: // SRE Absolute, Y
-                    SRE(AbsoluteY());
-                    break;
-                case 0x43: // SRE (Indirect, X)
-                    SRE(IndirectX());
-                    break;
-                case 0x53: // SRE (Indirect), Y
-                    SRE(IndirectY());
-                    break;
+                case 0x2B: ANC_Immediate(); break;
+                case 0x8B: ANE_Immediate(); break;
+                case 0x6B: ARR_Immediate(); break;
+                case 0xCB: AXS_Immediate(); break;
+                case 0xBB: LAS_AbsoluteY(); break;
+                case 0xA7: LAX_ZeroPage(); break;
+                case 0xB7: LAX_ZeroPageY(); break;
+                case 0xAF: LAX_Absolute(); break;
+                case 0xBF: LAX_AbsoluteY(); break;
+                case 0xA3: LAX_IndirectX(); break;
+                case 0xB3: LAX_IndirectY(); break;
+                case 0xAB: LXA_Immediate(); break;
+                case 0x87: SAX_ZeroPage(); break;
+                case 0x97: SAX_ZeroPageY(); break;
+                case 0x8F: SAX_Absolute(); break;
+                case 0x83: SAX_IndirectX(); break;
+                case 0x9F: SHA_AbsoluteY(); break;
+                case 0x93: SHA_IndirectY(); break;
+                case 0x9E: SHX_AbsoluteY(); break;
+                case 0x9C: SHY_AbsoluteX(); break;
+                case 0x9B: TAS_AbsoluteY(); break;
+                case 0xC7: DCP_ZeroPage(); break;
+                case 0xD7: DCP_ZeroPageX(); break;
+                case 0xCF: DCP_Absolute(); break;
+                case 0xDF: DCP_AbsoluteX(); break;
+                case 0xDB: DCP_AbsoluteY(); break;
+                case 0xC3: DCP_IndirectX(); break;
+                case 0xD3: DCP_IndirectY(); break;
+                case 0xE7: ISC_ZeroPage(); break;
+                case 0xF7: ISC_ZeroPageX(); break;
+                case 0xEF: ISC_Absolute(); break;
+                case 0xFF: ISC_AbsoluteX(); break;
+                case 0xFB: ISC_AbsoluteY(); break;
+                case 0xE3: ISC_IndirectX(); break;
+                case 0xF3: ISC_IndirectY(); break;
+                case 0x27: RLA_ZeroPage(); break;
+                case 0x37: RLA_ZeroPageX(); break;
+                case 0x2F: RLA_Absolute(); break;
+                case 0x3F: RLA_AbsoluteX(); break;
+                case 0x3B: RLA_AbsoluteY(); break;
+                case 0x23: RLA_IndirectX(); break;
+                case 0x33: RLA_IndirectY(); break;
+                case 0x67: RRA_ZeroPage(); break;
+                case 0x77: RRA_ZeroPageX(); break;
+                case 0x6F: RRA_Absolute(); break;
+                case 0x7F: RRA_AbsoluteX(); break;
+                case 0x7B: RRA_AbsoluteY(); break;
+                case 0x63: RRA_IndirectX(); break;
+                case 0x73: RRA_IndirectY(); break;
+                case 0x07: SLO_ZeroPage(); break;
+                case 0x17: SLO_ZeroPageX(); break;
+                case 0x0F: SLO_Absolute(); break;
+                case 0x1F: SLO_AbsoluteX(); break;
+                case 0x1B: SLO_AbsoluteY(); break;
+                case 0x03: SLO_IndirectX(); break;
+                case 0x13: SLO_IndirectY(); break;
+                case 0x47: SRE_ZeroPage(); break;
+                case 0x57: SRE_ZeroPageX(); break;
+                case 0x4F: SRE_Absolute(); break;
+                case 0x5F: SRE_AbsoluteX(); break;
+                case 0x5B: SRE_AbsoluteY(); break;
+                case 0x43: SRE_IndirectX(); break;
+                case 0x53: SRE_IndirectY(); break;
 
                 default:
                     throw new NotImplementedException($"Opcode {opcode:X2} is not implemented.");
@@ -898,51 +468,105 @@
 
         private void TAX()
         {
+            remainingCycles = 2;
+            pendingOperation = TAX_;
+        }
+
+        private void TAX_()
+        {
             X = A;
             UpdateZeroAndNegativeFlags(X);
         }
 
         private void TXA()
         {
+            remainingCycles = 2;
+            pendingOperation = TXA_;
+        }
+
+        private void TXA_()
+        {
             A = X;
-            UpdateZeroAndNegativeFlags(X);
+            UpdateZeroAndNegativeFlags(A);
         }
 
         private void TAY()
         {
+            remainingCycles = 2;
+            pendingOperation = TAY_;
+        }
+
+        private void TAY_()
+        {
             Y = A;
-            UpdateZeroAndNegativeFlags(X);
+            UpdateZeroAndNegativeFlags(Y);
         }
 
         private void TYA()
         {
+            remainingCycles = 2;
+            pendingOperation = TYA_;
+        }
+
+        private void TYA_()
+        {
             A = Y;
-            UpdateZeroAndNegativeFlags(X);
+            UpdateZeroAndNegativeFlags(A);
         }
 
         private void TSX()
         {
-            X = SP;
+            remainingCycles = 2;
+            pendingOperation = TSX_;
+        }
+
+        private void TSX_()
+        {
+            X = S;
             UpdateZeroAndNegativeFlags(X);
         }
 
         private void TXS()
         {
-            SP = X;
+            remainingCycles = 2;
+            pendingOperation = TXS_;
+        }
+
+        private void TXS_()
+        {
+            S = X;
         }
 
         private void PLA()
         {
+            remainingCycles = 4;
+            pendingOperation = PLA_;
+        }
+
+        private void PLA_()
+        {
             A = PopStack();
-            UpdateZeroAndNegativeFlags(X);
+            UpdateZeroAndNegativeFlags(A);
         }
 
         private void PHA()
+        {
+            remainingCycles = 3;
+            pendingOperation = PHA_;
+        }
+
+        private void PHA_()
         {
             PushStack(A);
         }
 
         private void PLP()
+        {
+            remainingCycles = 4;
+            pendingOperation = PLP_;
+        }
+
+        private void PLP_()
         {
             byte flags = PopStack();
             P = (byte)((P & 0x60) | (flags & 0xCF)); // Preserve bit 4 (B flag) and bit 5 (unused flag) and update the rest with the stack value
@@ -950,65 +574,303 @@
 
         private void PHP()
         {
+            remainingCycles = 3;
+            pendingOperation = PHP_;
+        }
+
+        private void PHP_()
+        {
             PushStack((byte)(P | 0x30)); // Push bit 4 (B flag) and bit 5 (unused flag) set to 1 onto the stack
         }
 
-        // Arithmetic and Logical Operations
-        private void LDA(byte value)
+        // Load and Store Operations
+        private void LDA_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => LDA_(Immediate());
+        }
+
+        private void LDA_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => LDA_(ZeroPage());
+        }
+
+        private void LDA_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => LDA_(ZeroPageX());
+        }
+
+        private void LDA_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => LDA_(Absolute());
+        }
+
+        private void LDA_AbsoluteX()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => LDA_(AbsoluteX());
+        }
+
+        private void LDA_AbsoluteY()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => LDA_(AbsoluteY());
+        }
+
+        private void LDA_IndirectX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => LDA_(IndirectX());
+        }
+
+        private void LDA_IndirectY()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => LDA_(IndirectY());
+        }
+
+        private void LDA_(byte value)
         {
             A = value;
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void LDA(ushort address)
+        private void LDA_(ushort address)
         {
-            byte value = ReadMemory(address);
-            A = value;
+            A = ReadMemory(address);
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void LDX(byte value)
+        private void LDX_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => LDX_(Immediate());
+        }
+
+        private void LDX_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => LDX_(ZeroPage());
+        }
+
+        private void LDX_ZeroPageY()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => LDX_(ZeroPageY());
+        }
+
+        private void LDX_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => LDX_(Absolute());
+        }
+
+        private void LDX_AbsoluteY()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => LDX_(AbsoluteY());
+        }
+
+        private void LDX_(byte value)
         {
             X = value;
             UpdateZeroAndNegativeFlags(X);
         }
 
-        private void LDX(ushort address)
+        private void LDX_(ushort address)
         {
-            byte value = ReadMemory(address);
-            X = value;
+            X = ReadMemory(address);
             UpdateZeroAndNegativeFlags(X);
         }
 
-        private void LDY(byte value)
+        private void LDY_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => LDY_(Immediate());
+        }
+
+        private void LDY_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => LDY_(ZeroPage());
+        }
+
+        private void LDY_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => LDY_(ZeroPageX());
+        }
+
+        private void LDY_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => LDY_(Absolute());
+        }
+
+        private void LDY_AbsoluteX()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => LDY_(AbsoluteX());
+        }
+
+        private void LDY_(byte value)
         {
             Y = value;
             UpdateZeroAndNegativeFlags(Y);
         }
 
-        private void LDY(ushort address)
+        private void LDY_(ushort address)
         {
-            byte value = ReadMemory(address);
-            Y = value;
+            Y = ReadMemory(address);
             UpdateZeroAndNegativeFlags(Y);
         }
 
-        private void STA(ushort address)
+        private void STA_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => STA_(ZeroPage());
+        }
+
+        private void STA_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => STA_(ZeroPageX());
+        }
+
+        private void STA_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => STA_(Absolute());
+        }
+
+        private void STA_AbsoluteX()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => STA_(AbsoluteX());
+        }
+
+        private void STA_AbsoluteY()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => STA_(AbsoluteY());
+        }
+
+        private void STA_IndirectX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => STA_(IndirectX());
+        }
+
+        private void STA_IndirectY()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => STA_(IndirectY());
+        }
+
+        private void STA_(ushort address)
         {
             WriteMemory(address, A);
         }
 
-        private void STX(ushort address)
+        private void STX_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => STX_(ZeroPage());
+        }
+
+        private void STX_ZeroPageY()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => STX_(ZeroPageY());
+        }
+
+        private void STX_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => STX_(Absolute());
+        }
+
+        private void STX_(ushort address)
         {
             WriteMemory(address, X);
         }
 
-        private void STY(ushort address)
+        private void STY_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => STY_(ZeroPage());
+        }
+
+        private void STY_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => STY_(ZeroPageX());
+        }
+
+        private void STY_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => STY_(Absolute());
+        }
+
+        private void STY_(ushort address)
         {
             WriteMemory(address, Y);
         }
 
-        private void ADC(byte value)
+        // Arithmetic and Logical Operations
+        private void ADC_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => ADC_(Immediate());
+        }
+
+        private void ADC_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => ADC_(ZeroPage());
+        }
+
+        private void ADC_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => ADC_(ZeroPageX());
+        }
+
+        private void ADC_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => ADC_(Absolute());
+        }
+
+        private void ADC_AbsoluteX()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => ADC_(AbsoluteX());
+        }
+
+        private void ADC_AbsoluteY()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => ADC_(AbsoluteY());
+        }
+
+        private void ADC_IndirectX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => ADC_(IndirectX());
+        }
+
+        private void ADC_IndirectY()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => ADC_(IndirectY());
+        }
+
+        private void ADC_(byte value)
         {
             int sum = A + value + (C ? 1 : 0);
             C = sum > 0xFF;  // Update carry flag based on carry-out from bit 7
@@ -1017,13 +879,61 @@
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void ADC(ushort address)
+        private void ADC_(ushort address)
         {
             byte value = ReadMemory(address);
-            ADC(value);
+            ADC_(value);
         }
 
-        private void SBC(byte value)
+        private void SBC_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => SBC_(Immediate());
+        }
+
+        private void SBC_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => SBC_(ZeroPage());
+        }
+
+        private void SBC_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => SBC_(ZeroPageX());
+        }
+
+        private void SBC_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => SBC_(Absolute());
+        }
+
+        private void SBC_AbsoluteX()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => SBC_(AbsoluteX());
+        }
+
+        private void SBC_AbsoluteY()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => SBC_(AbsoluteY());
+        }
+
+        private void SBC_IndirectX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => SBC_(IndirectX());
+        }
+
+        private void SBC_IndirectY()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => SBC_(IndirectY());
+        }
+
+        private void SBC_(byte value)
         {
             int difference = A - value - (C ? 0 : 1);
             C = difference >= 0;
@@ -1032,50 +942,206 @@
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void SBC(ushort address)
+        private void SBC_(ushort address)
         {
             byte value = ReadMemory(address);
-            SBC(value);
+            SBC_(value);
         }
 
-        private void AND(byte value)
+        private void AND_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => AND_(Immediate());
+        }
+
+        private void AND_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => AND_(ZeroPage());
+        }
+
+        private void AND_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => AND_(ZeroPageX());
+        }
+
+        private void AND_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => AND_(Absolute());
+        }
+
+        private void AND_AbsoluteX()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => AND_(AbsoluteX());
+        }
+
+        private void AND_AbsoluteY()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => AND_(AbsoluteY());
+        }
+
+        private void AND_IndirectX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => AND_(IndirectX());
+        }
+
+        private void AND_IndirectY()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => AND_(IndirectY());
+        }
+
+        private void AND_(byte value)
         {
             A &= value;
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void AND(ushort address)
+        private void AND_(ushort address)
         {
             byte value = ReadMemory(address);
-            AND(value);
+            AND_(value);
         }
 
-        private void EOR(byte value)
+        private void ORA_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => ORA_(Immediate());
+        }
+
+        private void ORA_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => ORA_(ZeroPage());
+        }
+
+        private void ORA_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => ORA_(ZeroPageX());
+        }
+
+        private void ORA_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => ORA_(Absolute());
+        }
+
+        private void ORA_AbsoluteX()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => ORA_(AbsoluteX());
+        }
+
+        private void ORA_AbsoluteY()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => ORA_(AbsoluteY());
+        }
+
+        private void ORA_IndirectX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => ORA_(IndirectX());
+        }
+
+        private void ORA_IndirectY()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => ORA_(IndirectY());
+        }
+
+        private void ORA_(byte value)
+        {
+            A |= value;
+            UpdateZeroAndNegativeFlags(A);
+        }
+
+        private void ORA_(ushort address)
+        {
+            byte value = ReadMemory(address);
+            A |= value;
+            UpdateZeroAndNegativeFlags(A);
+        }
+
+        private void EOR_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => EOR_(Immediate());
+        }
+
+        private void EOR_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => EOR_(ZeroPage());
+        }
+
+        private void EOR_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => EOR_(ZeroPageX());
+        }
+
+        private void EOR_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => EOR_(Absolute());
+        }
+
+        private void EOR_AbsoluteX()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => EOR_(AbsoluteX());
+        }
+
+        private void EOR_AbsoluteY()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => EOR_(AbsoluteY());
+        }
+
+        private void EOR_IndirectX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => EOR_(IndirectX());
+        }
+
+        private void EOR_IndirectY()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => EOR_(IndirectY());
+        }
+
+        private void EOR_(byte value)
         {
             A ^= value;
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void EOR(ushort address)
+        private void EOR_(ushort address)
         {
             byte value = ReadMemory(address);
-            EOR(value);
+            EOR_(value);
         }
 
-        private void ORA(byte value)
+        private void BIT_ZeroPage()
         {
-            A |= value;
-            UpdateZeroAndNegativeFlags(A);
+            remainingCycles = 3;
+            pendingOperation = () => BIT_(ZeroPage());
         }
 
-        private void ORA(ushort address)
+        private void BIT_Absolute()
         {
-            byte value = ReadMemory(address);
-            A |= value;
-            UpdateZeroAndNegativeFlags(A);
+            remainingCycles = 4;
+            pendingOperation = () => BIT_(Absolute());
         }
 
-        private void BIT(byte value)
+        private void BIT_(byte value)
         {
             byte result = (byte)(A & value);
             N = (value & 0x80) != 0;
@@ -1083,14 +1149,38 @@
             Z = result == 0;
         }
 
-        private void BIT(ushort address)
+        private void BIT_(ushort address)
         {
             byte value = ReadMemory(address);
-            BIT(value);
+            BIT_(value);
         }
 
         // Increment and Decrement Operations
-        private void INC(ushort address)
+        private void INC_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => INC_(ZeroPage());
+        }
+
+        private void INC_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => INC_(Absolute());
+        }
+
+        private void INC_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => INC_(ZeroPageX());
+        }
+
+        private void INC_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => INC_(AbsoluteX());
+        }
+
+        private void INC_(ushort address)
         {
             byte value = ReadMemory(address);
             value++;
@@ -1098,7 +1188,31 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        private void DEC(ushort address)
+        private void DEC_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => DEC_(ZeroPage());
+        }
+
+        private void DEC_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => DEC_(ZeroPageX());
+        }
+
+        private void DEC_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => DEC_(Absolute());
+        }
+
+        private void DEC_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => DEC_(AbsoluteX());
+        }
+
+        private void DEC_(ushort address)
         {
             byte value = ReadMemory(address);
             value--;
@@ -1108,11 +1222,23 @@
 
         private void INX()
         {
+            remainingCycles = 2;
+            pendingOperation = INX_;
+        }
+
+        private void INX_()
+        {
             X++;
             UpdateZeroAndNegativeFlags(X);
         }
 
         private void INY()
+        {
+            remainingCycles = 2;
+            pendingOperation = INY_;
+        }
+
+        private void INY_()
         {
             Y++;
             UpdateZeroAndNegativeFlags(Y);
@@ -1120,11 +1246,23 @@
 
         private void DEX()
         {
+            remainingCycles = 2;
+            pendingOperation = DEX_;
+        }
+
+        private void DEX_()
+        {
             X--;
             UpdateZeroAndNegativeFlags(X);
         }
 
         private void DEY()
+        {
+            remainingCycles = 2;
+            pendingOperation = DEY_;
+        }
+
+        private void DEY_()
         {
             Y--;
             UpdateZeroAndNegativeFlags(Y);
@@ -1133,12 +1271,35 @@
         // Shift Operations
         private void ASL()
         {
-            C = (A & 0x80) != 0;
-            A <<= 1;
-            UpdateZeroAndNegativeFlags(A);
+            remainingCycles = 2;
+            pendingOperation = ASL_;
         }
 
-        private void ASL(ushort address)
+        private void ASL_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => ASL_(ZeroPage());
+        }
+
+        private void ASL_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => ASL_(ZeroPageX());
+        }
+
+        private void ASL_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => ASL_(Absolute());
+        }
+
+        private void ASL_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => ASL_(AbsoluteX());
+        }
+
+        private void ASL_(ushort address)
         {
             byte value = ReadMemory(address);
             C = (value & 0x80) != 0;
@@ -1147,14 +1308,45 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        private void LSR()
+        private void ASL_()
         {
-            C = (A & 0x01) != 0;
-            A >>= 1;
+            C = (A & 0x80) != 0;
+            A <<= 1;
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void LSR(ushort address)
+
+        private void LSR()
+        {
+            remainingCycles = 2;
+            pendingOperation = LSR_;
+        }
+
+        private void LSR_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => LSR_(ZeroPage());
+        }
+
+        private void LSR_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => LSR_(ZeroPageX());
+        }
+
+        private void LSR_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => LSR_(Absolute());
+        }
+
+        private void LSR_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => LSR_(AbsoluteX());
+        }
+
+        private void LSR_(ushort address)
         {
             byte value = ReadMemory(address);
             C = (value & 0x01) != 0;
@@ -1163,17 +1355,44 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        private void ROL()
+        private void LSR_()
         {
-            bool newC = (A & 0x80) != 0;
-            A <<= 1;
-            if (C)
-                A |= 0x01;
-            C = newC;
+            C = (A & 0x01) != 0;
+            A >>= 1;
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void ROL(ushort address)
+        private void ROL()
+        {
+            remainingCycles = 2;
+            pendingOperation = ROL_;
+        }
+
+        private void ROL_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => ROL_(ZeroPage());
+        }
+
+        private void ROL_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => ROL_(ZeroPageX());
+        }
+
+        private void ROL_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => ROL_(Absolute());
+        }
+
+        private void ROL_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => ROL_(AbsoluteX());
+        }
+
+        private void ROL_(ushort address)
         {
             byte value = ReadMemory(address);
             bool newC = (value & 0x80) != 0;
@@ -1185,17 +1404,48 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        private void ROR()
+        private void ROL_()
         {
-            bool newC = (A & 0x01) != 0;
-            A >>= 1;
+            bool newC = (A & 0x80) != 0;
+            A <<= 1;
             if (C)
-                A |= 0x80;
+                A |= 0x01;
             C = newC;
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void ROR(ushort address)
+
+        private void ROR()
+        {
+            remainingCycles = 2;
+            pendingOperation = ROR_;
+        }
+
+        private void ROR_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => ROR_(ZeroPage());
+        }
+
+        private void ROR_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => ROR_(ZeroPageX());
+        }
+
+        private void ROR_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => ROR_(Absolute());
+        }
+
+        private void ROR_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => ROR_(AbsoluteX());
+        }
+
+        private void ROR_(ushort address)
         {
             byte value = ReadMemory(address);
             bool newC = (value & 0x01) != 0;
@@ -1207,108 +1457,267 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        // Branching Operations
-        private void BPL(sbyte offset)
+        private void ROR_()
         {
-            if (!N)
-                PC += (ushort)offset;
-        }
-
-        private void BMI(sbyte offset)
-        {
-            if (N)
-                PC += (ushort)offset;
-        }
-
-        private void BCC(sbyte offset)
-        {
-            if (!C)
-                PC += (ushort)offset;
-        }
-
-        private void BCS(sbyte offset)
-        {
+            bool newC = (A & 0x01) != 0;
+            A >>= 1;
             if (C)
-                PC += (ushort)offset;
+                A |= 0x80;
+            C = newC;
+            UpdateZeroAndNegativeFlags(A);
         }
 
-        private void BNE(sbyte offset)
+        // Compare Operations
+        private void CMP_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => CMP_(Immediate());
+        }
+
+        private void CMP_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => CMP_(ZeroPage());
+        }
+
+        private void CMP_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => CMP_(ZeroPageX());
+        }
+
+        private void CMP_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => CMP_(Absolute());
+        }
+
+        private void CMP_AbsoluteX()
+        {
+            remainingCycles = 4; //+1 if page boundary is crossed
+            pendingOperation = () => CMP_(AbsoluteX());
+        }
+
+        private void CMP_AbsoluteY()
+        {
+            remainingCycles = 4; //+1 if page boundary is crossed
+            pendingOperation = () => CMP_(AbsoluteY());
+        }
+
+        private void CMP_IndirectX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => CMP_(IndirectX());
+        }
+
+        private void CMP_IndirectY()
+        {
+            remainingCycles = 5; //+1 if page boundary is crossed
+            pendingOperation = () => CMP_(IndirectY());
+        }
+
+        private void CMP_(byte value)
+        {
+            ushort result = (byte)(A - value);
+            UpdateZeroAndNegativeFlags((byte)result);
+            C = A >= value;
+        }
+
+        private void CMP_(ushort address)
+        {
+            byte value = ReadMemory(address);
+            ushort result = (byte)(A - value);
+            UpdateZeroAndNegativeFlags((byte)result);
+            C = A >= value;
+        }
+
+        private void CPX_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => CPX_(Immediate());
+        }
+
+        private void CPX_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => CPX_(ZeroPage());
+        }
+
+        private void CPX_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => CPX_(Absolute());
+        }
+
+        private void CPX_(byte value)
+        {
+            ushort result = (byte)(X - value);
+            UpdateZeroAndNegativeFlags((byte)result);
+            C = X >= value;
+        }
+
+        private void CPX_(ushort address)
+        {
+            byte value = ReadMemory(address);
+            ushort result = (byte)(X - value);
+            UpdateZeroAndNegativeFlags((byte)result);
+            C = X >= value;
+        }
+
+        private void CPY_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => CPY_(Immediate());
+        }
+
+        private void CPY_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => CPY_(ZeroPage());
+        }
+
+        private void CPY_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => CPY_(Absolute());
+        }
+
+        private void CPY_(byte value)
+        {
+            ushort result = (ushort)(Y - value);
+            UpdateZeroAndNegativeFlags((byte)result);
+            C = Y >= value;
+        }
+
+        private void CPY_(ushort address)
+        {
+            byte value = ReadMemory(address);
+            ushort result = (ushort)(Y - value);
+            UpdateZeroAndNegativeFlags((byte)result);
+            C = Y >= value;
+        }
+
+        private void BNE_Relative()
+        {
+            remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            pendingOperation = () => BNE_(Relative());
+        }
+
+        private void BNE_(sbyte offset)
         {
             if (!Z)
                 PC += (ushort)offset;
         }
 
-        private void BEQ(sbyte offset)
+        private void BEQ_Relative()
+        {
+            remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            pendingOperation = () => BEQ_(Relative());
+        }
+        private void BEQ_(sbyte offset)
         {
             if (Z)
                 PC += (ushort)offset;
         }
 
-        private void BVC(sbyte offset)
+        // Branching Operations
+        private void BPL_Relative()
+        {
+            remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            pendingOperation = () => BPL_(Relative());
+        }
+
+        private void BPL_(sbyte offset)
+        {
+            if (!N)
+                PC += (ushort)offset;
+        }
+
+        private void BMI_Relative()
+        {
+            remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            pendingOperation = () => BMI_(Relative());
+        }
+
+        private void BMI_(sbyte offset)
+        {
+            if (N)
+                PC += (ushort)offset;
+        }
+
+        private void BCC_Relative()
+        {
+            remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            pendingOperation = () => BCC_(Relative());
+        }
+
+        private void BCC_(sbyte offset)
+        {
+            if (!C)
+                PC += (ushort)offset;
+        }
+
+        private void BCS_Relative()
+        {
+            remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            pendingOperation = () => BCS_(Relative());
+        }
+
+        private void BCS_(sbyte offset)
+        {
+            if (C)
+                PC += (ushort)offset;
+        }
+
+        private void BVC_Relative()
+        {
+            remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            pendingOperation = () => BVC_(Relative());
+        }
+
+        private void BVC_(sbyte offset)
         {
             if (!V)
                 PC += (ushort)offset;
         }
 
-        private void BVS(sbyte offset)
+        private void BVS_Relative()
+        {
+            remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
+            pendingOperation = () => BVS_(Relative());
+        }
+
+        private void BVS_(sbyte offset)
         {
             if (!V)
                 PC += (ushort)offset;
         }
 
-        // Compare Operations
-        private void CMP(byte value)
+        // Jump and Call Operations
+        private void JMP_Absolute()
         {
-            ushort result = (byte)(A - value);
-            UpdateZeroAndNegativeFlags((byte)result);
-            C = A >= value;
+            remainingCycles = 3;
+            pendingOperation = () => JMP_(Absolute());
         }
 
-        private void CMP(ushort address)
+        private void JMP_Indirect()
         {
-            byte value = ReadMemory(address);
-            ushort result = (byte)(A - value);
-            UpdateZeroAndNegativeFlags((byte)result);
-            C = A >= value;
+            remainingCycles = 5;
+            pendingOperation = () => JMP_(Indirect());
         }
 
-        private void CPX(byte value)
-        {
-            ushort result = (byte)(X - value);
-            UpdateZeroAndNegativeFlags((byte)result);
-            C = X >= value;
-        }
-
-        private void CPX(ushort address)
-        {
-            byte value = ReadMemory(address);
-            ushort result = (byte)(X - value);
-            UpdateZeroAndNegativeFlags((byte)result);
-            C = X >= value;
-        }
-
-        private void CPY(byte value)
-        {
-            ushort result = (ushort)(Y - value);
-            UpdateZeroAndNegativeFlags((byte)result);
-            C = Y >= value;
-        }
-
-        private void CPY(ushort address)
-        {
-            byte value = ReadMemory(address);
-            ushort result = (ushort)(Y - value);
-            UpdateZeroAndNegativeFlags((byte)result);
-            C = Y >= value;
-        }
-
-        // Jump/Call Operations
-        private void JMP(ushort address)
+        private void JMP_(ushort address)
         {
             PC = address;
         }
 
-        private void JSR(ushort address)
+        private void JSR_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => JSR_(Absolute());
+        }
+
+        private void JSR_(ushort address)
         {
             PushStack((byte)((PC - 1) >> 8));
             PushStack((byte)(PC - 1));
@@ -1317,11 +1726,23 @@
 
         private void RTS()
         {
+            remainingCycles = 6;
+            pendingOperation = RTS_;
+        }
+
+        private void RTS_()
+        {
             PC = (ushort)(PopStack() | (PopStack() << 8));
             PC++;
         }
 
         private void RTI()
+        {
+            remainingCycles = 6;
+            pendingOperation = RTI_;
+        }
+
+        private void RTI_()
         {
             byte flags = PopStack();
             P = (byte)((P & 0x60) | (flags & 0xCF)); // Preserve bit 4 (B flag) and bit 5 (unused flag) and update the rest with the stack value
@@ -1331,40 +1752,89 @@
         // Status Flag Operations
         private void CLC()
         {
+            remainingCycles = 2;
+            pendingOperation = CLC_;
+        }
+
+        private void CLC_()
+        {
             C = false;
         }
 
         private void SEC()
+        {
+            remainingCycles = 2;
+            pendingOperation = SEC_;
+        }
+
+        private void SEC_()
         {
             C = true;
         }
 
         private void CLI()
         {
+            remainingCycles = 2;
+            pendingOperation = CLI_;
+        }
+
+        private void CLI_()
+        {
             I = false;
         }
 
         private void SEI()
+        {
+            remainingCycles = 2;
+            pendingOperation = SEI_;
+        }
+
+        private void SEI_()
         {
             I = true;
         }
 
         private void CLD()
         {
+            remainingCycles = 2;
+            pendingOperation = CLD_;
+        }
+
+        private void CLD_()
+        {
             D = false;
         }
 
         private void SED()
+        {
+            remainingCycles = 2;
+            pendingOperation = SED_;
+        }
+
+        private void SED_()
         {
             D = true;
         }
 
         private void CLV()
         {
+            remainingCycles = 2;
+            pendingOperation = CLV_;
+        }
+
+        private void CLV_()
+        {
             V = false;
         }
 
+        // System Functions
         private void BRK()
+        {
+            remainingCycles = 7;
+            pendingOperation = BRK_;
+        }
+
+        private void BRK_()
         {
             PC++; // Increment PC to point to the next instruction
             PushStack((byte)(PC >> 8)); // Push high byte of PC onto the stack
@@ -1374,55 +1844,134 @@
             PC = (ushort)(ReadMemory(0xFFFE) | (ReadMemory(0xFFFF) << 8)); // Set PC to the interrupt vector address
         }
 
-        private static void NOP()
+        private void NOP()
         {
-            // Do nothing
+            remainingCycles = 2;
+            pendingOperation = NOP_;
         }
 
-        private void NOPNOP()
+        private void NOP_()
         {
-            SP++; // Skip byte
         }
 
-        private void NOPNOPNOP()
+        private void NOP_Immediate()
         {
-            SP += 2; // Skip 2 bytes
+            remainingCycles = 2;
+            pendingOperation = NOP_Immediate_;
         }
 
-        private static void STP()
+        private void NOP_Immediate_()
+        {
+            _ = Immediate();
+        }
+
+        private void NOP_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = NOP_ZeroPage_;
+        }
+
+        private void NOP_ZeroPage_()
+        {
+            _ = ZeroPage();
+        }
+
+        private void NOP_ZeroPageX()
+        {
+            remainingCycles = 4;
+            pendingOperation = NOP_ZeroPageX_;
+        }
+
+        private void NOP_ZeroPageX_()
+        {
+            _ = ZeroPageX();
+        }
+
+        private void NOP_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = NOP_Absolute_;
+        }
+
+        private void NOP_Absolute_()
+        {
+            _ = Absolute();
+        }
+
+        private void NOP_AbsoluteX()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = NOP_AbsoluteX_;
+        }
+
+        private void NOP_AbsoluteX_()
+        {
+            _ = AbsoluteX();
+        }
+
+        private void STP()
         {
             throw new InvalidOperationException("STP Instruction encountered.");
         }
 
-        private void ALR(byte operand)
+        private void ALR_Immediate()
         {
-            AND(operand);
-            LSR();
+            remainingCycles = 2;
+            pendingOperation = () => ALR_(Immediate());
+        }
+        private void ALR_(byte operand)
+        {
+            AND_(operand);
+            LSR_();
         }
 
-        private void ANC(byte operand)
+        private void ANC_Immediate()
         {
-            AND(operand);
+            remainingCycles = 2;
+            pendingOperation = () => ANC_(Immediate());
+        }
+
+        private void ANC_(byte operand)
+        {
+            AND_(operand);
             UpdateZeroAndNegativeFlags(A);
             C = (A & 0x80) != 0; // Set the carry flag based on the value of the 7th bit of A
         }
 
-        private void ANE(byte operand)
+        private void ANE_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => ANE_(Immediate());
+        }
+
+        private void ANE_(byte operand)
         {
             A = (byte)(A & X & operand);
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void ARR(byte operand)
+        private void ARR_Immediate()
         {
-            AND(operand);
-            ROR();
+            remainingCycles = 2;
+            pendingOperation = () => ARR_(Immediate());
+        }
+
+        private void ARR_(byte operand)
+        {
+            AND_(operand);
+            ROR_();
             UpdateZeroAndNegativeFlags(A);
             C = (A & 0x40) != 0; // Set bit 6 of A as the carry flag
             V = ((A & 0x40) ^ ((A & 0x20) << 1)) != 0; // Set bit 6 xor bit 5 of A as the overflow flag
         }
 
-        private void AXS(byte operand)
+        private void AXS_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => AXS_(Immediate());
+        }
+
+        private void AXS_(byte operand)
         {
             int result = (A & X) - operand;
             X = (byte)(result & 0xFF);
@@ -1430,23 +1979,71 @@
             C = result >= 0; // Set the carry flag based on the result without borrow
         }
 
-        private void LAS(ushort address)
+        private void LAS_AbsoluteY()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => LAS_(AbsoluteY());
+        }
+
+        private void LAS_(ushort address)
         {
             byte value = ReadMemory(address);
-            byte result = (byte)(value & SP);
+            byte result = (byte)(value & S);
             A = result;
             X = result;
-            SP = result;
+            S = result;
             UpdateZeroAndNegativeFlags(result);
         }
 
-        private void LAX(ushort address)
+        private void LAX_ZeroPage()
         {
-            LDA(address);
+            remainingCycles = 3;
+            pendingOperation = () => LAX_(ZeroPage());
+        }
+
+        private void LAX_ZeroPageY()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => LAX_(ZeroPageY());
+        }
+
+        private void LAX_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => LAX_(Absolute());
+        }
+
+        private void LAX_AbsoluteY()
+        {
+            remainingCycles = 4; // +1 if page boundary is crossed
+            pendingOperation = () => LAX_(AbsoluteY());
+        }
+
+        private void LAX_IndirectX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => LAX_(IndirectX());
+        }
+
+        private void LAX_IndirectY()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => LAX_(IndirectY());
+        }
+
+        private void LAX_(ushort address)
+        {
+            LDA_(address);
             TAX();
         }
 
-        private void LXA(byte operand)
+        private void LXA_Immediate()
+        {
+            remainingCycles = 2;
+            pendingOperation = () => LXA_(Immediate());
+        }
+
+        private void LXA_(byte operand)
         {
             byte result = (byte)(A & operand);
             A = result;
@@ -1454,89 +2051,405 @@
             UpdateZeroAndNegativeFlags(result);
         }
 
-        private void SAX(ushort address)
+        private void SAX_ZeroPage()
+        {
+            remainingCycles = 3;
+            pendingOperation = () => SAX_(ZeroPage());
+        }
+
+        private void SAX_ZeroPageY()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => SAX_(ZeroPageY());
+        }
+
+        private void SAX_Absolute()
+        {
+            remainingCycles = 4;
+            pendingOperation = () => SAX_(Absolute());
+        }
+
+        private void SAX_IndirectX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => SAX_(IndirectX());
+        }
+
+        private void SAX_(ushort address)
         {
             byte result = (byte)(A & X);
             WriteMemory(address, result);
         }
 
-        private void SHA(ushort address)
+        private void SHA_AbsoluteY()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => SHA_(AbsoluteY());
+        }
+
+        private void SHA_IndirectY()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => SHA_(IndirectY());
+        }
+
+        private void SHA_(ushort address)
         {
             byte result = (byte)(A & X & ((address >> 8) + 1));
             WriteMemory(address, result);
         }
 
-        private void SHX(ushort address)
+        private void SHX_AbsoluteY()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => SHX_(AbsoluteY());
+        }
+
+
+        private void SHX_(ushort address)
         {
             byte result = (byte)(X & ((address >> 8) + 1));
             WriteMemory(address, result);
         }
 
-        private void SHY(ushort address)
+        private void SHY_AbsoluteX()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => SHY_(AbsoluteX());
+        }
+
+        private void SHY_(ushort address)
         {
             byte result = (byte)(Y & ((address >> 8) + 1));
             WriteMemory(address, result);
         }
 
-        private void TAS(ushort address)
+        private void TAS_AbsoluteY()
+        {
+            remainingCycles = 5; // +1 if page boundary is crossed
+            pendingOperation = () => TAS_(AbsoluteY());
+        }
+
+        private void TAS_(ushort address)
         {
             byte result = (byte)(A & X);
-            SP = result;
+            S = result;
             result &= (byte)((address >> 8) + 1);
             WriteMemory(address, result);
         }
 
-        private void DCP(ushort address)
+        private void DCP_ZeroPage()
         {
-            DEC(address);
-            CMP(address);
+            remainingCycles = 5;
+            pendingOperation = () => DCP_(ZeroPage());
         }
 
-        private void ISC(ushort address)
+        private void DCP_ZeroPageX()
         {
-            INC(address);
-            SBC(address);
+            remainingCycles = 6;
+            pendingOperation = () => DCP_(ZeroPageX());
         }
 
-        private void RLA(ushort address)
+        private void DCP_Absolute()
         {
-            ROL(address);
-            AND(address);
+            remainingCycles = 6;
+            pendingOperation = () => DCP_(Absolute());
         }
 
-        private void RRA(ushort address)
+        private void DCP_AbsoluteX()
         {
-            ROR(address);
-            ADC(address);
+            remainingCycles = 7;
+            pendingOperation = () => DCP_(AbsoluteX());
         }
 
-        private void SLO(ushort address)
+        private void DCP_AbsoluteY()
         {
-            ASL(address);
-            ORA(address);
+            remainingCycles = 7;
+            pendingOperation = () => DCP_(AbsoluteY());
         }
 
-        private void SRE(ushort address)
+        private void DCP_IndirectX()
         {
-            LSR(address);
-            EOR(address);
+            remainingCycles = 8;
+            pendingOperation = () => DCP_(IndirectX());
+        }
+
+        private void DCP_IndirectY()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => DCP_(IndirectY());
+        }
+
+        private void DCP_(ushort address)
+        {
+            DEC_(address);
+            CMP_(address);
+        }
+
+        private void ISC_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => ISC_(ZeroPage());
+        }
+
+        private void ISC_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => ISC_(ZeroPageX());
+        }
+
+        private void ISC_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => ISC_(Absolute());
+        }
+
+        private void ISC_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => ISC_(AbsoluteX());
+        }
+
+        private void ISC_AbsoluteY()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => ISC_(AbsoluteY());
+        }
+
+        private void ISC_IndirectX()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => ISC_(IndirectX());
+        }
+
+        private void ISC_IndirectY()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => ISC_(IndirectY());
+        }
+
+        private void ISC_(ushort address)
+        {
+            INC_(address);
+            SBC_(address);
+        }
+
+        private void RLA_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => RLA_(ZeroPage());
+        }
+
+        private void RLA_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => RLA_(ZeroPageX());
+        }
+
+        private void RLA_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => RLA_(Absolute());
+        }
+
+        private void RLA_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => RLA_(AbsoluteX());
+        }
+
+        private void RLA_AbsoluteY()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => RLA_(AbsoluteY());
+        }
+
+        private void RLA_IndirectX()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => RLA_(IndirectX());
+        }
+
+        private void RLA_IndirectY()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => RLA_(IndirectY());
+        }
+
+        private void RLA_(ushort address)
+        {
+            ROL_(address);
+            AND_(address);
+        }
+
+        private void RRA_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => RRA_(ZeroPage());
+        }
+
+        private void RRA_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => RRA_(ZeroPageX());
+        }
+
+        private void RRA_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => RRA_(Absolute());
+        }
+
+        private void RRA_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => RRA_(AbsoluteX());
+        }
+
+        private void RRA_AbsoluteY()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => RRA_(AbsoluteY());
+        }
+
+        private void RRA_IndirectX()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => RRA_(IndirectX());
+        }
+
+        private void RRA_IndirectY()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => RRA_(IndirectY());
+        }
+
+        private void RRA_(ushort address)
+        {
+            ROR_(address);
+            ADC_(address);
+        }
+
+        private void SLO_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => SLO_(ZeroPage());
+        }
+
+        private void SLO_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => SLO_(ZeroPageX());
+        }
+
+        private void SLO_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => SLO_(Absolute());
+        }
+
+        private void SLO_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => SLO_(AbsoluteX());
+        }
+
+        private void SLO_AbsoluteY()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => SLO_(AbsoluteY());
+        }
+
+        private void SLO_IndirectX()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => SLO_(IndirectX());
+        }
+
+        private void SLO_IndirectY()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => SLO_(IndirectY());
+        }
+
+        private void SLO_(ushort address)
+        {
+            ASL_(address);
+            ORA_(address);
+        }
+
+        private void SRE_ZeroPage()
+        {
+            remainingCycles = 5;
+            pendingOperation = () => SRE_(ZeroPage());
+        }
+
+        private void SRE_ZeroPageX()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => SRE_(ZeroPageX());
+        }
+
+        private void SRE_Absolute()
+        {
+            remainingCycles = 6;
+            pendingOperation = () => SRE_(Absolute());
+        }
+
+        private void SRE_AbsoluteX()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => SRE_(AbsoluteX());
+        }
+
+        private void SRE_AbsoluteY()
+        {
+            remainingCycles = 7;
+            pendingOperation = () => SRE_(AbsoluteY());
+        }
+
+        private void SRE_IndirectX()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => SRE_(IndirectX());
+        }
+
+        private void SRE_IndirectY()
+        {
+            remainingCycles = 8;
+            pendingOperation = () => SRE_(IndirectY());
+        }
+
+        private void SRE_(ushort address)
+        {
+            LSR_(address);
+            EOR_(address);
         }
 
         // Helper functions for stack operations
         private void PushStack(byte value)
         {
-            WriteMemory((ushort)(0x0100 | SP), value);
-            SP--;
+            WriteMemory((ushort)(0x0100 | S), value);
+            S--;
         }
 
         private byte PopStack()
         {
-            SP++;
-            return ReadMemory((ushort)(0x0100 | SP));
+            S++;
+            return ReadMemory((ushort)(0x0100 | S));
         }
 
-        public void HandleNMI()
+        public void NMI()
         {
+            remainingCycles = 7;
+            pendingOperation = NMI_;
+        }
+
+        public void NMI_()
+        {
+            // Set cycle count for NMI
+            remainingCycles = 7;
+
             // Push the high byte of the program counter (PC) to the stack
             PushStack((byte)(PC >> 8));
 
