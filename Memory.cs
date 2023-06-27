@@ -34,11 +34,6 @@
                 // Access PPU registers
                 return ppu.ReadRegister(address, isDebugRead);
             }
-            else if (address == 0x4014)
-            {
-                // Invalid read of register
-                return ppu.ReadRegister(address, isDebugRead);
-            }
             else if (address >= 0x8000 && address < 0xC000)
             {
                 // Access the first 16KB of PRG-ROM
@@ -67,11 +62,6 @@
             else if (address >= 0x2000 && address <= 0x3FFF)
             {
                 // Write to PPU registers
-                ppu.WriteRegister(address, value);
-            }
-            else if (address == 0x4014)
-            {
-                // Perform DMA transfer
                 ppu.WriteRegister(address, value);
             }
             else if (address >= 0x8000 && address < 0xC000)

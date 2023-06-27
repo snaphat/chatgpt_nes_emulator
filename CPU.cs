@@ -2583,7 +2583,7 @@
             if (dmaCycleCounter % 2 == 0)
             {
                 byte value = ReadMemory((ushort)(dmaPage << 8 | dmaAddress));
-                ppu.WriteOAM(value);
+                ppu.WriteRegister(0x2004, value);
 
                 // Increment dmaAddress and handle CPU memory page boundary wrapping
                 dmaAddress = (byte)((dmaAddress + 1) & 0xFF);

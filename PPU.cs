@@ -101,13 +101,6 @@
             return screenBuffer;
         }
 
-        public void WriteOAM(byte value)
-        {
-            oam[oamAddress] = value;
-            oamAddress++;
-            oamAddress &= 0xFF;
-        }
-
         // Read a byte from the specified PPU register
         public byte ReadRegister(ushort address, bool isDebugRead = false)
         {
@@ -173,9 +166,6 @@
                     v &= 0x7FFF; // Handle VRAM address overflow
                     break;
 
-                case 0x4014: // DMA Register
-                    break;
-
                 default:
                     // Invalid register address
                     break;
@@ -204,7 +194,9 @@
                     break;
 
                 case 0x2004: // OAM Data Register
-                    WriteOAM(value);
+                    oam[oamAddress] = value;
+                    oamAddress++;
+                    oamAddress &= 0xFF;
                     break;
 
                 case 0x2005: // PPU Scroll Register
@@ -247,11 +239,6 @@
                     // Handle wrapping
                     v &= 0x7FFF; // Apply a bitwise AND operation to limit the address within the VRAM address space
                     break;
-
-                case 0x4014: // DMA Register
-                    // Perform DMA transfer from CPU memory to OAM
-                    // This case is handled in the CPU code
-                    throw new Exception("Error: should never reach here");
 
                 default:
                     // Invalid register address
