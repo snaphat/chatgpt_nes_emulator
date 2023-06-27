@@ -1,12 +1,13 @@
-﻿namespace Emulation
+﻿using System.Reflection.Metadata.Ecma335;
+
+namespace Emulation
 {
     public class PPU
     {
-        private int dot = 0;
-        private int scanline = 0;
+        private int dot;
+        private int scanline;
 
         private byte[] oam = new byte[0x0100]; // Object Attribute Memory
-
         private byte[] patternTable0 = new byte[0x1000]; // Pattern Table 0
         private byte[] patternTable1 = new byte[0x1000]; // Pattern Table 1
         private byte[] nameTable0 = new byte[0x0400]; // Nametable 0
@@ -22,33 +23,9 @@
         private volatile byte oamAddress; // OAM Address Register (0x2003)
         private byte ppudataBuffer; // Internal read buffer for PPUDATA
 
-        const int NameTableWidth = 32;
-        const int NameTableHeight = 30;
-        const int NameTableSize = NameTableWidth * NameTableHeight;
-        const ushort NameTableAddress = 0x2000; // Address of the first name table
-        const int AttributeTableAddress = 0x23C0; // Address of the attribute table
-        const int PaletteMemoryAddress = 0x3F00;
-
-        // Maximum number of sprites on the screen
-        const int MAX_SPRITES = 64;
-
-        // Height of a sprite in pixels
-        const int SPRITE_HEIGHT = 8;
-
-        // Width of a sprite in pixels
-        const int SPRITE_WIDTH = 8;
-
-        // Sprite attribute bit indicating vertical flip
-        const byte SPRITE_ATTRIBUTE_VERTICAL_FLIP = 0x80;
-
-        // Sprite attribute bits for palette selection
-        const byte SPRITE_ATTRIBUTE_PALETTE = 0x03;
-
-        // Size of a pattern table row for a sprite
-        const int SPRITE_PATTERN_TABLE_ROW_SIZE = 16;
-
-        // Number of bytes of sprite data per scanline
-        const int SPRITE_DATA_PER_SCANLINE = 4;
+        const int NAME_TABLE_BASE_ADDRESS = 0x2000; // Address of the first name table
+        const int ATTRIBUTE_TABLE_BASE_ADDRESS = 0x23C0; // Address of the attribute table
+        const int PALETTE_TABLE_BASE_ADDRESS = 0x3F00;
 
         // Width of the screen in pixels
         const int SCREEN_WIDTH = 256;
@@ -60,9 +37,19 @@
         public const int SCANLINES_PER_FRAME = 262;
         const int VBLANK_START_SCANLINE = 241;
 
-        const byte VBLANK_FLAG = 1 << 7;
+        // PPUCONTROL Flags
+        const byte VRAM_ADDRESS_INCREMENT_FLAG = 1 << 2;
+        const byte SPRITE_PATTERN_TABLE_ADDRESS_FLAG = 1 << 3;
+        const byte BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG = 1 << 4;
+        const byte GENERATE_NMI_FLAG = 1 << 7;
+
+        // PPUMASK Flags
+        const byte SHOW_SPRITES = 1 << 2;
+        const byte SHOW_BACKGROUND = 1 << 3;
+
+        // PPUSTATUS Flags
         const byte SPRITE0_HIT_FLAG = 1 << 6;
-        const byte NMI_FLAG = 1 << 7;
+        const byte IN_VBLANK_FLAG = 1 << 7;
 
         // Screen buffer to store the rendered pixels
         private byte[] screenBuffer = new byte[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
@@ -114,7 +101,7 @@
                     if (!isDebugRead)
                     {
                         // Read and clear the vertical blank flag in the status register
-                        openBus = (byte)Interlocked.And(ref ppuStatus, ~VBLANK_FLAG);
+                        openBus = (byte)Interlocked.And(ref ppuStatus, ~IN_VBLANK_FLAG);
 
                         // Reset the address latch
                         w = false;
@@ -146,7 +133,7 @@
                             ppudataBuffer = ReadVRAM(v);
 
                             // Increment the VRAM address based on the VRAM increment mode
-                            v += (ushort)((ppuControl & 0x04) != 0 ? 32 : 1);
+                            v += (ushort)((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1);
                         }
                     }
                     else
@@ -158,7 +145,7 @@
                             ppudataBuffer = openBus;
 
                             // Increment the VRAM address based on the VRAM increment mode
-                            v += (ushort)((ppuControl & 0x04) != 0 ? 32 : 1);
+                            v += (ushort)((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1);
                         }
                     }
                     v &= 0x7FFF; // Handle VRAM address overflow
@@ -233,7 +220,7 @@
                 case 0x2007: // VRAM Data Register
                     WriteVRAM(v, value);
                     // Increment v after writing
-                    v += (ushort)(((ppuControl & 0x04) != 0) ? 32 : 1);
+                    v += (ushort)(((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0) ? 32 : 1);
                     // Handle wrapping
                     v &= 0x7FFF; // Apply a bitwise AND operation to limit the address within the VRAM address space
                     break;
@@ -345,96 +332,53 @@
             }
         }
 
-        // Calculate the name table address
-        int CalculateNameTableAddress(int x, int y)
+        // Render a single pixel at the specified position
+        public void RenderPixel(int x, int y)
         {
-            int tableX = x / 8; // Each tile is 8 pixels wide
-            int tableY = y / 8; // Each tile is 8 pixels high
+            // Calculate the name table address for the current coordinates
+            ushort nameTableAddress = (ushort)(NAME_TABLE_BASE_ADDRESS | (v & 0x0FFF));
 
-            int offset = tableY * NameTableWidth + tableX;
-            return NameTableAddress + offset;
-        }
+            // Compute the tile index
+            byte tileIndex = ReadVRAM(nameTableAddress);
 
-        byte FetchPixelData(byte tileID, int pixelRow, int pixelCol)
-        {
-            // Calculate the tile's address in the pattern table 1
-            int tileAddress = 0x1000 + (tileID * 16);
+            // Fetch the pixel data for the current tile and position
+            ushort patternTableAddress = (ushort)(((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) << 8) | (tileIndex << 4) | (v >> 12)); // Use the fine Y scroll for the row within the tile
+            byte patternDataLo = ReadVRAM(patternTableAddress);
+            byte patternDataHi = ReadVRAM((ushort)(patternTableAddress + 8));
 
-            // Read the data for each plane of the tile from the pattern table
-            byte plane1 = ReadVRAM((ushort)(tileAddress + pixelRow));
-            byte plane2 = ReadVRAM((ushort)(tileAddress + pixelRow + 8));
+            // Select the correct pixel within the tile
+            byte pixelData = (byte)(((patternDataHi >> (7 - this.x)) & 1) << 1 | ((patternDataLo >> (7 - this.x)) & 1)); // Use the fine X scroll for the column within the tile
 
-            // Combine the data from both planes to determine the color of the pixel
-            byte pixel1 = (byte)((plane1 >> (7 - pixelCol)) & 0x01); // Get the pixel from plane 1 in reverse order
-            byte pixel2 = (byte)((plane2 >> (7 - pixelCol)) & 0x01); // Get the pixel from plane 2 in reverse order
-            byte pixel = (byte)(pixel1 | (pixel2 << 1)); // Combine the pixels from both planes
+            // Compute the attribute table address
+            ushort attributeTableAddress = (ushort)(ATTRIBUTE_TABLE_BASE_ADDRESS | (nameTableAddress & 0xC00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07));
 
-            return pixel;
-        }
+            // Read the attribute byte
+            byte attributeByte = ReadVRAM(attributeTableAddress);
 
-        // Fetch the attribute data based on the name table address
-        byte FetchAttributeData(int nameTableAddress)
-        {
-            // Find the corresponding attribute table address
-            int attributeTableAddress = nameTableAddress + 0x3C0;
+            // Calculate the tile's relative position within its attribute cell
+            int relativeTileX = (nameTableAddress & 0x02) >> 1;
+            int relativeTileY = (nameTableAddress & 0x40) >> 6;
 
-            // Calculate the tile coordinates
-            int tileIndex = nameTableAddress - 0x2000; // calculate the tile index relative to the start of the nametable
-            int tileX = tileIndex % 32; // calculate the X coordinate of the tile within the nametable
-            int tileY = tileIndex / 32; // calculate the Y coordinate of the tile within the nametable
-
-
-            // Find the attribute byte
-            int attributeByteAddress = attributeTableAddress + (tileY / 4) * 8 + (tileX / 4);
-            byte attributeByte = ReadVRAM((ushort)attributeByteAddress);
+            // Calculate the attribute data offset based on the tile's relative position
+            int offset = (relativeTileY * 2 + relativeTileX) * 2;
 
             // Extract the correct bits
-            int offset = ((tileY % 4) / 2) * 2 + (tileX % 4) / 2;
-            int mask = 3 << offset;
-            byte palette = (byte)((attributeByte & mask) >> offset);
+            byte attributeData = (byte)((attributeByte >> offset) & 0x03);
 
-            return palette;
-        }
-
-        // Get the color for a single pixel based on the pixel data and attribute data
-        byte[] GetPixelColor(byte pixelData, byte attributeData)
-        {
-            int paletteIndex = (pixelData & 0x03); // Mask the pixel data to ensure it's 2 bits
+            int paletteIndex = pixelData & 0x03; // Mask the pixel data to ensure it's 2 bits
 
             // Apply the attribute data to determine the correct palette index
             int paletteOffset = (attributeData & 0x03) * 4;
 
             // Fetch the color from the correct palette and color index
-            int finalPaletteIndex = PaletteMemoryAddress + paletteOffset + paletteIndex;
+            int finalPaletteIndex = PALETTE_TABLE_BASE_ADDRESS + paletteOffset + paletteIndex;
             byte paletteColor = ReadVRAM((ushort)finalPaletteIndex);
-
-            return ColorMap.LUT[paletteColor];
-        }
-
-        // Render a single pixel at the specified position
-        public void RenderPixel(int x, int y)
-        {
-            // Calculate the name table address for the current coordinates
-            int nameTableAddress = CalculateNameTableAddress(x, y);
-
-            // Read the tile ID from the name table
-            byte tileID = ReadVRAM((ushort)nameTableAddress);
-
-            // Calculate the tile position within the tile (0-7)
-            int tileX = x % 8;
-            int tileY = y % 8;
-
-            // Fetch the pixel data for the current tile and position
-            byte pixelData = FetchPixelData(tileID, tileY, tileX);
-
-            // Fetch the attribute data for the tile
-            byte attributeData = FetchAttributeData(nameTableAddress);
-
-            // Get the color for the current pixel
-            byte[] pixelColor = GetPixelColor(pixelData, attributeData);
 
             // Calculate the index in the screen buffer based on the scanline and pixel position
             int index = (y * SCREEN_WIDTH * 3) + (x * 3);
+
+            // Lookup pixel color
+            var pixelColor = ColorMap.LUT[paletteColor];
 
             // Set the RGB values in the screen buffer at the calculated index
             screenBuffer[index] = pixelColor[2];     // Red component
@@ -452,7 +396,25 @@
                 // Render a pixel for each dot on a visible scanline
                 if (dot < SCREEN_WIDTH)
                 {
-                    RenderPixel(dot, scanline);
+                    bool isRenderingBackground = (ppuMask & 0x08) != 0;
+                    bool isRenderingSprites = (ppuMask & 0x10) != 0;
+
+                    if (isRenderingBackground)
+                    {
+                        // Map dot and scanline to v and x (assuming no scrolling)
+                        // Coarse X = dot / 8
+                        v = (ushort)((v & ~0x1F) | (dot / 8));
+                        // Coarse Y = scanline / 8
+                        v = (ushort)((v & ~(0x1F << 5)) | ((scanline / 8) << 5));
+                        // Fine X = dot % 8
+                        x = (byte)(dot % 8);
+                        // Fine Y = scanline % 8
+                        v = (ushort)((v & ~(0x07 << 12)) | ((scanline % 8) << 12));
+
+                        v &= 0x7fff;
+
+                        RenderPixel(dot, scanline);
+                    }
                 }
             }
 
@@ -460,10 +422,10 @@
             if (scanline == VBLANK_START_SCANLINE && dot == 0)
             {
                 // Set VBlank flag
-                Interlocked.Or(ref ppuStatus, VBLANK_FLAG);
+                Interlocked.Or(ref ppuStatus, IN_VBLANK_FLAG);
 
                 // If the NMI interrupt is enabled, trigger the interrupt
-                if ((ppuControl & NMI_FLAG) != 0)
+                if ((ppuControl & GENERATE_NMI_FLAG) != 0)
                 {
                     emulator.isNmiPending = true;
                 }
