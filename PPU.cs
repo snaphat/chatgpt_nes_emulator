@@ -55,10 +55,10 @@ namespace Emulation
         private byte[] paletteRAM = new byte[PALETTE_RAM_SIZE]; // Palette RAM
 
         // PPU registers
-        public volatile byte ppuControl; // PPU Control Register (0x2000)
-        private volatile byte ppuMask; // PPU Mask Register (0x2001)
-        public volatile int ppuStatus; // PPU Status Register (0x2002)
-        private volatile byte oamAddress; // OAM Address Register (0x2003)
+        public byte ppuControl; // PPU Control Register (0x2000)
+        private byte ppuMask; // PPU Mask Register (0x2001)
+        public byte ppuStatus; // PPU Status Register (0x2002)
+        private byte oamAddress; // OAM Address Register (0x2003)
         private byte ppudataBuffer; // Internal read buffer for PPUDATA
 
         // Screen buffer to store the rendered pixels
@@ -111,7 +111,8 @@ namespace Emulation
                     if (!isDebugRead)
                     {
                         // Read and clear the vertical blank flag in the status register
-                        openBus = (byte)Interlocked.And(ref ppuStatus, ~IN_VBLANK_FLAG);
+                        openBus = ppuStatus;
+                        ppuStatus = (byte)(ppuStatus & ~IN_VBLANK_FLAG);
 
                         // Reset the address latch
                         w = false;
@@ -418,7 +419,7 @@ namespace Emulation
             if (scanline == VBLANK_START_SCANLINE && dot == 0)
             {
                 // Set VBlank flag
-                Interlocked.Or(ref ppuStatus, IN_VBLANK_FLAG);
+                ppuStatus |= IN_VBLANK_FLAG;
 
                 // If the NMI interrupt is enabled, trigger the interrupt
                 if ((ppuControl & GENERATE_NMI_FLAG) != 0)
