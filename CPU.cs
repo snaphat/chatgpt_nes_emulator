@@ -20,17 +20,23 @@
         public bool Z; // Zero flag
         public bool C; // Carry flag
 
+        private byte dmaPage;
+        private byte dmaAddress;
+        private int dmaCycleCounter;
+
         // next instruction to execute
         Action pendingOperation = () => { };
 
         // Other CPU components and functions
         private Emulator? emulator;
         private Memory? memory;
+        private PPU? ppu;
 
-        public void Initialize(Emulator emulator, Memory memory)
+        public void Initialize(Emulator emulator, Memory memory, PPU ppu)
         {
             this.emulator = emulator;
             this.memory = memory;
+            this.ppu = ppu;
 
             // Initialize registers and flags
             A = 0;
@@ -77,11 +83,10 @@
 
         public void ExecuteNextInstruction()
         {
-
+            // Stall execution for required cycle count
+            remainingCycles--;
             if (remainingCycles > 0)
             {
-                // Stall execution for required cycle count
-                remainingCycles--;
                 return;
             }
 
@@ -91,10 +96,14 @@
             // Execute pending operation
             pendingOperation();
 
+            // Check if remaining cycles since executed operations can add new operations
+            if (remainingCycles > 0)
+                return;
+
             // Check if an NMI is pending and handle it if necessary
             if (emulator.isNmiPending)
             {
-                NMI();
+                NMI_Begin();
                 return;
             }
 
@@ -391,9 +400,16 @@
             return memory.Read(address, isDebugRead);
         }
 
-        private void WriteMemory(ushort address, byte value)
+        public void WriteMemory(ushort address, byte value)
         {
-            memory.Write(address, value);
+            if (address == 0x4014)
+            {
+                DMA_Begin(value);
+            }
+            else
+            {
+                memory.Write(address, value);
+            }
         }
 
         // Addressing Modes
@@ -2517,17 +2533,14 @@
             return ReadMemory((ushort)(0x0100 | S));
         }
 
-        public void NMI()
+        public void NMI_Begin()
         {
             remainingCycles = 7;
-            pendingOperation = NMI_;
+            pendingOperation = NMI_Setup;
         }
 
-        public void NMI_()
+        public void NMI_Setup()
         {
-            // Set cycle count for NMI
-            remainingCycles = 7;
-
             // Push the high byte of the program counter (PC) to the stack
             PushStack((byte)(PC >> 8));
 
@@ -2544,6 +2557,45 @@
             byte lowByte = memory.Read(0xFFFA);
             byte highByte = memory.Read(0xFFFB);
             PC = (ushort)((highByte << 8) | lowByte);
+        }
+
+        // Begin the DMA transfer
+        public void DMA_Begin(byte page)
+        {
+            remainingCycles = 1;
+            pendingOperation = () => DMA_Setup(page);
+        }
+
+        // Setup the DMA transfer
+        public void DMA_Setup(byte page)
+        {
+            dmaPage = page;
+            dmaAddress = 0;
+            dmaCycleCounter = 512;
+            remainingCycles = 1;
+            pendingOperation = () => DMA_Transfer();
+        }
+
+        // Handle the DMA transfer
+        public void DMA_Transfer()
+        {
+            // Only perform a read/write operation every 2 cycles
+            if (dmaCycleCounter % 2 == 0)
+            {
+                byte value = ReadMemory((ushort)(dmaPage << 8 | dmaAddress));
+                ppu.WriteOAM(value);
+
+                // Increment dmaAddress and handle CPU memory page boundary wrapping
+                dmaAddress = (byte)((dmaAddress + 1) & 0xFF);
+            }
+
+            dmaCycleCounter--;
+
+            // End the DMA transfer when all cycles are completed
+            if (dmaCycleCounter > 0)
+            {
+                remainingCycles = 1;
+            }
         }
     }
 }

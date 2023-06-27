@@ -16,7 +16,7 @@
 
             memory.Initialize(ppu);
             memory.LoadROM(romFilePath);
-            cpu.Initialize(this, memory);
+            cpu.Initialize(this, memory, ppu);
             ppu.Initialize(this, memory);
         }
 

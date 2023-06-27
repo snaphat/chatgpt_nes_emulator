@@ -101,6 +101,13 @@
             return screenBuffer;
         }
 
+        public void WriteOAM(byte value)
+        {
+            oam[oamAddress] = value;
+            oamAddress++;
+            oamAddress &= 0xFF;
+        }
+
         // Read a byte from the specified PPU register
         public byte ReadRegister(ushort address, bool isDebugRead = false)
         {
@@ -197,9 +204,7 @@
                     break;
 
                 case 0x2004: // OAM Data Register
-                    oam[oamAddress] = value;
-                    oamAddress++;
-                    oamAddress &= 0xFF;
+                    WriteOAM(value);
                     break;
 
                 case 0x2005: // PPU Scroll Register
@@ -245,19 +250,8 @@
 
                 case 0x4014: // DMA Register
                     // Perform DMA transfer from CPU memory to OAM
-                    ushort cpuAddress = (ushort)(value << 8);
-                    for (int i = 0; i < 256; i++)
-                    {
-                        oam[oamAddress] = memory.Read(cpuAddress);
-                        oamAddress++;
-                        oamAddress &= 0xFF;
-                        cpuAddress++;
-                    }
-                    // The DMA transfer takes 513 or 514 cycles to complete
-                    // You may need to account for the cycles spent on the DMA transfer
-                    // by adding extra cycles to the CPU's cycle count.
-                    // cpu.StallCycles += 513 + (cpu.Cycles % 2);
-                    break;
+                    // This case is handled in the CPU code
+                    throw new Exception("Error: should never reach here");
 
                 default:
                     // Invalid register address
