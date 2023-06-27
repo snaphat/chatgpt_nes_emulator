@@ -393,10 +393,7 @@ namespace Emulation
                 // Render a pixel for each dot on a visible scanline
                 if (dot < SCREEN_WIDTH)
                 {
-                    bool isRenderingBackground = (ppuMask & 0x08) != 0;
-                    bool isRenderingSprites = (ppuMask & 0x10) != 0;
-
-                    if (isRenderingBackground)
+                    if ((ppuMask & SHOW_BACKGROUND) != 0)
                     {
                         // Map dot and scanline to v and x (assuming no scrolling)
                         // Coarse X = dot / 8
