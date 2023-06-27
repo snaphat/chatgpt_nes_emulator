@@ -77,12 +77,10 @@
         private byte openBus;
 
         private Emulator? emulator;
-        private Memory? memory;
 
         public void Initialize(Emulator emulator, Memory memory)
         {
             this.emulator = emulator;
-            this.memory = memory;
 
             if (!memory.mirrorVertical)
             {
