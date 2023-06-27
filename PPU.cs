@@ -4,28 +4,19 @@ namespace Emulation
 {
     public class PPU
     {
-        private int dot;
-        private int scanline;
-
-        private byte[] oam = new byte[0x0100]; // Object Attribute Memory
-        private byte[] patternTable0 = new byte[0x1000]; // Pattern Table 0
-        private byte[] patternTable1 = new byte[0x1000]; // Pattern Table 1
-        private byte[] nameTable0 = new byte[0x0400]; // Nametable 0
-        private byte[] nameTable1 = new byte[0x0400]; // Nametable 1
-        private byte[] nameTable2 = new byte[0x0400]; // Nametable 2
-        private byte[] nameTable3 = new byte[0x0400]; // Nametable 3
-        private byte[] paletteRAM = new byte[0x0040]; // Palette RAM
-
-        // PPU registers
-        public volatile byte ppuControl; // PPU Control Register (0x2000)
-        private volatile byte ppuMask; // PPU Mask Register (0x2001)
-        public volatile int ppuStatus; // PPU Status Register (0x2002)
-        private volatile byte oamAddress; // OAM Address Register (0x2003)
-        private byte ppudataBuffer; // Internal read buffer for PPUDATA
-
-        const int NAME_TABLE_BASE_ADDRESS = 0x2000; // Address of the first name table
+        const int PATTERN_TABLE_0_BASE_ADDRESS = 0x0000; // Address of the first name table
+        const int PATTERN_TABLE_1_BASE_ADDRESS = 0x1000; // Address of the first name table
+        const int NAME_TABLE_0_BASE_ADDRESS = 0x2000; // Address of the first name table
+        const int NAME_TABLE_1_BASE_ADDRESS = 0x2400; // Address of the second name table
+        const int NAME_TABLE_2_BASE_ADDRESS = 0x2800; // Address of the third name table
+        const int NAME_TABLE_3_BASE_ADDRESS = 0x2c00; // Address of the fourth name table
         const int ATTRIBUTE_TABLE_BASE_ADDRESS = 0x23C0; // Address of the attribute table
         const int PALETTE_TABLE_BASE_ADDRESS = 0x3F00;
+
+        const int OAM_SIZE = 0x1000;
+        const int PATTERN_TABLE_SIZE = 0x1000;
+        const int NAME_TABLE_SIZE = 0x0400;
+        const int PALETTE_RAM_SIZE = 0x20;
 
         // Width of the screen in pixels
         const int SCREEN_WIDTH = 256;
@@ -50,6 +41,25 @@ namespace Emulation
         // PPUSTATUS Flags
         const byte SPRITE0_HIT_FLAG = 1 << 6;
         const byte IN_VBLANK_FLAG = 1 << 7;
+
+        private int dot;
+        private int scanline;
+
+        private byte[] oam = new byte[OAM_SIZE]; // Object Attribute Memory
+        private byte[] patternTable0 = new byte[PATTERN_TABLE_SIZE]; // Pattern Table 0
+        private byte[] patternTable1 = new byte[PATTERN_TABLE_SIZE]; // Pattern Table 1
+        private byte[] nameTable0 = new byte[NAME_TABLE_SIZE]; // Nametable 0
+        private byte[] nameTable1 = new byte[NAME_TABLE_SIZE]; // Nametable 1
+        private byte[] nameTable2 = new byte[NAME_TABLE_SIZE]; // Nametable 2
+        private byte[] nameTable3 = new byte[NAME_TABLE_SIZE]; // Nametable 3
+        private byte[] paletteRAM = new byte[PALETTE_RAM_SIZE]; // Palette RAM
+
+        // PPU registers
+        public volatile byte ppuControl; // PPU Control Register (0x2000)
+        private volatile byte ppuMask; // PPU Mask Register (0x2001)
+        public volatile int ppuStatus; // PPU Status Register (0x2002)
+        private volatile byte oamAddress; // OAM Address Register (0x2003)
+        private byte ppudataBuffer; // Internal read buffer for PPUDATA
 
         // Screen buffer to store the rendered pixels
         private byte[] screenBuffer = new byte[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
@@ -233,50 +243,43 @@ namespace Emulation
 
         private byte ReadVRAM(ushort address)
         {
-            if (address >= 0x3F00)
-            {
-                int realPaletteAddress = 0x3F00 + (address & 0x1F);
-                if (realPaletteAddress % 4 == 0)
-                {
-                    realPaletteAddress &= ~0x10;
-                }
-                address = (ushort)realPaletteAddress;
-            }
-
-            if (address >= 0x0000 && address <= 0x0FFF)
+            if (address is >= PATTERN_TABLE_0_BASE_ADDRESS and < PATTERN_TABLE_0_BASE_ADDRESS + PATTERN_TABLE_SIZE)
             {
                 // Accessing Pattern Table 0
                 return patternTable0[address];
             }
-            else if (address >= 0x1000 && address <= 0x1FFF)
+            else if (address is >= PATTERN_TABLE_1_BASE_ADDRESS and < PATTERN_TABLE_1_BASE_ADDRESS + PATTERN_TABLE_SIZE)
             {
                 // Accessing Pattern Table 1
-                return patternTable1[address - 0x1000];
+                return patternTable1[address & (PATTERN_TABLE_SIZE - 1)];
             }
-            else if (address >= 0x2000 && address <= 0x23FF)
+            else if (address is >= NAME_TABLE_0_BASE_ADDRESS and < NAME_TABLE_0_BASE_ADDRESS + NAME_TABLE_SIZE)
             {
                 // Accessing Nametable 0
-                return nameTable0[address & 0x03FF];
+                return nameTable0[address & (NAME_TABLE_SIZE - 1)];
             }
-            else if (address >= 0x2400 && address <= 0x27FF)
+            else if (address is >= NAME_TABLE_1_BASE_ADDRESS and < NAME_TABLE_1_BASE_ADDRESS + NAME_TABLE_SIZE)
             {
                 // Accessing Nametable 1
-                return nameTable1[address & 0x03FF];
+                return nameTable1[address & (NAME_TABLE_SIZE - 1)];
             }
-            else if (address >= 0x2800 && address <= 0x2BFF)
+            else if (address is >= NAME_TABLE_2_BASE_ADDRESS and < NAME_TABLE_2_BASE_ADDRESS + NAME_TABLE_SIZE)
             {
                 // Accessing Nametable 2
-                return nameTable2[address & 0x03FF];
+                return nameTable2[address & (NAME_TABLE_SIZE - 1)];
             }
-            else if (address >= 0x2C00 && address <= 0x2FFF)
+            else if (address is >= NAME_TABLE_3_BASE_ADDRESS and < NAME_TABLE_3_BASE_ADDRESS + NAME_TABLE_SIZE)
             {
                 // Accessing Nametable 3
-                return nameTable3[address & 0x03FF];
+                return nameTable3[address & (NAME_TABLE_SIZE - 1)];
             }
-            else if (address >= 0x3F00 && address <= 0x3FFF)
+            else if (address is >= PALETTE_TABLE_BASE_ADDRESS and < PALETTE_TABLE_BASE_ADDRESS + (PALETTE_RAM_SIZE * 8))
             {
                 // Accessing Palette RAM
-                return paletteRAM[address - 0x3F00];
+                // Handle address mirrors of $3F00/$3F04/$3F08/$3F0C to $3F10/$3F14/$3F18/$3F1C
+                int realPaletteAddress = address & (PALETTE_RAM_SIZE - 1);
+                if (realPaletteAddress % 4 == 0) realPaletteAddress &= ~0x10;
+                return paletteRAM[realPaletteAddress];
             }
 
             return 0x00; // Default value if the address is not within any of the defined regions
@@ -285,50 +288,43 @@ namespace Emulation
         // Write a byte value to VRAM at the current VRAM address and increment the address
         public void WriteVRAM(ushort address, byte value)
         {
-            if (address >= 0x3F00)
-            {
-                int realPaletteAddress = 0x3F00 + (address & 0x1F);
-                if (realPaletteAddress % 4 == 0)
-                {
-                    realPaletteAddress &= ~0x10;
-                }
-                address = (ushort)realPaletteAddress;
-            }
-
-            if (address >= 0x0000 && address <= 0x0FFF)
+            if (address is >= PATTERN_TABLE_0_BASE_ADDRESS and < PATTERN_TABLE_0_BASE_ADDRESS + PATTERN_TABLE_SIZE)
             {
                 // Writing to Pattern Table 0
                 patternTable0[address] = value;
             }
-            else if (address >= 0x1000 && address <= 0x1FFF)
+            else if (address is >= PATTERN_TABLE_1_BASE_ADDRESS and < PATTERN_TABLE_1_BASE_ADDRESS + PATTERN_TABLE_SIZE)
             {
                 // Writing to Pattern Table 1
-                patternTable1[address - 0x1000] = value;
+                patternTable1[address & (PATTERN_TABLE_SIZE - 1)] = value;
             }
-            else if (address >= 0x2000 && address <= 0x23FF)
+            else if (address is >= NAME_TABLE_0_BASE_ADDRESS and < NAME_TABLE_0_BASE_ADDRESS + NAME_TABLE_SIZE)
             {
                 // Writing to Nametable 0
-                nameTable0[address & 0x03FF] = value;
+                nameTable0[address & (NAME_TABLE_SIZE - 1)] = value;
             }
-            else if (address >= 0x2400 && address <= 0x27FF)
+            else if (address is >= NAME_TABLE_1_BASE_ADDRESS and < NAME_TABLE_1_BASE_ADDRESS + NAME_TABLE_SIZE)
             {
                 // Writing to Nametable 1
-                nameTable1[address & 0x03FF] = value;
+                nameTable1[address & (NAME_TABLE_SIZE - 1)] = value;
             }
-            else if (address >= 0x2800 && address <= 0x2BFF)
+            else if (address is >= NAME_TABLE_2_BASE_ADDRESS and < NAME_TABLE_2_BASE_ADDRESS + NAME_TABLE_SIZE)
             {
                 // Accessing Nametable 2
-                nameTable2[address & 0x03FF] = value;
+                nameTable2[address & (NAME_TABLE_SIZE - 1)] = value;
             }
-            else if (address >= 0x2C00 && address <= 0x2FFF)
+            else if (address is >= NAME_TABLE_3_BASE_ADDRESS and < NAME_TABLE_3_BASE_ADDRESS + NAME_TABLE_SIZE)
             {
                 // Accessing Nametable 3
-                nameTable3[address & 0x03FF] = value;
+                nameTable3[address & (NAME_TABLE_SIZE - 1)] = value;
             }
-            else if (address >= 0x3F00 && address <= 0x3FFF)
+            else if (address is >= PALETTE_TABLE_BASE_ADDRESS and < PALETTE_TABLE_BASE_ADDRESS + (PALETTE_RAM_SIZE * 8))
             {
                 // Writing to Palette RAM
-                paletteRAM[address - 0x3F00] = value;
+                // Handle address mirrors of $3F00/$3F04/$3F08/$3F0C to $3F10/$3F14/$3F18/$3F1C
+                int realPaletteAddress = address & (PALETTE_RAM_SIZE - 1);
+                if (realPaletteAddress % 4 == 0) realPaletteAddress &= ~0x10;
+                paletteRAM[realPaletteAddress] = value;
             }
         }
 
@@ -336,13 +332,13 @@ namespace Emulation
         public void RenderPixel(int x, int y)
         {
             // Calculate the name table address for the current coordinates
-            ushort nameTableAddress = (ushort)(NAME_TABLE_BASE_ADDRESS | (v & 0x0FFF));
+            ushort nameTableAddress = (ushort)(NAME_TABLE_0_BASE_ADDRESS | (v & 0x0FFF));
 
             // Compute the tile index
             byte tileIndex = ReadVRAM(nameTableAddress);
 
             // Fetch the pixel data for the current tile and position
-            ushort patternTableAddress = (ushort)(((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) << 8) | (tileIndex << 4) | (v >> 12)); // Use the fine Y scroll for the row within the tile
+            ushort patternTableAddress = (ushort)(((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12)); // Use the fine Y scroll for the row within the tile
             byte patternDataLo = ReadVRAM(patternTableAddress);
             byte patternDataHi = ReadVRAM((ushort)(patternTableAddress + 8));
 
