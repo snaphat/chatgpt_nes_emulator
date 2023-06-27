@@ -395,19 +395,42 @@ namespace Emulation
                 {
                     if ((ppuMask & SHOW_BACKGROUND) != 0)
                     {
-                        // Map dot and scanline to v and x (assuming no scrolling)
-                        // Coarse X = dot / 8
-                        v = (ushort)((v & ~0x1F) | (dot / 8));
-                        // Coarse Y = scanline / 8
-                        v = (ushort)((v & ~(0x1F << 5)) | ((scanline / 8) << 5));
-                        // Fine X = dot % 8
-                        x = (byte)(dot % 8);
-                        // Fine Y = scanline % 8
-                        v = (ushort)((v & ~(0x07 << 12)) | ((scanline % 8) << 12));
+                        if (dot == 0)
+                        {
+                            // Map dot and scanline to v and x (assuming no scrolling)
+                            // Coarse X = dot / 8
+                            v = (ushort)((v & ~0x1F) | (dot / 8));
+                            // Coarse Y = scanline / 8
+                            v = (ushort)((v & ~(0x1F << 5)) | ((scanline / 8) << 5));
+                            // Fine X = dot % 8
+                            x = (byte)(dot % 8);
+                            // Fine Y = scanline % 8
+                            v = (ushort)((v & ~(0x07 << 12)) | ((scanline % 8) << 12));
 
-                        v &= 0x7fff;
+                            v &= 0x7fff;
+                        }
 
                         RenderPixel(dot, scanline);
+
+                        // Increment fine X scroll
+                        if (x < 7)
+                        {
+                            x++;
+                        }
+                        else
+                        {
+                            x = 0; // Reset fine X scroll
+                                   // Increment coarse X scroll
+                            if ((v & 0x1F) == 31) // If coarse X == 31
+                            {
+                                v = (ushort)(v & ~0x1F); // coarse X = 0
+                                v ^= 0x400; // Switch horizontal nametable
+                            }
+                            else
+                            {
+                                v++; // coarse X++
+                            }
+                        }
                     }
                 }
             }
