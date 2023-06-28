@@ -104,6 +104,7 @@
             if (emulator.isNmiPending)
             {
                 NMI_Begin();
+                emulator.isNmiPending = false;
                 return;
             }
 
