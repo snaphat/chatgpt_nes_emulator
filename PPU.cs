@@ -378,10 +378,8 @@ namespace Emulation
         {
             for (int i = 0; i < 64; i++)
             {
-                // Get sprite parameters from OAM
+                // Get sprite X and Y from OAM
                 byte spriteY = oam[(i * 4) + 0];
-                byte spriteTile = oam[(i * 4) + 1];
-                byte spriteAttributes = oam[(i * 4) + 2];
                 byte spriteX = oam[(i * 4) + 3];
 
                 // Check if the dot is within the sprite's horizontal range
@@ -398,6 +396,10 @@ namespace Emulation
                 {
                     continue;
                 }
+
+                // Get sprite tile and attributes from OAM
+                byte spriteTile = oam[(i * 4) + 1];
+                byte spriteAttributes = oam[(i * 4) + 2];
 
                 // Compute the tile row
                 int row = scanline - spriteY;
