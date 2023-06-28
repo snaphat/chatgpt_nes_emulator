@@ -311,7 +311,6 @@ namespace Emulation
             }
         }
 
-
         public void StartScanline()
         {
             // Calculate the name table address for the current coordinates
@@ -331,15 +330,9 @@ namespace Emulation
             // Read the attribute byte
             attributeByte = ReadVRAM(attributeTableAddress);
 
-            // Calculate the tile's relative position within its attribute cell
-            int relativeTileX = (nameTableAddress & 0x02) >> 1;
-            int relativeTileY = (nameTableAddress & 0x40) >> 6;
-
-            // Calculate the attribute data offset based on the tile's relative position
-            int offset = ((relativeTileY * 2) + relativeTileX) * 2;
-
             // Extract the correct bits
-            attributeData = (byte)((attributeByte >> offset) & 0x03);
+            attributeData = (byte)((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03);
+
         }
 
         public byte RenderBackground()
@@ -351,6 +344,15 @@ namespace Emulation
             // Select the correct pixel within the tile
             pixelData = (byte)(((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1)); // Use the fine X scroll for the column within the tile
 
+            // Check if the pixel is transparent
+            if (pixelData == 0)
+            {
+                screenBuffer[index] = 0;     // Red component
+                screenBuffer[index + 1] = 0; // Green component
+                screenBuffer[index + 2] = 0; // Blue component
+                return 0;
+            }
+
             paletteIndex = pixelData & 0x03; // Mask the pixel data to ensure it's 2 bits
 
             // Apply the attribute data to determine the correct palette index
@@ -359,9 +361,6 @@ namespace Emulation
             // Fetch the color from the correct palette and color index
             finalPaletteIndex = PALETTE_TABLE_BASE_ADDRESS + paletteOffset + paletteIndex;
             paletteColor = ReadVRAM((ushort)finalPaletteIndex);
-
-            // Calculate the index in the screen buffer based on the scanline and pixel position
-            index = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
 
             // Lookup pixel color
             pixelColor = ColorMap.LUT[paletteColor];
@@ -441,9 +440,6 @@ namespace Emulation
                     ppuStatus |= SPRITE0_HIT_FLAG;
                 }
 
-                // Calculate the index in the screen buffer based on the scanline and pixel position
-                int index = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
-
                 // Lookup pixel color
                 var pixelColor = ColorMap.LUT[paletteColor];
 
@@ -467,6 +463,9 @@ namespace Emulation
                     if (dot < SCREEN_WIDTH)
                     {
                         byte backgroundPaletteColor = 0;
+
+                        // Calculate the index in the screen buffer based on the scanline and pixel position
+                        index = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
 
                         if ((ppuMask & SHOW_BACKGROUND) != 0)
                             backgroundPaletteColor = RenderBackground();
