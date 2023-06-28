@@ -28,9 +28,9 @@
         Action pendingOperation = () => { };
 
         // Other CPU components and functions
-        private Emulator? emulator;
-        private Memory? memory;
-        private PPU? ppu;
+        private Emulator emulator = null!;
+        private Memory memory = null!;
+        private PPU ppu = null!;
 
         public void Initialize(Emulator emulator, Memory memory, PPU ppu)
         {
@@ -91,7 +91,7 @@
             }
 
             // Display debug information
-            Debug.DisplayInstruction(this);
+            //Debug.DisplayInstruction(this);
 
             // Execute pending operation
             pendingOperation();
@@ -1391,7 +1391,6 @@
             UpdateZeroAndNegativeFlags(A);
         }
 
-
         private void LSR()
         {
             remainingCycles = 2;
@@ -1489,7 +1488,6 @@
             C = newC;
             UpdateZeroAndNegativeFlags(A);
         }
-
 
         private void ROR()
         {
@@ -1997,7 +1995,7 @@
             _ = AbsoluteX();
         }
 
-        private void STP()
+        private static void STP()
         {
             throw new InvalidOperationException("STP Instruction encountered.");
         }
@@ -2197,7 +2195,6 @@
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
             pendingOperation = () => SHX_(AbsoluteY());
         }
-
 
         private void SHX_(ushort address)
         {

@@ -3,10 +3,10 @@
     public class Memory
     {
         private readonly byte[] ram = new byte[0x0800]; // 2KB of RAM
-        private byte[]? prgRom; // PRG-ROM data
+        private byte[] prgRom = null!; // PRG-ROM data
         //private byte[] chrRom; // CHR-ROM data
 
-        public PPU? ppu;
+        public PPU ppu = null!;
 
         public int mapper;
         public bool mirrorVertical;
@@ -185,7 +185,7 @@
             // Write CHR-ROM data to VRAM for Mapper 0
 
             // CHR-ROM data size per bank in bytes
-            int chrRomBankSize = 0x2000;
+            const int chrRomBankSize = 0x2000;
 
             // Calculate the number of CHR-ROM banks
             int numChrRomBanks = chrRomData.Length / chrRomBankSize;
@@ -199,7 +199,7 @@
                 for (int offset = 0; offset < chrRomBankSize; offset++)
                 {
                     ushort vramAddress = (ushort)(vramBankAddress + offset);
-                    byte data = chrRomData[bank * chrRomBankSize + offset];
+                    byte data = chrRomData[(bank * chrRomBankSize) + offset];
                     ppu.WriteVRAM(vramAddress, data);
                 }
             }

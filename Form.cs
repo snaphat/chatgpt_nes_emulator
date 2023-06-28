@@ -9,11 +9,11 @@ namespace Emulation
 {
     public partial class Form : System.Windows.Forms.Form
     {
-        private Emulator? emulator;
+        private Emulator emulator = null!;
 
-        [DllImport("kernel32.dll", SetLastError = true)]
+        [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool AllocConsole();
+        private static partial bool AllocConsole();
 
         public Form()
         {
@@ -25,29 +25,27 @@ namespace Emulation
             AllocConsole();
 
             // Create an instance of the emulator and load the ROM
-            const string romFilePath = "Background2.nes"; /* Provide the path to the ROM file */
-            emulator = new Emulator(romFilePath);
+            const string romFilePath = "Background.nes"; /* Provide the path to the ROM file */
+            emulator = new Emulator(romFilePath, pictureBox1);
 
             // Setup the PictureBox
             pictureBox1.Width = 256;
             pictureBox1.Height = 240;
             pictureBox1.BackColor = Color.Red;
-            pictureBox1.Paint += pictureBox1_Paint;
-
-            emulator.pictureBox = pictureBox1;
+            pictureBox1.Paint += PictureBox1_Paint;
 
             // Start the CPU and PPU processing on the same thread threads
             Thread thread = new(emulator.Run);
             thread.Start();
         }
 
-        private void pictureBox1_Paint(object sender, PaintEventArgs e)
+        private void PictureBox1_Paint(object? sender, PaintEventArgs e)
         {
             PPU ppu = emulator.GetPPU();
             byte[] screenBuffer = ppu.GetScreenBuffer();
 
             // Create a Bitmap object to hold the NES frame with Format32bppRgb pixel format
-            Bitmap frameBitmap = new Bitmap(256, 240, PixelFormat.Format24bppRgb);
+            Bitmap frameBitmap = new(256, 240, PixelFormat.Format24bppRgb);
 
             // Lock the bitmap data for faster manipulation
             BitmapData bitmapData = frameBitmap.LockBits(new Rectangle(0, 0, frameBitmap.Width, frameBitmap.Height),

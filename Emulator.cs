@@ -4,15 +4,17 @@
     {
         private readonly CPU cpu;
         private readonly PPU ppu;
+        private readonly PictureBox pictureBox;
 
         public bool isNmiPending;
 
-        public Emulator(string romFilePath)
+        public Emulator(string romFilePath, PictureBox pictureBox)
         {
             // Initialize Memory, PPU, APU, and other components
             var memory = new Memory();
             cpu = new CPU();
             ppu = new PPU();
+            this.pictureBox = pictureBox;
 
             memory.Initialize(ppu);
             memory.LoadROM(romFilePath);
@@ -24,8 +26,6 @@
         {
             return ppu;
         }
-
-        public PictureBox pictureBox;
 
         public void Run()
         {

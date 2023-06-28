@@ -52,14 +52,14 @@ namespace Emulation
         private int dot;
         private int scanline;
 
-        private byte[] oam = new byte[OAM_SIZE]; // Object Attribute Memory
-        private byte[] patternTable0 = new byte[PATTERN_TABLE_SIZE]; // Pattern Table 0
-        private byte[] patternTable1 = new byte[PATTERN_TABLE_SIZE]; // Pattern Table 1
-        private byte[] nameTable0 = new byte[NAME_TABLE_SIZE]; // Nametable 0
+        private readonly byte[] oam = new byte[OAM_SIZE]; // Object Attribute Memory
+        private readonly byte[] patternTable0 = new byte[PATTERN_TABLE_SIZE]; // Pattern Table 0
+        private readonly byte[] patternTable1 = new byte[PATTERN_TABLE_SIZE]; // Pattern Table 1
+        private readonly byte[] nameTable0 = new byte[NAME_TABLE_SIZE]; // Nametable 0
         private byte[] nameTable1 = new byte[NAME_TABLE_SIZE]; // Nametable 1
         private byte[] nameTable2 = new byte[NAME_TABLE_SIZE]; // Nametable 2
         private byte[] nameTable3 = new byte[NAME_TABLE_SIZE]; // Nametable 3
-        private byte[] paletteRAM = new byte[PALETTE_RAM_SIZE]; // Palette RAM
+        private readonly byte[] paletteRAM = new byte[PALETTE_RAM_SIZE]; // Palette RAM
 
         // PPU registers
         public byte ppuControl; // PPU Control Register (0x2000)
@@ -69,7 +69,7 @@ namespace Emulation
         private byte ppudataBuffer; // Internal read buffer for PPUDATA
 
         // Screen buffer to store the rendered pixels
-        private byte[] screenBuffer = new byte[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
+        private readonly byte[] screenBuffer = new byte[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
 
         // PPU registers
         private ushort v; // Current VRAM address (15 bits)
@@ -80,7 +80,7 @@ namespace Emulation
         // Open bus value
         private byte openBus;
 
-        private Emulator? emulator;
+        private Emulator emulator = null!;
 
         public void Initialize(Emulator emulator, Memory memory)
         {
@@ -142,7 +142,7 @@ namespace Emulation
                     break;
 
                 case 0x2007: // VRAM Data Register
-                    if (v >= 0x0000 && v <= 0x3EFF)
+                    if (v is >= 0x0000 and <= 0x3EFF)
                     {
                         // Read from internal read buffer and update the buffer with the new value
                         openBus = ppudataBuffer;
@@ -364,7 +364,7 @@ namespace Emulation
             int relativeTileY = (nameTableAddress & 0x40) >> 6;
 
             // Calculate the attribute data offset based on the tile's relative position
-            int offset = (relativeTileY * 2 + relativeTileX) * 2;
+            int offset = ((relativeTileY * 2) + relativeTileX) * 2;
 
             // Extract the correct bits
             byte attributeData = (byte)((attributeByte >> offset) & 0x03);

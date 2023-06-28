@@ -175,11 +175,11 @@ namespace Emulation
             { 0xFE, ("INC", AddressingMode.AbsoluteX) } // Absolute, X
         };
 
-        private static StreamWriter writer;
+        private readonly static StreamWriter writer;
 
         static Debug()
         {
-            string filePath = "output.log";
+            const string filePath = "output.log";
             writer = new StreamWriter(filePath, false);
         }
 
@@ -187,13 +187,13 @@ namespace Emulation
         {
             string instructionDetails = $"A:{cpu.A:X2} X:{cpu.X:X2} Y:{cpu.Y:X2} S:{cpu.S:X2} P:{GetPFlags(cpu)} $00:{cpu.PC - 1:X4}: {InstructionHexToString(cpu)}";
             writer.WriteLine(instructionDetails);
-            //Console.WriteLine(instructionDetails);
+            Console.WriteLine(instructionDetails);
         }
 
         public static void DisplayLine(string str)
         {
             writer.WriteLine(str);
-            //Console.WriteLine(str);
+            Console.WriteLine(str);
         }
 
         private static string GetPFlags(CPU cpu)
@@ -220,7 +220,7 @@ namespace Emulation
 
                 string instructionStr = mode switch
                 {
-                    AddressingMode.Implicit => GetImplicitAddressString(cpu, opcode, mnemonic),
+                    AddressingMode.Implicit => GetImplicitAddressString(opcode, mnemonic),
                     AddressingMode.Immediate => GetImmediateAddressString(cpu, opcode, mnemonic),
                     AddressingMode.Absolute => GetAbsoluteAddressString(cpu, opcode, mnemonic),
                     AddressingMode.Relative => GetRelativeAddressString(cpu, opcode, mnemonic),
@@ -243,7 +243,7 @@ namespace Emulation
             }
         }
 
-        private static string GetImplicitAddressString(CPU cpu, byte opcode, string mnemonic)
+        private static string GetImplicitAddressString(byte opcode, string mnemonic)
         {
             return $"{opcode:X2}        {mnemonic}";
         }
@@ -260,7 +260,6 @@ namespace Emulation
             byte lowByte = cpu.ReadMemory(cpu.PC, true);
             byte highByte = cpu.ReadMemory((ushort)(cpu.PC + 1), true);
             ushort absoluteAddress = BitConverter.ToUInt16(new[] { lowByte, highByte });
-
 
             var opString = $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4}";
             if (mnemonic is "LDA" or "LDX" or "LDY" or "STA" or "STX" or "STY" or "ADC" or "SBC" or "INC" or "DEC")
