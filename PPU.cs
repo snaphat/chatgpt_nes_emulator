@@ -44,6 +44,7 @@ namespace Emulation
         const byte IN_VBLANK_FLAG = 1 << 7;
 
         // OAM Attribute Flags
+        const byte SPRITE_PRIORITY_FLAG = 1 << 5;
         const byte FLIP_SPRITE_HORIZONTALLY_FLAG = 1 << 6;
         const byte FLIP_SPRITE_VERTICALLY_FLAG = 1 << 7;
 
@@ -335,7 +336,7 @@ namespace Emulation
         }
 
         // Render a single pixel at the specified position
-        public void RenderBackground(int x, int y)
+        public byte RenderBackground(int x, int y)
         {
             // Calculate the name table address for the current coordinates
             ushort nameTableAddress = (ushort)(NAME_TABLE_0_BASE_ADDRESS | (v & 0x0FFF));
@@ -386,17 +387,20 @@ namespace Emulation
             screenBuffer[index] = pixelColor[2];     // Red component
             screenBuffer[index + 1] = pixelColor[1]; // Green component
             screenBuffer[index + 2] = pixelColor[0]; // Blue component
+
+            // Return palette color before lookup
+            return paletteColor;
         }
 
-        public void RenderSprite(int dot, int scanline)
+        public void RenderSprite(int dot, int scanline, byte backgroundPaletteColor)
         {
             for (int i = 0; i < 64; i++)
             {
                 // Get sprite parameters from OAM
-                byte spriteY = oam[i * 4 + 0];
-                byte spriteTile = oam[i * 4 + 1];
-                byte spriteAttributes = oam[i * 4 + 2];
-                byte spriteX = oam[i * 4 + 3];
+                byte spriteY = oam[(i * 4) + 0];
+                byte spriteTile = oam[(i * 4) + 1];
+                byte spriteAttributes = oam[(i * 4) + 2];
+                byte spriteX = oam[(i * 4) + 3];
 
                 // Check if the dot is within the sprite's horizontal range
                 if (dot < spriteX || dot >= spriteX + 8)
@@ -431,6 +435,11 @@ namespace Emulation
                 if (pixelData == 0)
                     continue;
 
+                // Check sprite priority
+                bool spriteIsBehindBackground = (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0;
+                if (spriteIsBehindBackground && backgroundPaletteColor != 0)
+                    continue;
+
                 // Compute the palette address
                 int paletteAddress = 0x3F10 + ((spriteAttributes & 0x03) << 2) + pixelData;
 
@@ -462,11 +471,12 @@ namespace Emulation
                     // Render a pixel for each dot on a visible scanline
                     if (dot < SCREEN_WIDTH)
                     {
+                        byte backgroundPaletteColor = 0;
 
                         if ((ppuMask & SHOW_BACKGROUND) != 0)
-                            RenderBackground(dot, scanline);
+                            backgroundPaletteColor = RenderBackground(dot, scanline);
                         if ((ppuMask & SHOW_SPRITES) != 0)
-                            RenderSprite(dot, scanline);
+                            RenderSprite(dot, scanline, backgroundPaletteColor);
 
                         // Increment fine X scroll
                         if (x < 7)
