@@ -38,6 +38,23 @@ namespace Emulation
         // Open bus value
         private byte openBus;
 
+        // State to avoid recomputations
+        private ushort nameTableAddress;
+        private byte tileIndex;
+        private ushort patternTableAddress;
+        private byte patternDataLo;
+        private byte patternDataHi;
+        private byte pixelData;
+        private ushort attributeTableAddress;
+        private byte attributeByte;
+        private byte attributeData;
+        private int paletteIndex;
+        private int paletteOffset;
+        private int finalPaletteIndex;
+        private byte paletteColor;
+        private byte[] pixelColor;
+        private int index;
+
         private Emulator emulator = null!;
 
         public void Initialize(Emulator emulator, Memory memory)
@@ -294,32 +311,25 @@ namespace Emulation
             }
         }
 
-        // Render a single pixel at the specified position
-        public byte RenderBackground(int x, int y)
-        {
-            // Implement background clipping
-            if ((ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) == 0 && x < 8)
-                return 0;
 
+        public void StartScanline()
+        {
             // Calculate the name table address for the current coordinates
-            ushort nameTableAddress = (ushort)(NAME_TABLE_0_BASE_ADDRESS | (v & 0x0FFF));
+            nameTableAddress = (ushort)(NAME_TABLE_0_BASE_ADDRESS | (v & 0x0FFF));
 
             // Compute the tile index
-            byte tileIndex = ReadVRAM(nameTableAddress);
+            tileIndex = ReadVRAM(nameTableAddress);
 
             // Fetch the pixel data for the current tile and position
-            ushort patternTableAddress = (ushort)(((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12)); // Use the fine Y scroll for the row within the tile
-            byte patternDataLo = ReadVRAM(patternTableAddress);
-            byte patternDataHi = ReadVRAM((ushort)(patternTableAddress + 8));
-
-            // Select the correct pixel within the tile
-            byte pixelData = (byte)(((patternDataHi >> (7 - this.x)) & 1) << 1 | ((patternDataLo >> (7 - this.x)) & 1)); // Use the fine X scroll for the column within the tile
+            patternTableAddress = (ushort)(((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12)); // Use the fine Y scroll for the row within the tile
+            patternDataLo = ReadVRAM(patternTableAddress);
+            patternDataHi = ReadVRAM((ushort)(patternTableAddress + 8));
 
             // Compute the attribute table address
-            ushort attributeTableAddress = (ushort)(ATTRIBUTE_TABLE_BASE_ADDRESS | (nameTableAddress & 0xC00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07));
+            attributeTableAddress = (ushort)(ATTRIBUTE_TABLE_BASE_ADDRESS | (nameTableAddress & 0xC00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07));
 
             // Read the attribute byte
-            byte attributeByte = ReadVRAM(attributeTableAddress);
+            attributeByte = ReadVRAM(attributeTableAddress);
 
             // Calculate the tile's relative position within its attribute cell
             int relativeTileX = (nameTableAddress & 0x02) >> 1;
@@ -329,22 +339,32 @@ namespace Emulation
             int offset = ((relativeTileY * 2) + relativeTileX) * 2;
 
             // Extract the correct bits
-            byte attributeData = (byte)((attributeByte >> offset) & 0x03);
+            attributeData = (byte)((attributeByte >> offset) & 0x03);
+        }
 
-            int paletteIndex = pixelData & 0x03; // Mask the pixel data to ensure it's 2 bits
+        public byte RenderBackground(int x, int y)
+        {
+            // Implement background clipping
+            if ((ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) == 0 && x < 8)
+                return 0;
+
+            // Select the correct pixel within the tile
+            pixelData = (byte)(((patternDataHi >> (7 - this.x)) & 1) << 1 | ((patternDataLo >> (7 - this.x)) & 1)); // Use the fine X scroll for the column within the tile
+
+            paletteIndex = pixelData & 0x03; // Mask the pixel data to ensure it's 2 bits
 
             // Apply the attribute data to determine the correct palette index
-            int paletteOffset = (attributeData & 0x03) * 4;
+            paletteOffset = (attributeData & 0x03) * 4;
 
             // Fetch the color from the correct palette and color index
-            int finalPaletteIndex = PALETTE_TABLE_BASE_ADDRESS + paletteOffset + paletteIndex;
-            byte paletteColor = ReadVRAM((ushort)finalPaletteIndex);
+            finalPaletteIndex = PALETTE_TABLE_BASE_ADDRESS + paletteOffset + paletteIndex;
+            paletteColor = ReadVRAM((ushort)finalPaletteIndex);
 
             // Calculate the index in the screen buffer based on the scanline and pixel position
-            int index = (y * SCREEN_WIDTH * 3) + (x * 3);
+            index = (y * SCREEN_WIDTH * 3) + (x * 3);
 
             // Lookup pixel color
-            var pixelColor = ColorMap.LUT[paletteColor];
+            pixelColor = ColorMap.LUT[paletteColor];
 
             // Set the RGB values in the screen buffer at the calculated index
             screenBuffer[index] = pixelColor[2];     // Red component
@@ -471,6 +491,8 @@ namespace Emulation
                             {
                                 v++; // coarse X++
                             }
+                            // Start new scanline data
+                            StartScanline();
                         }
                     }
                     else if (dot == 256)
