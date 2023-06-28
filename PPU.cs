@@ -385,30 +385,16 @@ namespace Emulation
 
         public void RenderCycle()
         {
-            // Check if we're rendering a visible scanline
-            if (scanline < SCREEN_HEIGHT)
+            if ((ppuMask & SHOW_BACKGROUND) != 0)
             {
-                // Perform cycle-based rendering operations here
-
-                // Render a pixel for each dot on a visible scanline
-                if (dot < SCREEN_WIDTH)
+                // Check if we're rendering a visible scanline
+                if (scanline < SCREEN_HEIGHT)
                 {
-                    if ((ppuMask & SHOW_BACKGROUND) != 0)
-                    {
-                        if (dot == 0)
-                        {
-                            // Map dot and scanline to v and x (assuming no scrolling)
-                            // Coarse X = dot / 8
-                            v = (ushort)((v & ~0x1F) | (dot / 8));
-                            // Coarse Y = scanline / 8
-                            v = (ushort)((v & ~(0x1F << 5)) | ((scanline / 8) << 5));
-                            // Fine X = dot % 8
-                            x = (byte)(dot % 8);
-                            // Fine Y = scanline % 8
-                            v = (ushort)((v & ~(0x07 << 12)) | ((scanline % 8) << 12));
+                    // Perform cycle-based rendering operations here
 
-                            v &= 0x7fff;
-                        }
+                    // Render a pixel for each dot on a visible scanline
+                    if (dot < SCREEN_WIDTH)
+                    {
 
                         RenderPixel(dot, scanline);
 
@@ -431,6 +417,55 @@ namespace Emulation
                                 v++; // coarse X++
                             }
                         }
+                    }
+                    else if (dot == 256)
+                    {
+                        // Increment fine Y scroll
+                        if ((v & 0x7000) != 0x7000) // if fine Y < 7
+                        {
+                            v += 0x1000; // fine Y++
+                        }
+                        else
+                        {
+                            v = (ushort)(v & ~0x7000); // fine Y = 0
+                            int y = (v & 0x03E0) >> 5; // let y = coarse Y
+                            if (y == 29)
+                            {
+                                y = 0;  // coarse Y = 0
+                                v ^= 0x0800; // switch vertical nametable
+                            }
+                            else if (y == 31)
+                            {
+                                y = 0;  // coarse Y = 0, nametable not switched
+                            }
+                            else
+                            {
+                                y++;  // coarse Y++
+                            }
+                            v = (ushort)((v & ~0x03E0) | (y << 5)); // put coarse Y back into v
+                        }
+                    }
+                    else if (dot == 257)
+                    {
+                        // At dot 257 of each scanline, copy horizontal position from t to v
+                        // i.e., v: ....F.. ...EDCBA = t: ....F.. ...EDCBA
+                        v = (ushort)((v & ~0x041F) | (t & 0x041F));
+                    }
+                }
+
+                if (scanline == 261)
+                {
+                    if (dot is >= 280 and <= 304)
+                    {
+                        // At dots 280 to 304 of the pre-render scanline, copy vertical position from t to v
+                        // i.e., v: IHGF.ED CBA..... = t: IHGF.ED CBA.....
+                        v = (ushort)((v & ~0x7BE0) | (t & 0x7BE0));
+                    }
+
+                    if (dot >= 339)
+                    {
+                        // At the end of the pre-render scanline, copy t into v
+                        v = t;
                     }
                 }
             }
