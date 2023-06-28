@@ -370,7 +370,7 @@ namespace Emulation
                     continue;
 
                 // Implement sprite clipping
-                if ((ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) == 1 && dot < 8)
+                if ((ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) == 0 && dot < 8)
                     continue;
 
                 // Check if the scanline is within the sprite's vertical range
