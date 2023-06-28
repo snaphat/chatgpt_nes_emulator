@@ -2,7 +2,7 @@
 namespace Emulation
 {
     using static Globals;
-    
+
     public class PPU
     {
 
@@ -297,6 +297,10 @@ namespace Emulation
         // Render a single pixel at the specified position
         public byte RenderBackground(int x, int y)
         {
+            // Implement background clipping
+            if ((ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) == 0 && x < 8)
+                return 0;
+
             // Calculate the name table address for the current coordinates
             ushort nameTableAddress = (ushort)(NAME_TABLE_0_BASE_ADDRESS | (v & 0x0FFF));
 
@@ -363,6 +367,10 @@ namespace Emulation
 
                 // Check if the dot is within the sprite's horizontal range
                 if (dot < spriteX || dot >= spriteX + 8)
+                    continue;
+
+                // Implement sprite clipping
+                if ((ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) == 1 && dot < 8)
                     continue;
 
                 // Check if the scanline is within the sprite's vertical range

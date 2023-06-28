@@ -40,8 +40,10 @@ namespace Emulation
         public const byte GENERATE_NMI_FLAG = 1 << 7;
 
         // PPUMASK Flags
-        public const byte SHOW_SPRITES = 1 << 2;
+        public const byte SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS = 1 << 1;
+        public const byte SHOW_SPRITES_IN_LEFTMOST_8_PIXELS = 1 << 2;
         public const byte SHOW_BACKGROUND = 1 << 3;
+        public const byte SHOW_SPRITES = 1 << 4;
 
         // PPUSTATUS Flags
         public const byte SPRITE0_HIT_FLAG = 1 << 6;
