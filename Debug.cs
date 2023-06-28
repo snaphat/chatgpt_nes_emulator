@@ -190,6 +190,12 @@ namespace Emulation
             //Console.WriteLine(instructionDetails);
         }
 
+        public static void DisplayLine(string str)
+        {
+            writer.WriteLine(str);
+            //Console.WriteLine(str);
+        }
+
         private static string GetPFlags(CPU cpu)
         {
             string flags = "";
