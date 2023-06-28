@@ -32,6 +32,7 @@ namespace Emulation
         const byte VRAM_ADDRESS_INCREMENT_FLAG = 1 << 2;
         const byte SPRITE_PATTERN_TABLE_ADDRESS_FLAG = 1 << 3;
         const byte BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG = 1 << 4;
+        const byte SPRITE_SIZE_FLAG = 1 << 5;
         const byte GENERATE_NMI_FLAG = 1 << 7;
 
         // PPUMASK Flags
@@ -41,6 +42,10 @@ namespace Emulation
         // PPUSTATUS Flags
         const byte SPRITE0_HIT_FLAG = 1 << 6;
         const byte IN_VBLANK_FLAG = 1 << 7;
+
+        // OAM Attribute Flags
+        const byte FLIP_SPRITE_HORIZONTALLY_FLAG = 1 << 6;
+        const byte FLIP_SPRITE_VERTICALLY_FLAG = 1 << 7;
 
         private int dot;
         private int scanline;
@@ -330,7 +335,7 @@ namespace Emulation
         }
 
         // Render a single pixel at the specified position
-        public void RenderPixel(int x, int y)
+        public void RenderBackground(int x, int y)
         {
             // Calculate the name table address for the current coordinates
             ushort nameTableAddress = (ushort)(NAME_TABLE_0_BASE_ADDRESS | (v & 0x0FFF));
@@ -383,9 +388,75 @@ namespace Emulation
             screenBuffer[index + 2] = pixelColor[0]; // Blue component
         }
 
+        public void RenderSprite(int scanline)
+        {
+            for (int i = 0; i < 64; i++)
+            {
+                // Get sprite parameters from OAM
+                byte spriteY = oam[i * 4 + 0];
+                byte spriteTile = oam[i * 4 + 1];
+                byte spriteAttributes = oam[i * 4 + 2];
+                byte spriteX = oam[i * 4 + 3];
+
+                // Skip the sprite if it's not on this scanline
+                int height = (ppuControl & SPRITE_SIZE_FLAG) != 0 ? 16 : 8;
+                if (scanline < spriteY || scanline >= spriteY + height)
+                    continue;
+
+                // Compute the tile row
+                int row = scanline - spriteY;
+
+                // Flip vertically if the attribute bit is set
+                if ((spriteAttributes & FLIP_SPRITE_VERTICALLY_FLAG) != 0)
+                    row = height - 1 - row;
+
+                // Compute the pattern table address
+                ushort patternTableAddress = (ushort)(((ppuControl & SPRITE_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (spriteTile << 4) | row);
+
+                // Read the pattern data
+                byte patternDataLo = ReadVRAM(patternTableAddress);
+                byte patternDataHi = ReadVRAM((ushort)(patternTableAddress + 8));
+
+                // Loop over each pixel in the sprite
+                for (int col = 0; col < 8; col++)
+                {
+                    // Flip horizontally if the attribute bit is set
+                    int x = (spriteAttributes & FLIP_SPRITE_HORIZONTALLY_FLAG) != 0 ? 7 - col : col;
+
+                    // Compute the pixel data
+                    byte pixelData = (byte)(((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1));
+
+                    // Skip transparent pixels (palette index 0)
+                    if (pixelData == 0)
+                        continue;
+
+                    // Compute the palette address
+                    int paletteAddress = 0x3F10 + ((spriteAttributes & 0x03) << 2) + pixelData;
+
+                    // Fetch the color from the palette
+                    byte paletteColor = ReadVRAM((ushort)paletteAddress);
+
+                    // Calculate the screen coordinates
+                    int screenX = spriteX + x;
+                    int screenY = scanline;
+
+                    // Calculate the index in the screen buffer based on the scanline and pixel position
+                    int index = (screenY * SCREEN_WIDTH * 3) + (screenX * 3);
+
+                    // Lookup pixel color
+                    var pixelColor = ColorMap.LUT[paletteColor];
+
+                    // Set the RGB values in the screen buffer at the calculated index
+                    screenBuffer[index] = pixelColor[2];     // Red component
+                    screenBuffer[index + 1] = pixelColor[1]; // Green component
+                    screenBuffer[index + 2] = pixelColor[0]; // Blue component
+                }
+            }
+        }
+
         public void RenderCycle()
         {
-            if ((ppuMask & SHOW_BACKGROUND) != 0)
+            if ((ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
             {
                 // Check if we're rendering a visible scanline
                 if (scanline < SCREEN_HEIGHT)
@@ -396,7 +467,10 @@ namespace Emulation
                     if (dot < SCREEN_WIDTH)
                     {
 
-                        RenderPixel(dot, scanline);
+                        if ((ppuMask & SHOW_BACKGROUND) != 0)
+                            RenderBackground(dot, scanline);
+                        if ((ppuMask & SHOW_SPRITES) != 0)
+                            RenderSprite(scanline);
 
                         // Increment fine X scroll
                         if (x < 7)
