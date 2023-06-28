@@ -5,50 +5,7 @@ namespace Emulation
     
     public class PPU
     {
-        const int PATTERN_TABLE_0_BASE_ADDRESS = 0x0000; // Address of the first name table
-        const int PATTERN_TABLE_1_BASE_ADDRESS = 0x1000; // Address of the first name table
-        const int NAME_TABLE_0_BASE_ADDRESS = 0x2000; // Address of the first name table
-        const int NAME_TABLE_1_BASE_ADDRESS = 0x2400; // Address of the second name table
-        const int NAME_TABLE_2_BASE_ADDRESS = 0x2800; // Address of the third name table
-        const int NAME_TABLE_3_BASE_ADDRESS = 0x2c00; // Address of the fourth name table
-        const int ATTRIBUTE_TABLE_BASE_ADDRESS = 0x23C0; // Address of the attribute table
-        const int PALETTE_TABLE_BASE_ADDRESS = 0x3F00;
-        const int PALETTE_TABLE_SPRITE_BASE_ADDRESS = PALETTE_TABLE_BASE_ADDRESS + 0x10;
 
-        const int OAM_SIZE = 0x1000;
-        const int PATTERN_TABLE_SIZE = 0x1000;
-        const int NAME_TABLE_SIZE = 0x0400;
-        const int PALETTE_RAM_SIZE = 0x20;
-
-        // Width of the screen in pixels
-        const int SCREEN_WIDTH = 256;
-
-        // Height of the screen in pixels
-        const int SCREEN_HEIGHT = 240;
-
-        public const int DOTS_PER_SCANLINE = 341;
-        public const int SCANLINES_PER_FRAME = 262;
-        const int VBLANK_START_SCANLINE = 241;
-
-        // PPUCONTROL Flags
-        const byte VRAM_ADDRESS_INCREMENT_FLAG = 1 << 2;
-        const byte SPRITE_PATTERN_TABLE_ADDRESS_FLAG = 1 << 3;
-        const byte BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG = 1 << 4;
-        const byte SPRITE_SIZE_FLAG = 1 << 5;
-        const byte GENERATE_NMI_FLAG = 1 << 7;
-
-        // PPUMASK Flags
-        const byte SHOW_SPRITES = 1 << 2;
-        const byte SHOW_BACKGROUND = 1 << 3;
-
-        // PPUSTATUS Flags
-        const byte SPRITE0_HIT_FLAG = 1 << 6;
-        const byte IN_VBLANK_FLAG = 1 << 7;
-
-        // OAM Attribute Flags
-        const byte SPRITE_PRIORITY_FLAG = 1 << 5;
-        const byte FLIP_SPRITE_HORIZONTALLY_FLAG = 1 << 6;
-        const byte FLIP_SPRITE_VERTICALLY_FLAG = 1 << 7;
 
         private int dot;
         private int scanline;
