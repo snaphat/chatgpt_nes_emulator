@@ -31,12 +31,14 @@
         private Emulator emulator = null!;
         private Memory memory = null!;
         private PPU ppu = null!;
+        private Controller controller = null!;
 
-        public void Initialize(Emulator emulator, Memory memory, PPU ppu)
+        public void Initialize(Emulator emulator, Memory memory, PPU ppu, Controller controller)
         {
             this.emulator = emulator;
             this.memory = memory;
             this.ppu = ppu;
+            this.controller = controller;
 
             // Initialize registers and flags
             A = 0;
@@ -398,7 +400,18 @@
         // Helper functions for reading from and writing to memory
         public byte ReadMemory(ushort address, bool isDebugRead = false)
         {
-            return memory.Read(address, isDebugRead);
+            if (address == 0x4016)
+            {
+                return controller.ReadController1();
+            }
+            else if (address == 0x4017)
+            {
+                return controller.ReadController2();
+            }
+            else
+            {
+                return memory.Read(address, isDebugRead);
+            }
         }
 
         public void WriteMemory(ushort address, byte value)
@@ -406,6 +419,14 @@
             if (address == 0x4014)
             {
                 DMA_Begin(value);
+            }
+            else if (address == 0x4016)
+            {
+                controller.WriteController1(value);
+            }
+            else if (address == 0x4017)
+            {
+                controller.WriteController2(value);
             }
             else
             {

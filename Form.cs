@@ -26,13 +26,13 @@ namespace Emulation
 
             // Create an instance of the emulator and load the ROM
             const string romFilePath = "Background.nes"; /* Provide the path to the ROM file */
-            emulator = new Emulator(romFilePath, pictureBox1);
+            emulator = new Emulator(romFilePath, this);
 
             // Setup the PictureBox
-            pictureBox1.Width = 256;
-            pictureBox1.Height = 240;
-            pictureBox1.BackColor = Color.Red;
-            pictureBox1.Paint += PictureBox1_Paint;
+            pictureBox.Width = 256;
+            pictureBox.Height = 240;
+            pictureBox.BackColor = Color.Red;
+            pictureBox.Paint += PictureBox1_Paint;
 
             // Start the CPU and PPU processing on the same thread threads
             Thread thread = new(emulator.Run);
