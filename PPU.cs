@@ -342,14 +342,14 @@ namespace Emulation
             attributeData = (byte)((attributeByte >> offset) & 0x03);
         }
 
-        public byte RenderBackground(int x, int y)
+        public byte RenderBackground()
         {
             // Implement background clipping
-            if ((ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) == 0 && x < 8)
+            if ((ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) == 0 && dot < 8)
                 return 0;
 
             // Select the correct pixel within the tile
-            pixelData = (byte)(((patternDataHi >> (7 - this.x)) & 1) << 1 | ((patternDataLo >> (7 - this.x)) & 1)); // Use the fine X scroll for the column within the tile
+            pixelData = (byte)(((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1)); // Use the fine X scroll for the column within the tile
 
             paletteIndex = pixelData & 0x03; // Mask the pixel data to ensure it's 2 bits
 
@@ -361,7 +361,7 @@ namespace Emulation
             paletteColor = ReadVRAM((ushort)finalPaletteIndex);
 
             // Calculate the index in the screen buffer based on the scanline and pixel position
-            index = (y * SCREEN_WIDTH * 3) + (x * 3);
+            index = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
 
             // Lookup pixel color
             pixelColor = ColorMap.LUT[paletteColor];
@@ -375,7 +375,7 @@ namespace Emulation
             return paletteColor;
         }
 
-        public void RenderSprite(int dot, int scanline, byte backgroundPaletteColor)
+        public void RenderSprite(byte backgroundPaletteColor)
         {
             for (int i = 0; i < 64; i++)
             {
@@ -469,9 +469,9 @@ namespace Emulation
                         byte backgroundPaletteColor = 0;
 
                         if ((ppuMask & SHOW_BACKGROUND) != 0)
-                            backgroundPaletteColor = RenderBackground(dot, scanline);
+                            backgroundPaletteColor = RenderBackground();
                         if ((ppuMask & SHOW_SPRITES) != 0)
-                            RenderSprite(dot, scanline, backgroundPaletteColor);
+                            RenderSprite(backgroundPaletteColor);
 
                         // Increment fine X scroll
                         if (x < 7)
