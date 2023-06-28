@@ -1,7 +1,8 @@
-﻿using System.Reflection.Metadata.Ecma335;
-
+﻿
 namespace Emulation
 {
+    using static Globals;
+    
     public class PPU
     {
         const int PATTERN_TABLE_0_BASE_ADDRESS = 0x0000; // Address of the first name table
@@ -86,12 +87,12 @@ namespace Emulation
         {
             this.emulator = emulator;
 
-            if (!memory.mirrorVertical)
+            if (memory.mirrorArrangement == HORIZONTAL_MIRRORING)
             {
                 nameTable1 = nameTable0;
                 nameTable3 = nameTable2;
             }
-            else
+            else if (memory.mirrorArrangement == VERTICAL_MIRRORING)
             {
                 nameTable2 = nameTable0;
                 nameTable3 = nameTable1;

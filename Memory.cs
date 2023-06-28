@@ -1,5 +1,6 @@
 ﻿namespace Emulation
 {
+    using static Globals;
     public class Memory
     {
         private readonly byte[] ram = new byte[0x0800]; // 2KB of RAM
@@ -9,7 +10,7 @@
         public PPU ppu = null!;
 
         public int mapper;
-        public bool mirrorVertical;
+        public int mirrorArrangement;
         public bool fourScreenMirroring;
 
         public void Initialize(PPU ppu)
@@ -79,9 +80,9 @@
         }
 
         // Set the PRG-ROM and CHR-ROM data
-        private void SetROMData(byte[] prgRomData, byte[] chrRomData, int mapperNumber, bool mirrorVertical, bool fourScreenMirroring)
+        private void SetROMData(byte[] prgRomData, byte[] chrRomData, int mapperNumber, int mirrorArrangement, bool fourScreenMirroring)
         {
-            this.mirrorVertical = mirrorVertical;
+            this.mirrorArrangement = mirrorArrangement;
             this.fourScreenMirroring = fourScreenMirroring;
             switch (mapperNumber)
             {
@@ -106,8 +107,7 @@
             // Check if the ROM file is in the iNES format
             bool iNESFormat = false;
             bool NES20Format = false;
-            bool fourScreenMirroring = false;
-            bool mirrorVertical = false;
+            int mirrorArrangement = default;
 
             if (romData.Length >= 16 && romData[0] == 'N' && romData[1] == 'E' && romData[2] == 'S' && romData[3] == 0x1A)
             {
@@ -120,30 +120,19 @@
                 }
 
                 // Extract the mirroring type from the 6th byte of the ROM data
-                byte flags6 = romData[5];
-                byte flags8 = romData[7];
+                byte flags6 = romData[6];
 
-                if (NES20Format)
+                if (iNESFormat)
                 {
-                    switch (flags8 & 0x03)
+                    switch (flags6 & 0x01)
                     {
                         case 0: // Horizontal Mirroring
-                            mirrorVertical = false;
+                            mirrorArrangement = HORIZONTAL_MIRRORING;
                             break;
                         case 1: // Vertical Mirroring
-                            mirrorVertical = true;
-                            break;
-                        case 2: // Four Screen Mirroring
-                            fourScreenMirroring = true;
-                            break;
-                        case 3: // Mapper Controlled
-                                // This needs to be handled in your mapper implementation
+                            mirrorArrangement = VERTICAL_MIRRORING;
                             break;
                     }
-                }
-                else if (iNESFormat)
-                {
-                    mirrorVertical = (flags6 & 0x01) == 1; // If the 0th bit is 1, it's vertical mirroring
                 }
             }
 
@@ -177,7 +166,7 @@
             }
 
             // Set the PRG-ROM, CHR-ROM, mapper number and mirroring type in the memory
-            SetROMData(prgRomData, chrRomData, mapperNumber, mirrorVertical, fourScreenMirroring);
+            SetROMData(prgRomData, chrRomData, mapperNumber, mirrorArrangement, fourScreenMirroring);
         }
 
         private void WriteCHRROMToVRAM_Mapper0(byte[] chrRomData)
