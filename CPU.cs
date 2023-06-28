@@ -507,7 +507,7 @@
 
         private int BranchCyclesNeeded_Relative(bool condition)
         {
-            byte offset = ReadMemory(PC);
+            sbyte offset = (sbyte)ReadMemory(PC);
             if (condition)
             {
                 ushort newAddress = (ushort)(PC + offset);
