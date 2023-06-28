@@ -12,6 +12,7 @@ namespace Emulation
         const int NAME_TABLE_3_BASE_ADDRESS = 0x2c00; // Address of the fourth name table
         const int ATTRIBUTE_TABLE_BASE_ADDRESS = 0x23C0; // Address of the attribute table
         const int PALETTE_TABLE_BASE_ADDRESS = 0x3F00;
+        const int PALETTE_TABLE_SPRITE_BASE_ADDRESS = PALETTE_TABLE_BASE_ADDRESS + 0x10;
 
         const int OAM_SIZE = 0x1000;
         const int PATTERN_TABLE_SIZE = 0x1000;
@@ -409,7 +410,9 @@ namespace Emulation
                 // Check if the scanline is within the sprite's vertical range
                 int height = (ppuControl & SPRITE_SIZE_FLAG) != 0 ? 16 : 8;
                 if (scanline < spriteY || scanline >= spriteY + height)
+                {
                     continue;
+                }
 
                 // Compute the tile row
                 int row = scanline - spriteY;
@@ -441,10 +444,16 @@ namespace Emulation
                     continue;
 
                 // Compute the palette address
-                int paletteAddress = 0x3F10 + ((spriteAttributes & 0x03) << 2) + pixelData;
+                int paletteAddress = PALETTE_TABLE_SPRITE_BASE_ADDRESS + ((spriteAttributes & 0x03) << 2) + pixelData;
 
                 // Fetch the color from the palette
                 byte paletteColor = ReadVRAM((ushort)paletteAddress);
+
+                // Check for sprite 0 hit
+                if (i == 0 && backgroundPaletteColor != 0)
+                {
+                    ppuStatus |= SPRITE0_HIT_FLAG;
+                }
 
                 // Calculate the index in the screen buffer based on the scanline and pixel position
                 int index = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
@@ -546,6 +555,9 @@ namespace Emulation
                     {
                         // At the end of the pre-render scanline, copy t into v
                         v = t;
+
+                        // At the end of the pre-render scanline, clear sprite0 hit
+                        ppuStatus = (byte)(ppuStatus & ~SPRITE0_HIT_FLAG);
                     }
                 }
             }
