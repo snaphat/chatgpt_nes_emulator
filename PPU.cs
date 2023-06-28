@@ -55,6 +55,8 @@ namespace Emulation
         private byte[] pixelColor;
         private int index;
 
+        private List<byte>[] spritesPerScanline;
+
         private Emulator emulator = null!;
 
         public void Initialize(Emulator emulator, Memory memory)
@@ -70,6 +72,12 @@ namespace Emulation
             {
                 nameTable2 = nameTable0;
                 nameTable3 = nameTable1;
+            }
+
+            spritesPerScanline = new List<byte>[SCREEN_HEIGHT];
+            for (int i = 0; i < SCREEN_HEIGHT; i++)
+            {
+                spritesPerScanline[i] = new List<byte>();
             }
         }
 
@@ -175,6 +183,7 @@ namespace Emulation
                     oam[oamAddress] = value;
                     oamAddress++;
                     oamAddress &= 0xFF;
+                    CacheSpritesPerScanline();
                     break;
 
                 case 0x2005: // PPU Scroll Register
@@ -311,6 +320,28 @@ namespace Emulation
             }
         }
 
+        public void CacheSpritesPerScanline()
+        {
+            // first clear all sprites from all scanlines
+            for (int i = 0; i < SCREEN_HEIGHT; i++)
+            {
+                spritesPerScanline[i].Clear();
+            }
+
+            // then add sprites to scanlines they are visible on
+            for (int i = 0; i < 64; i++)
+            {
+                byte spriteY = oam[(i * 4) + 0];
+                int height = (ppuControl & SPRITE_SIZE_FLAG) != 0 ? 16 : 8;
+
+                // add sprite index to all scanlines it is visible on
+                for (int y = spriteY; y < spriteY + height && y < SCREEN_HEIGHT; y++)
+                {
+                    spritesPerScanline[y].Add((byte)i);
+                }
+            }
+        }
+
         public void StartScanline()
         {
             // Calculate the name table address for the current coordinates
@@ -376,7 +407,7 @@ namespace Emulation
 
         public void RenderSprite(byte backgroundPaletteColor)
         {
-            for (int i = 0; i < 64; i++)
+            foreach (byte i in spritesPerScanline[scanline]) // scanline is the current scanline being rendered
             {
                 // Get sprite X and Y from OAM
                 byte spriteY = oam[(i * 4) + 0];
