@@ -5,8 +5,6 @@ namespace Emulation
 
     public class PPU
     {
-
-
         private int dot;
         private int scanline;
 
@@ -616,6 +614,8 @@ namespace Emulation
             // Check if we reached the start of the vertical blanking period (dot 0 of scanline 241)
             if (scanline == VBLANK_START_SCANLINE && dot == 0)
             {
+                shouldRender = true;
+
                 // Set VBlank flag
                 ppuStatus |= IN_VBLANK_FLAG;
 
@@ -639,10 +639,16 @@ namespace Emulation
             }
         }
 
+        bool shouldRender = false;
+
         public bool ShouldRenderFrame()
         {
-            // A frame should be rendered when we're at the start of a new frame (dot 0, scanline 0)
-            return dot == 0 && scanline == 0;
+            if (shouldRender)
+            {
+                shouldRender = false;
+                return true;
+            }
+            return false;
         }
     }
 }

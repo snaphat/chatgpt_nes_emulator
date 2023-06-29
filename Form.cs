@@ -1,9 +1,5 @@
-﻿using System;
-using System.Drawing;
-using System.Drawing.Imaging;
+﻿using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
-using System.Threading;
-using System.Windows.Forms;
 
 namespace Emulation
 {
@@ -25,7 +21,7 @@ namespace Emulation
             AllocConsole();
 
             // Create an instance of the emulator and load the ROM
-            const string romFilePath = "Background.nes"; /* Provide the path to the ROM file */
+            const string romFilePath = "Elevator Action (USA).nes"; /* Provide the path to the ROM file */
             emulator = new Emulator(romFilePath, this);
 
             // Setup the PictureBox
