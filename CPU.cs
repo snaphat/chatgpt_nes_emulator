@@ -448,12 +448,12 @@
 
         private ushort ZeroPageX()
         {
-            return (ushort)(ReadMemory(PC++) + X);
+            return (byte)(ReadMemory(PC++) + X); // zero-page so ignore carry 
         }
 
         private ushort ZeroPageY()
         {
-            return (ushort)(ReadMemory(PC++) + Y);
+            return (byte)(ReadMemory(PC++) + Y); // zero-page so ignore carry 
         }
 
         private ushort Absolute()
@@ -500,7 +500,7 @@
 
         private ushort IndirectX()
         {
-            byte zeroPageAddress = (byte)(ReadMemory(PC++) + X);
+            byte zeroPageAddress = (byte)(ReadMemory(PC++) + X); // zero-page so ignore carry 
             ushort address = ReadMemory(zeroPageAddress);
             address |= (ushort)(ReadMemory((byte)(zeroPageAddress + 1)) << 8);
             return address;
@@ -1706,7 +1706,7 @@
         private void BNE_(sbyte offset)
         {
             if (!Z)
-                PC += (ushort)offset;
+                PC += (ushort)(short)offset;
         }
 
         private void BEQ_Relative()
@@ -1718,7 +1718,7 @@
         private void BEQ_(sbyte offset)
         {
             if (Z)
-                PC += (ushort)offset;
+                PC += (ushort)(short)offset;
         }
 
         // Branching Operations
@@ -1732,7 +1732,7 @@
         private void BPL_(sbyte offset)
         {
             if (!N)
-                PC += (ushort)offset;
+                PC += (ushort)(short)offset;
         }
 
         private void BMI_Relative()
@@ -1745,7 +1745,7 @@
         private void BMI_(sbyte offset)
         {
             if (N)
-                PC += (ushort)offset;
+                PC += (ushort)(short)offset;
         }
 
         private void BCC_Relative()
@@ -1758,7 +1758,7 @@
         private void BCC_(sbyte offset)
         {
             if (!C)
-                PC += (ushort)offset;
+                PC += (ushort)(short)offset;
         }
 
         private void BCS_Relative()
@@ -1771,7 +1771,7 @@
         private void BCS_(sbyte offset)
         {
             if (C)
-                PC += (ushort)offset;
+                PC += (ushort)(short)offset;
         }
 
         private void BVC_Relative()
@@ -1784,7 +1784,7 @@
         private void BVC_(sbyte offset)
         {
             if (!V)
-                PC += (ushort)offset;
+                PC += (ushort)(short)offset;
         }
 
         private void BVS_Relative()
@@ -1797,7 +1797,7 @@
         private void BVS_(sbyte offset)
         {
             if (V)
-                PC += (ushort)offset;
+                PC += (ushort)(short)offset;
         }
 
         // Jump and Call Operations
