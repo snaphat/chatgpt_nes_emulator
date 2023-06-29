@@ -407,9 +407,9 @@ namespace Emulation
             // Check if the pixel is transparent
             if (pixelData == 0)
             {
-                screenBuffer[index] = 0;     // Red component
+                screenBuffer[index] = 0;     // Blue component
                 screenBuffer[index + 1] = 0; // Green component
-                screenBuffer[index + 2] = 0; // Blue component
+                screenBuffer[index + 2] = 0; // Red component
                 return 0;
             }
 
@@ -426,9 +426,9 @@ namespace Emulation
             pixelColor = ColorMap.LUT[paletteColor];
 
             // Set the RGB values in the screen buffer at the calculated index
-            screenBuffer[index] = pixelColor[2];     // Red component
+            screenBuffer[index] = pixelColor[2];     // Blue component
             screenBuffer[index + 1] = pixelColor[1]; // Green component
-            screenBuffer[index + 2] = pixelColor[0]; // Blue component
+            screenBuffer[index + 2] = pixelColor[0]; // Red component
 
             // Return palette color before lookup
             return paletteColor;
@@ -506,9 +506,9 @@ namespace Emulation
                 var pixelColor = ColorMap.LUT[paletteColor];
 
                 // Set the RGB values in the screen buffer at the calculated index
-                screenBuffer[index] = pixelColor[2];     // Red component
+                screenBuffer[index] = pixelColor[2];     // Blue component
                 screenBuffer[index + 1] = pixelColor[1]; // Green component
-                screenBuffer[index + 2] = pixelColor[0]; // Blue component
+                screenBuffer[index + 2] = pixelColor[0]; // Red component
             }
         }
 
