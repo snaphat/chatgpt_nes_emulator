@@ -87,30 +87,67 @@ namespace Emulation
         }
 
         // Read a byte from the specified PPU register
-        public byte ReadRegister(ushort address, bool hasPPUSideEffects = false)
+        public byte DebugReadRegister(ushort address)
         {
+            byte temp = openBus;
             switch (address)
             {
                 case 0x2000: // PPU Control Register
-                    break;
-
                 case 0x2001: // PPU Mask Register
                     break;
 
                 case 0x2002: // PPU Status Register
-                    if (hasPPUSideEffects)
-                    {
-                        // Read and clear the vertical blank flag in the status register
-                        openBus = ppuStatus;
-                        ppuStatus = (byte)(ppuStatus & ~IN_VBLANK_FLAG);
+                    temp = ppuStatus;
+                    break;
 
-                        // Reset the address latch
-                        w = false;
+                case 0x2003: // OAM Address Register
+                    break;
+
+                case 0x2004: // OAM Data Register
+                    temp = oam[oamAddress];
+                    break;
+
+                case 0x2005: // PPU Scroll Register
+                case 0x2006: // PPU Address Register
+                    break;
+
+                case 0x2007: // VRAM Data Register
+                    if (v is >= 0x0000 and <= 0x3EFF)
+                    {
+                        // Read from internal read buffer and update the buffer with the new value
+                        temp = ppudataBuffer;
                     }
                     else
                     {
-                        openBus = (byte)ppuStatus;
+                        // Read directly from VRAM and update the internal buffer
+                        temp = ReadVRAM(v);
                     }
+                    break;
+
+                default:
+                    // Invalid register address
+                    break;
+            }
+
+            return temp;
+        }
+
+        // Read a byte from the specified PPU register
+        public byte ReadRegister(ushort address)
+        {
+            switch (address)
+            {
+                case 0x2000: // PPU Control Register
+                case 0x2001: // PPU Mask Register
+                    break;
+
+                case 0x2002: // PPU Status Register
+                    // Read and clear the vertical blank flag in the status register
+                    openBus = ppuStatus;
+                    ppuStatus = (byte)(ppuStatus & ~IN_VBLANK_FLAG);
+
+                    // Reset the address latch
+                    w = false;
                     break;
 
                 case 0x2003: // OAM Address Register
@@ -129,25 +166,19 @@ namespace Emulation
                     {
                         // Read from internal read buffer and update the buffer with the new value
                         openBus = ppudataBuffer;
-                        if (hasPPUSideEffects)
-                        {
-                            ppudataBuffer = ReadVRAM(v);
+                        ppudataBuffer = ReadVRAM(v);
 
-                            // Increment the VRAM address based on the VRAM increment mode
-                            v += (ushort)((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1);
-                        }
+                        // Increment the VRAM address based on the VRAM increment mode
+                        v += (ushort)((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1);
                     }
                     else
                     {
                         // Read directly from VRAM and update the internal buffer
                         openBus = ReadVRAM(v);
-                        if (hasPPUSideEffects)
-                        {
-                            ppudataBuffer = openBus;
+                        ppudataBuffer = openBus;
 
-                            // Increment the VRAM address based on the VRAM increment mode
-                            v += (ushort)((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1);
-                        }
+                        // Increment the VRAM address based on the VRAM increment mode
+                        v += (ushort)((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1);
                     }
                     v &= 0x7FFF; // Handle VRAM address overflow
                     break;

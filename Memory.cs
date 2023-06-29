@@ -23,7 +23,7 @@
         }
 
         // Read a byte from the specified address in memory
-        public byte Read(ushort address, bool hasPPUSideEffects = false)
+        public byte DebugRead(ushort address)
         {
             if (address < 0x2000)
             {
@@ -33,7 +33,37 @@
             else if (address >= 0x2000 && address <= 0x3FFF)
             {
                 // Access PPU registers
-                return ppu.ReadRegister(address, hasPPUSideEffects);
+                return ppu.DebugReadRegister(address);
+            }
+            else if (address >= 0x8000 && address < 0xC000)
+            {
+                // Access the first 16KB of PRG-ROM
+                int prgRomAddress = address - 0x8000;
+                return prgRom[prgRomAddress];
+            }
+            else if (address >= 0xC000 && address <= 0xFFFF)
+            {
+                // Access the last 16KB of PRG-ROM
+                int prgRomAddress = address - 0xC000 + (prgRom.Length - 0x4000);
+                return prgRom[prgRomAddress];
+            }
+
+            // Default to returning 0x00 if no specific handling is implemented
+            return 0x00;
+        }
+
+        // Read a byte from the specified address in memory
+        public byte Read(ushort address)
+        {
+            if (address < 0x2000)
+            {
+                // Access RAM
+                return ram[address % 0x0800];
+            }
+            else if (address >= 0x2000 && address <= 0x3FFF)
+            {
+                // Access PPU registers
+                return ppu.ReadRegister(address);
             }
             else if (address >= 0x8000 && address < 0xC000)
             {

@@ -399,7 +399,24 @@
         }
 
         // Helper functions for reading from and writing to memory
-        public byte ReadMemory(ushort address)
+        public byte DebugReadMemory(ushort address)
+        {
+            if (address == 0x4016)
+            {
+                return controller.DebugReadController1();
+            }
+            else if (address == 0x4017)
+            {
+                return controller.DebugReadController2();
+            }
+            else
+            {
+                return memory.DebugRead(address);
+            }
+        }
+
+
+        private byte ReadMemory(ushort address)
         {
             if (address == 0x4016)
             {
@@ -411,11 +428,11 @@
             }
             else
             {
-                return memory.Read(address, true);
+                return memory.Read(address);
             }
         }
 
-        public void WriteMemory(ushort address, byte value)
+        private void WriteMemory(ushort address, byte value)
         {
             if (address == 0x4014)
             {

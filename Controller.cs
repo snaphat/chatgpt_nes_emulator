@@ -51,6 +51,20 @@ public class Controller
     }
 
     // Create a method to read from controller 1
+    public byte DebugReadController1()
+    {
+        byte value = (byte)(controllerState1 & 1);
+        return value;
+    }
+
+    // Create a method to read from controller 2
+    public byte DebugReadController2()
+    {
+        byte value = (byte)(controllerState2 & 1);
+        return value;
+    }
+
+    // Create a method to read from controller 1
     public byte ReadController1()
     {
         byte value = (byte)(controllerState1 & 1);
