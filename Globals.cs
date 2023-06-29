@@ -6,6 +6,10 @@ namespace Emulation
         public const int HORIZONTAL_MIRRORING = 0;
         public const int VERTICAL_MIRRORING = 1;
 
+        // CPU Constants
+        public const int BREAK_FLAG = 0x10;
+        public const int ALWAYS_HIGH_FLAG = 0x20;
+
         // PPU Constants
         public const int PATTERN_TABLE_0_BASE_ADDRESS = 0x0000; // Address of the first name table
         public const int PATTERN_TABLE_1_BASE_ADDRESS = 0x1000; // Address of the first name table

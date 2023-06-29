@@ -1,5 +1,6 @@
 ﻿namespace Emulation
 {
+    using static Globals;
     public class CPU
     {
         private int remainingCycles;
@@ -646,7 +647,7 @@
         private void PLP_()
         {
             byte flags = PopStack();
-            P = (byte)((P & 0x60) | (flags & 0xCF)); // Preserve bit 4 (B flag) and bit 5 (unused flag) and update the rest with the stack value
+            P = (byte)((P & (BREAK_FLAG | ALWAYS_HIGH_FLAG)) | (flags & ~(BREAK_FLAG | ALWAYS_HIGH_FLAG))); // Disregard bit 4 (B flag) and bit 5 (unused flag) and update the rest with the stack value
         }
 
         private void PHP()
@@ -657,7 +658,7 @@
 
         private void PHP_()
         {
-            PushStack((byte)(P | 0x30)); // Push bit 4 (B flag) and bit 5 (unused flag) set to 1 onto the stack
+            PushStack((byte)(P | (BREAK_FLAG | ALWAYS_HIGH_FLAG))); // Push bit 4 (B flag) and bit 5 (unused flag) set to 1 onto the stack
         }
 
         // Load and Store Operations
@@ -1851,7 +1852,7 @@
         private void RTI_()
         {
             byte flags = PopStack();
-            P = (byte)((P & 0x60) | (flags & 0xCF)); // Preserve bit 4 (B flag) and bit 5 (unused flag) and update the rest with the stack value
+            P = (byte)((P & (BREAK_FLAG | ALWAYS_HIGH_FLAG)) | (flags & ~(BREAK_FLAG | ALWAYS_HIGH_FLAG))); // Disregard bit 4 (B flag) and bit 5 (unused flag) and update the rest with the stack value
             PC = (ushort)(PopStack() | (PopStack() << 8));
         }
 
@@ -2567,7 +2568,7 @@
             PushStack((byte)(PC & 0xFF));
 
             // Push the processor status register (P) to the stack
-            PushStack((byte)((P | 0x20) & 0xEF)); // Push bit 4 (B flag) set to 0 and bit 5 (unused flag) set to 1 onto the stack
+            PushStack((byte)((P & ~BREAK_FLAG) | ALWAYS_HIGH_FLAG)); // Push bit 4 (B flag) set to 0 and bit 5 (unused flag) set to 1 onto the stack
 
             // Disable interrupts
             I = true;
