@@ -87,7 +87,7 @@ namespace Emulation
         }
 
         // Read a byte from the specified PPU register
-        public byte ReadRegister(ushort address, bool isDebugRead = false)
+        public byte ReadRegister(ushort address, bool hasPPUSideEffects = false)
         {
             switch (address)
             {
@@ -98,7 +98,7 @@ namespace Emulation
                     break;
 
                 case 0x2002: // PPU Status Register
-                    if (!isDebugRead)
+                    if (hasPPUSideEffects)
                     {
                         // Read and clear the vertical blank flag in the status register
                         openBus = ppuStatus;
@@ -129,7 +129,7 @@ namespace Emulation
                     {
                         // Read from internal read buffer and update the buffer with the new value
                         openBus = ppudataBuffer;
-                        if (!isDebugRead)
+                        if (hasPPUSideEffects)
                         {
                             ppudataBuffer = ReadVRAM(v);
 
@@ -141,7 +141,7 @@ namespace Emulation
                     {
                         // Read directly from VRAM and update the internal buffer
                         openBus = ReadVRAM(v);
-                        if (!isDebugRead)
+                        if (hasPPUSideEffects)
                         {
                             ppudataBuffer = openBus;
 

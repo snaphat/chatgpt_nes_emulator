@@ -399,7 +399,7 @@
         }
 
         // Helper functions for reading from and writing to memory
-        public byte ReadMemory(ushort address, bool isDebugRead = false)
+        public byte ReadMemory(ushort address)
         {
             if (address == 0x4016)
             {
@@ -411,7 +411,7 @@
             }
             else
             {
-                return memory.Read(address, isDebugRead);
+                return memory.Read(address, true);
             }
         }
 
