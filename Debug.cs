@@ -204,7 +204,7 @@ namespace Emulation
             flags += cpu.N ? "N" : "n";
             flags += cpu.V ? "V" : "v";
             flags += 'u';
-            flags += cpu.B ? "B" : "b";
+            flags += 'b';
             flags += cpu.D ? "D" : "d";
             flags += cpu.I ? "I" : "i";
             flags += cpu.Z ? "Z" : "z";

@@ -1,6 +1,5 @@
 ﻿namespace Emulation
 {
-    using static Globals;
     public class CPU
     {
         private int remainingCycles;
@@ -10,12 +9,12 @@
         public byte X, Y; // General-purpose registers
         public byte S; // Stack pointer
         public ushort PC; // Program counter
-        public byte P; // Processor status register
 
-        // Status Flags
+        // Processor Status Flags (Register P)
         public bool N; // Negative flag
         public bool V; // Overflow flag
-        public bool B; // Break flag
+        // public bool U; // Unused
+        // public bool B; // Break flag
         public bool D; // Decimal mode flag
         public bool I; // Interrupt disable flag
         public bool Z; // Zero flag
@@ -23,7 +22,7 @@
 
         private byte dmaPage;
         private byte dmaAddress;
-        private int dmaCycleCounter;
+        public int dmaCycleCounter;
 
         // next instruction to execute
         Action pendingOperation = () => { };
@@ -48,7 +47,6 @@
             S = 0xFD;
             N = false;
             V = false;
-            B = false;
             D = false;
             I = true;
             Z = false;
@@ -452,6 +450,33 @@
             }
         }
 
+        // Status flag conversions
+        private byte StatusToByte(bool isBRK)
+        {
+            byte status = 0;
+            if (N) status |= 0x80;
+            if (V) status |= 0x40;
+            status |= 0x20; // unused bit, always set to 1
+            if (isBRK) status |= 0x10;
+            if (D) status |= 0x08;
+            if (I) status |= 0x04;
+            if (Z) status |= 0x02;
+            if (C) status |= 0x01;
+            return status;
+        }
+
+        private void ByteToStatus(byte status)
+        {
+            N = (status & 0x80) > 0;
+            V = (status & 0x40) > 0;
+            // skip 0x20, the unused bit
+            // skip 0x10, the B flag which is not a physical flag
+            D = (status & 0x08) > 0;
+            I = (status & 0x04) > 0;
+            Z = (status & 0x02) > 0;
+            C = (status & 0x01) > 0;
+        }
+
         // Addressing Modes
         private byte Immediate()
         {
@@ -675,8 +700,7 @@
 
         private void PLP_()
         {
-            byte flags = PopStack();
-            P = (byte)((P & (BREAK_FLAG | ALWAYS_HIGH_FLAG)) | (flags & ~(BREAK_FLAG | ALWAYS_HIGH_FLAG))); // Disregard bit 4 (B flag) and bit 5 (unused flag) and update the rest with the stack value
+            ByteToStatus(PopStack());
         }
 
         private void PHP()
@@ -687,7 +711,7 @@
 
         private void PHP_()
         {
-            PushStack((byte)(P | (BREAK_FLAG | ALWAYS_HIGH_FLAG))); // Push bit 4 (B flag) and bit 5 (unused flag) set to 1 onto the stack
+            PushStack(StatusToByte(true));
         }
 
         // Load and Store Operations
@@ -1880,8 +1904,7 @@
 
         private void RTI_()
         {
-            byte flags = PopStack();
-            P = (byte)((P & (BREAK_FLAG | ALWAYS_HIGH_FLAG)) | (flags & ~(BREAK_FLAG | ALWAYS_HIGH_FLAG))); // Disregard bit 4 (B flag) and bit 5 (unused flag) and update the rest with the stack value
+            ByteToStatus(PopStack());
             PC = (ushort)(PopStack() | (PopStack() << 8));
         }
 
@@ -1972,11 +1995,11 @@
 
         private void BRK_()
         {
-            PC++; // Increment PC to point to the next instruction
-            PushStack((byte)(PC >> 8)); // Push high byte of PC onto the stack
-            PushStack((byte)(PC & 0xFF)); // Push low byte of PC onto the stack
-            PushStack((byte)(P | 0x30)); // Push bit 4 (B flag) and bit 5 (unused flag) set to 1 onto the stack
-            I = true; // Set Interrupt flag to disable further interrupts
+            PC++;
+            PushStack((byte)(PC >> 8));
+            PushStack((byte)(PC & 0xFF));
+            PushStack(StatusToByte(true));
+            I = true;
             PC = (ushort)(ReadMemory(0xFFFE) | (ReadMemory(0xFFFF) << 8)); // Set PC to the interrupt vector address
         }
 
@@ -2597,7 +2620,7 @@
             PushStack((byte)(PC & 0xFF));
 
             // Push the processor status register (P) to the stack
-            PushStack((byte)((P & ~BREAK_FLAG) | ALWAYS_HIGH_FLAG)); // Push bit 4 (B flag) set to 0 and bit 5 (unused flag) set to 1 onto the stack
+            PushStack(StatusToByte(false));
 
             // Disable interrupts
             I = true;
