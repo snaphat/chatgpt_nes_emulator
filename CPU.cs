@@ -506,6 +506,18 @@
             return (address & 0xFF00) != (finalAddress & 0xFF00);
         }
 
+        private ushort Indirect_Bugged() // doesn't go to next page
+        {
+            ushort indirectAddress = ReadMemory(PC++);
+            indirectAddress |= (ushort)(ReadMemory(PC++) << 8);
+
+            ushort address = ReadMemory(indirectAddress);
+            ushort wrapAddress = (ushort)((indirectAddress & 0xFF00) | ((indirectAddress + 1) & 0x00FF));
+            address |= (ushort)(ReadMemory(wrapAddress) << 8);
+
+            return address;
+        }
+
         private ushort Indirect()
         {
             ushort indirectAddress = ReadMemory(PC++);
@@ -1827,7 +1839,7 @@
         private void JMP_Indirect()
         {
             remainingCycles = 5;
-            pendingOperation = () => JMP_(Indirect());
+            pendingOperation = () => JMP_(Indirect_Bugged());
         }
 
         private void JMP_(ushort address)
