@@ -446,10 +446,6 @@ namespace Emulation
                 if (dot < spriteX || dot >= spriteX + 8)
                     continue;
 
-                // Implement sprite clipping
-                if ((ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) == 0 && dot < 8)
-                    continue;
-
                 // Check if the scanline is within the sprite's vertical range
                 int height = (ppuControl & SPRITE_SIZE_FLAG) != 0 ? 16 : 8;
                 if (scanline < spriteY || scanline >= spriteY + height)
@@ -531,7 +527,7 @@ namespace Emulation
 
                         if ((ppuMask & SHOW_BACKGROUND) != 0)
                             backgroundPaletteColor = RenderBackground();
-                        if ((ppuMask & SHOW_SPRITES) != 0)
+                        if ((ppuMask & SHOW_SPRITES) != 0 && (dot >= 8 || (ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) != 0))
                             RenderSprite(backgroundPaletteColor);
 
                         // Increment fine X scroll
