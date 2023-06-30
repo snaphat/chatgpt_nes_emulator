@@ -1,5 +1,6 @@
 ﻿namespace Emulation
 {
+    using System;
     public class CPU
     {
         private int remainingCycles;
@@ -24,8 +25,596 @@
         private byte dmaAddress;
         public int dmaCycleCounter;
 
-        // next instruction to execute
-        Action pendingOperation = () => { };
+        private int opcode;
+
+        // Allocate an array for the opcode jump table
+        private readonly Action[] opcodeExecuteJumpTable = new Action[258];
+
+        // Allocate an array for the opcode jump table
+        private readonly Action[] opcodeSetCyclesJumpTable = new Action[258];
+
+        private void InitializeSetCyclesJumpTable()
+        {
+            // Register Transfers
+            opcodeSetCyclesJumpTable[0xAA] = TAX_SetCycles;
+            opcodeSetCyclesJumpTable[0x8A] = TXA_SetCycles;
+            opcodeSetCyclesJumpTable[0xA8] = TAY_SetCycles;
+            opcodeSetCyclesJumpTable[0x98] = TYA_SetCycles;
+            opcodeSetCyclesJumpTable[0xBA] = TSX_SetCycles;
+            opcodeSetCyclesJumpTable[0x9A] = TXS_SetCycles;
+            opcodeSetCyclesJumpTable[0x68] = PLA_SetCycles;
+            opcodeSetCyclesJumpTable[0x48] = PHA_SetCycles;
+            opcodeSetCyclesJumpTable[0x28] = PLP_SetCycles;
+            opcodeSetCyclesJumpTable[0x08] = PHP_SetCycles;
+
+            // Load and Store Operations
+            opcodeSetCyclesJumpTable[0xA9] = LDA_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xA5] = LDA_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xB5] = LDA_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0xAD] = LDA_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xBD] = LDA_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0xB9] = LDA_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0xA1] = LDA_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0xB1] = LDA_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0xA2] = LDX_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xA6] = LDX_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xB6] = LDX_ZeroPageY_SetCycles;
+            opcodeSetCyclesJumpTable[0xAE] = LDX_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xBE] = LDX_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0xA0] = LDY_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xA4] = LDY_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xB4] = LDY_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0xAC] = LDY_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xBC] = LDY_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x85] = STA_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x95] = STA_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x8D] = STA_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x9D] = STA_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x99] = STA_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x81] = STA_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0x91] = STA_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0x86] = STX_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x96] = STX_ZeroPageY_SetCycles;
+            opcodeSetCyclesJumpTable[0x8E] = STX_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x84] = STY_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x94] = STY_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x8C] = STY_Absolute_SetCycles;
+
+            // Arithmetic and Logical Operations
+            opcodeSetCyclesJumpTable[0x69] = ADC_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x65] = ADC_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x75] = ADC_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x6D] = ADC_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x7D] = ADC_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x79] = ADC_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x61] = ADC_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0x71] = ADC_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0xE9] = SBC_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xE5] = SBC_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xF5] = SBC_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0xED] = SBC_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xFD] = SBC_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0xF9] = SBC_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0xE1] = SBC_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0xF1] = SBC_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0x29] = AND_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x25] = AND_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x35] = AND_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x2D] = AND_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x3D] = AND_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x39] = AND_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x21] = AND_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0x31] = AND_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0x09] = ORA_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x05] = ORA_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x15] = ORA_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x0D] = ORA_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x1D] = ORA_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x19] = ORA_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x01] = ORA_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0x11] = ORA_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0x49] = EOR_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x45] = EOR_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x55] = EOR_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x4D] = EOR_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x5D] = EOR_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x59] = EOR_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x41] = EOR_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0x51] = EOR_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0x24] = BIT_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x2C] = BIT_Absolute_SetCycles;
+
+            // Increment and Decrement Operations
+            opcodeSetCyclesJumpTable[0xE6] = INC_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xEE] = INC_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xF6] = INC_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0xFE] = INC_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0xC6] = DEC_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xD6] = DEC_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0xCE] = DEC_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xDE] = DEC_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0xE8] = INX_SetCycles;
+            opcodeSetCyclesJumpTable[0xC8] = INY_SetCycles;
+            opcodeSetCyclesJumpTable[0xCA] = DEX_SetCycles;
+            opcodeSetCyclesJumpTable[0x88] = DEY_SetCycles;
+            opcodeSetCyclesJumpTable[0x0A] = ASL_SetCycles;
+
+            // Shift Operations
+            opcodeSetCyclesJumpTable[0x06] = ASL_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x16] = ASL_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x0E] = ASL_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x1E] = ASL_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x4A] = LSR_SetCycles;
+            opcodeSetCyclesJumpTable[0x46] = LSR_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x56] = LSR_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x4E] = LSR_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x5E] = LSR_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x2A] = ROL_SetCycles;
+            opcodeSetCyclesJumpTable[0x26] = ROL_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x36] = ROL_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x2E] = ROL_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x3E] = ROL_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x6A] = ROR_SetCycles;
+            opcodeSetCyclesJumpTable[0x66] = ROR_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x76] = ROR_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x6E] = ROR_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x7E] = ROR_AbsoluteX_SetCycles;
+
+            // Compare Operations
+            opcodeSetCyclesJumpTable[0xC9] = CMP_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xC5] = CMP_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xD5] = CMP_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0xCD] = CMP_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xDD] = CMP_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0xD9] = CMP_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0xC1] = CMP_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0xD1] = CMP_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0xE0] = CPX_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xE4] = CPX_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xEC] = CPX_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xC0] = CPY_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xC4] = CPY_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xCC] = CPY_Absolute_SetCycles;
+
+            // Branching Operations
+            opcodeSetCyclesJumpTable[0xD0] = BNE_Relative_SetCycles;
+            opcodeSetCyclesJumpTable[0xF0] = BEQ_Relative_SetCycles;
+            opcodeSetCyclesJumpTable[0x10] = BPL_Relative_SetCycles;
+            opcodeSetCyclesJumpTable[0x30] = BMI_Relative_SetCycles;
+            opcodeSetCyclesJumpTable[0x90] = BCC_Relative_SetCycles;
+            opcodeSetCyclesJumpTable[0xB0] = BCS_Relative_SetCycles;
+            opcodeSetCyclesJumpTable[0x50] = BVC_Relative_SetCycles;
+            opcodeSetCyclesJumpTable[0x70] = BVS_Relative_SetCycles;
+
+            // Jump and Call Operations
+            opcodeSetCyclesJumpTable[0x4C] = JMP_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x6C] = JMP_Indirect_SetCycles;
+            opcodeSetCyclesJumpTable[0x20] = JSR_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x60] = RTS_SetCycles;
+            opcodeSetCyclesJumpTable[0x40] = RTI_SetCycles;
+
+            // Status Flag Operations
+            opcodeSetCyclesJumpTable[0x18] = CLC_SetCycles;
+            opcodeSetCyclesJumpTable[0x38] = SEC_SetCycles;
+            opcodeSetCyclesJumpTable[0x58] = CLI_SetCycles;
+            opcodeSetCyclesJumpTable[0x78] = SEI_SetCycles;
+            opcodeSetCyclesJumpTable[0xD8] = CLD_SetCycles;
+            opcodeSetCyclesJumpTable[0xF8] = SED_SetCycles;
+            opcodeSetCyclesJumpTable[0xB8] = CLV_SetCycles;
+
+            // System Functions
+            opcodeSetCyclesJumpTable[0x00] = BRK_SetCycles;
+            opcodeSetCyclesJumpTable[0xEA] = NOP_SetCycles;
+
+            // Unofficial Instructions
+            opcodeSetCyclesJumpTable[0xEB] = SBC_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x1A] = NOP_SetCycles;
+            opcodeSetCyclesJumpTable[0x3A] = NOP_SetCycles;
+            opcodeSetCyclesJumpTable[0x5A] = NOP_SetCycles;
+            opcodeSetCyclesJumpTable[0x7A] = NOP_SetCycles;
+            opcodeSetCyclesJumpTable[0xDA] = NOP_SetCycles;
+            opcodeSetCyclesJumpTable[0xFA] = NOP_SetCycles;
+            opcodeSetCyclesJumpTable[0x80] = NOP_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x82] = NOP_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x89] = NOP_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xC2] = NOP_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xE2] = NOP_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x04] = NOP_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x44] = NOP_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x64] = NOP_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x14] = NOP_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x34] = NOP_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x54] = NOP_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x74] = NOP_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0xD4] = NOP_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0xF4] = NOP_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x0C] = NOP_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x1C] = NOP_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x3C] = NOP_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x5C] = NOP_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x7C] = NOP_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0xDC] = NOP_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0xFC] = NOP_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x02] = STP;
+            opcodeSetCyclesJumpTable[0x12] = STP;
+            opcodeSetCyclesJumpTable[0x22] = STP;
+            opcodeSetCyclesJumpTable[0x32] = STP;
+            opcodeSetCyclesJumpTable[0x42] = STP;
+            opcodeSetCyclesJumpTable[0x52] = STP;
+            opcodeSetCyclesJumpTable[0x62] = STP;
+            opcodeSetCyclesJumpTable[0x72] = STP;
+            opcodeSetCyclesJumpTable[0x92] = STP;
+            opcodeSetCyclesJumpTable[0xB2] = STP;
+            opcodeSetCyclesJumpTable[0xD2] = STP;
+            opcodeSetCyclesJumpTable[0xF2] = STP;
+            opcodeSetCyclesJumpTable[0x4B] = ALR_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x0B] = ANC_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x2B] = ANC_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x8B] = ANE_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x6B] = ARR_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xCB] = AXS_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0xBB] = LAS_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0xA7] = LAX_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xB7] = LAX_ZeroPageY_SetCycles;
+            opcodeSetCyclesJumpTable[0xAF] = LAX_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xBF] = LAX_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0xA3] = LAX_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0xB3] = LAX_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0xAB] = LXA_Immediate_SetCycles;
+            opcodeSetCyclesJumpTable[0x87] = SAX_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x97] = SAX_ZeroPageY_SetCycles;
+            opcodeSetCyclesJumpTable[0x8F] = SAX_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x83] = SAX_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0x9F] = SHA_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x93] = SHA_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0x9E] = SHX_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x9C] = SHY_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x9B] = TAS_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0xC7] = DCP_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xD7] = DCP_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0xCF] = DCP_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xDF] = DCP_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0xDB] = DCP_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0xC3] = DCP_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0xD3] = DCP_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0xE7] = ISC_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0xF7] = ISC_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0xEF] = ISC_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0xFF] = ISC_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0xFB] = ISC_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0xE3] = ISC_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0xF3] = ISC_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0x27] = RLA_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x37] = RLA_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x2F] = RLA_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x3F] = RLA_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x3B] = RLA_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x23] = RLA_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0x33] = RLA_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0x67] = RRA_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x77] = RRA_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x6F] = RRA_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x7F] = RRA_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x7B] = RRA_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x63] = RRA_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0x73] = RRA_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0x07] = SLO_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x17] = SLO_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x0F] = SLO_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x1F] = SLO_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x1B] = SLO_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x03] = SLO_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0x13] = SLO_IndirectY_SetCycles;
+            opcodeSetCyclesJumpTable[0x47] = SRE_ZeroPage_SetCycles;
+            opcodeSetCyclesJumpTable[0x57] = SRE_ZeroPageX_SetCycles;
+            opcodeSetCyclesJumpTable[0x4F] = SRE_Absolute_SetCycles;
+            opcodeSetCyclesJumpTable[0x5F] = SRE_AbsoluteX_SetCycles;
+            opcodeSetCyclesJumpTable[0x5B] = SRE_AbsoluteY_SetCycles;
+            opcodeSetCyclesJumpTable[0x43] = SRE_IndirectX_SetCycles;
+            opcodeSetCyclesJumpTable[0x53] = SRE_IndirectY_SetCycles;
+
+            // Fill the rest of the jump table with a default handler for unknown opcodes
+            for (int i = 0; i < opcodeExecuteJumpTable.Length; i++)
+            {
+                if (opcodeExecuteJumpTable[i] == null)
+                {
+                    opcodeExecuteJumpTable[i] = UnknownOpcodeHandler;
+                }
+            }
+        }
+
+        private void InitializeExecutionJumpTable()
+        {
+            opcodeExecuteJumpTable[0x100] = DMA_Execute;
+            opcodeExecuteJumpTable[0x101] = NMI_Execute;
+
+            // Register Transfers
+            opcodeExecuteJumpTable[0xAA] = TAX_Execute;
+            opcodeExecuteJumpTable[0x8A] = TXA_Execute;
+            opcodeExecuteJumpTable[0xA8] = TAY_Execute;
+            opcodeExecuteJumpTable[0x98] = TYA_Execute;
+            opcodeExecuteJumpTable[0xBA] = TSX_Execute;
+            opcodeExecuteJumpTable[0x9A] = TXS_Execute;
+            opcodeExecuteJumpTable[0x68] = PLA_Execute;
+            opcodeExecuteJumpTable[0x48] = PHA_Execute;
+            opcodeExecuteJumpTable[0x28] = PLP_Execute;
+            opcodeExecuteJumpTable[0x08] = PHP_Execute;
+
+            // Load and Store Operations
+            opcodeExecuteJumpTable[0xA9] = LDA_Immediate_Execute;
+            opcodeExecuteJumpTable[0xA5] = LDA_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xB5] = LDA_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0xAD] = LDA_Absolute_Execute;
+            opcodeExecuteJumpTable[0xBD] = LDA_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0xB9] = LDA_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0xA1] = LDA_IndirectX_Execute;
+            opcodeExecuteJumpTable[0xB1] = LDA_IndirectY_Execute;
+            opcodeExecuteJumpTable[0xA2] = LDX_Immediate_Execute;
+            opcodeExecuteJumpTable[0xA6] = LDX_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xB6] = LDX_ZeroPageY_Execute;
+            opcodeExecuteJumpTable[0xAE] = LDX_Absolute_Execute;
+            opcodeExecuteJumpTable[0xBE] = LDX_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0xA0] = LDY_Immediate_Execute;
+            opcodeExecuteJumpTable[0xA4] = LDY_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xB4] = LDY_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0xAC] = LDY_Absolute_Execute;
+            opcodeExecuteJumpTable[0xBC] = LDY_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x85] = STA_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x95] = STA_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x8D] = STA_Absolute_Execute;
+            opcodeExecuteJumpTable[0x9D] = STA_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x99] = STA_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x81] = STA_IndirectX_Execute;
+            opcodeExecuteJumpTable[0x91] = STA_IndirectY_Execute;
+            opcodeExecuteJumpTable[0x86] = STX_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x96] = STX_ZeroPageY_Execute;
+            opcodeExecuteJumpTable[0x8E] = STX_Absolute_Execute;
+            opcodeExecuteJumpTable[0x84] = STY_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x94] = STY_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x8C] = STY_Absolute_Execute;
+
+            // Arithmetic and Logical Operations
+            opcodeExecuteJumpTable[0x69] = ADC_Immediate_Execute;
+            opcodeExecuteJumpTable[0x65] = ADC_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x75] = ADC_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x6D] = ADC_Absolute_Execute;
+            opcodeExecuteJumpTable[0x7D] = ADC_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x79] = ADC_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x61] = ADC_IndirectX_Execute;
+            opcodeExecuteJumpTable[0x71] = ADC_IndirectY_Execute;
+            opcodeExecuteJumpTable[0xE9] = SBC_Immediate_Execute;
+            opcodeExecuteJumpTable[0xE5] = SBC_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xF5] = SBC_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0xED] = SBC_Absolute_Execute;
+            opcodeExecuteJumpTable[0xFD] = SBC_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0xF9] = SBC_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0xE1] = SBC_IndirectX_Execute;
+            opcodeExecuteJumpTable[0xF1] = SBC_IndirectY_Execute;
+            opcodeExecuteJumpTable[0x29] = AND_Immediate_Execute;
+            opcodeExecuteJumpTable[0x25] = AND_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x35] = AND_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x2D] = AND_Absolute_Execute;
+            opcodeExecuteJumpTable[0x3D] = AND_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x39] = AND_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x21] = AND_IndirectX_Execute;
+            opcodeExecuteJumpTable[0x31] = AND_IndirectY_Execute;
+            opcodeExecuteJumpTable[0x09] = ORA_Immediate_Execute;
+            opcodeExecuteJumpTable[0x05] = ORA_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x15] = ORA_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x0D] = ORA_Absolute_Execute;
+            opcodeExecuteJumpTable[0x1D] = ORA_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x19] = ORA_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x01] = ORA_IndirectX_Execute;
+            opcodeExecuteJumpTable[0x11] = ORA_IndirectY_Execute;
+            opcodeExecuteJumpTable[0x49] = EOR_Immediate_Execute;
+            opcodeExecuteJumpTable[0x45] = EOR_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x55] = EOR_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x4D] = EOR_Absolute_Execute;
+            opcodeExecuteJumpTable[0x5D] = EOR_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x59] = EOR_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x41] = EOR_IndirectX_Execute;
+            opcodeExecuteJumpTable[0x51] = EOR_IndirectY_Execute;
+            opcodeExecuteJumpTable[0x24] = BIT_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x2C] = BIT_Absolute_Execute;
+
+            // Increment and Decrement Operations
+            opcodeExecuteJumpTable[0xE6] = INC_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xEE] = INC_Absolute_Execute;
+            opcodeExecuteJumpTable[0xF6] = INC_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0xFE] = INC_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0xC6] = DEC_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xD6] = DEC_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0xCE] = DEC_Absolute_Execute;
+            opcodeExecuteJumpTable[0xDE] = DEC_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0xE8] = INX_Execute;
+            opcodeExecuteJumpTable[0xC8] = INY_Execute;
+            opcodeExecuteJumpTable[0xCA] = DEX_Execute;
+            opcodeExecuteJumpTable[0x88] = DEY_Execute;
+            opcodeExecuteJumpTable[0x0A] = ASL_Execute;
+
+            // Shift Operations
+            opcodeExecuteJumpTable[0x06] = ASL_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x16] = ASL_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x0E] = ASL_Absolute_Execute;
+            opcodeExecuteJumpTable[0x1E] = ASL_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x4A] = LSR_Execute;
+            opcodeExecuteJumpTable[0x46] = LSR_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x56] = LSR_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x4E] = LSR_Absolute_Execute;
+            opcodeExecuteJumpTable[0x5E] = LSR_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x2A] = ROL_Execute;
+            opcodeExecuteJumpTable[0x26] = ROL_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x36] = ROL_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x2E] = ROL_Absolute_Execute;
+            opcodeExecuteJumpTable[0x3E] = ROL_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x6A] = ROR_Execute;
+            opcodeExecuteJumpTable[0x66] = ROR_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x76] = ROR_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x6E] = ROR_Absolute_Execute;
+            opcodeExecuteJumpTable[0x7E] = ROR_AbsoluteX_Execute;
+
+            // Compare Operations
+            opcodeExecuteJumpTable[0xC9] = CMP_Immediate_Execute;
+            opcodeExecuteJumpTable[0xC5] = CMP_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xD5] = CMP_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0xCD] = CMP_Absolute_Execute;
+            opcodeExecuteJumpTable[0xDD] = CMP_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0xD9] = CMP_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0xC1] = CMP_IndirectX_Execute;
+            opcodeExecuteJumpTable[0xD1] = CMP_IndirectY_Execute;
+            opcodeExecuteJumpTable[0xE0] = CPX_Immediate_Execute;
+            opcodeExecuteJumpTable[0xE4] = CPX_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xEC] = CPX_Absolute_Execute;
+            opcodeExecuteJumpTable[0xC0] = CPY_Immediate_Execute;
+            opcodeExecuteJumpTable[0xC4] = CPY_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xCC] = CPY_Absolute_Execute;
+
+            // Branching Operations
+            opcodeExecuteJumpTable[0xD0] = BNE_Relative_Execute;
+            opcodeExecuteJumpTable[0xF0] = BEQ_Relative_Execute;
+            opcodeExecuteJumpTable[0x10] = BPL_Relative_Execute;
+            opcodeExecuteJumpTable[0x30] = BMI_Relative_Execute;
+            opcodeExecuteJumpTable[0x90] = BCC_Relative_Execute;
+            opcodeExecuteJumpTable[0xB0] = BCS_Relative_Execute;
+            opcodeExecuteJumpTable[0x50] = BVC_Relative_Execute;
+            opcodeExecuteJumpTable[0x70] = BVS_Relative_Execute;
+
+            // Jump and Call Operations
+            opcodeExecuteJumpTable[0x4C] = JMP_Absolute_Execute;
+            opcodeExecuteJumpTable[0x6C] = JMP_Indirect_Execute;
+            opcodeExecuteJumpTable[0x20] = JSR_Absolute_Execute;
+            opcodeExecuteJumpTable[0x60] = RTS_Execute;
+            opcodeExecuteJumpTable[0x40] = RTI_Execute;
+
+            // Status Flag Operations
+            opcodeExecuteJumpTable[0x18] = CLC_Execute;
+            opcodeExecuteJumpTable[0x38] = SEC_Execute;
+            opcodeExecuteJumpTable[0x58] = CLI_Execute;
+            opcodeExecuteJumpTable[0x78] = SEI_Execute;
+            opcodeExecuteJumpTable[0xD8] = CLD_Execute;
+            opcodeExecuteJumpTable[0xF8] = SED_Execute;
+            opcodeExecuteJumpTable[0xB8] = CLV_Execute;
+
+            // System Functions
+            opcodeExecuteJumpTable[0x00] = BRK_Execute;
+            opcodeExecuteJumpTable[0xEA] = NOP_Execute;
+
+            // Unofficial Instructions
+            opcodeExecuteJumpTable[0xEB] = SBC_Immediate_Execute;
+            opcodeExecuteJumpTable[0x1A] = NOP_Execute;
+            opcodeExecuteJumpTable[0x3A] = NOP_Execute;
+            opcodeExecuteJumpTable[0x5A] = NOP_Execute;
+            opcodeExecuteJumpTable[0x7A] = NOP_Execute;
+            opcodeExecuteJumpTable[0xDA] = NOP_Execute;
+            opcodeExecuteJumpTable[0xFA] = NOP_Execute;
+            opcodeExecuteJumpTable[0x80] = NOP_Immediate_Execute;
+            opcodeExecuteJumpTable[0x82] = NOP_Immediate_Execute;
+            opcodeExecuteJumpTable[0x89] = NOP_Immediate_Execute;
+            opcodeExecuteJumpTable[0xC2] = NOP_Immediate_Execute;
+            opcodeExecuteJumpTable[0xE2] = NOP_Immediate_Execute;
+            opcodeExecuteJumpTable[0x04] = NOP_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x44] = NOP_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x64] = NOP_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x14] = NOP_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x34] = NOP_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x54] = NOP_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x74] = NOP_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0xD4] = NOP_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0xF4] = NOP_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x0C] = NOP_Absolute_Execute;
+            opcodeExecuteJumpTable[0x1C] = NOP_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x3C] = NOP_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x5C] = NOP_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x7C] = NOP_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0xDC] = NOP_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0xFC] = NOP_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x02] = STP;
+            opcodeExecuteJumpTable[0x12] = STP;
+            opcodeExecuteJumpTable[0x22] = STP;
+            opcodeExecuteJumpTable[0x32] = STP;
+            opcodeExecuteJumpTable[0x42] = STP;
+            opcodeExecuteJumpTable[0x52] = STP;
+            opcodeExecuteJumpTable[0x62] = STP;
+            opcodeExecuteJumpTable[0x72] = STP;
+            opcodeExecuteJumpTable[0x92] = STP;
+            opcodeExecuteJumpTable[0xB2] = STP;
+            opcodeExecuteJumpTable[0xD2] = STP;
+            opcodeExecuteJumpTable[0xF2] = STP;
+            opcodeExecuteJumpTable[0x4B] = ALR_Immediate_Execute;
+            opcodeExecuteJumpTable[0x0B] = ANC_Immediate_Execute;
+            opcodeExecuteJumpTable[0x2B] = ANC_Immediate_Execute;
+            opcodeExecuteJumpTable[0x8B] = ANE_Immediate_Execute;
+            opcodeExecuteJumpTable[0x6B] = ARR_Immediate_Execute;
+            opcodeExecuteJumpTable[0xCB] = AXS_Immediate_Execute;
+            opcodeExecuteJumpTable[0xBB] = LAS_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0xA7] = LAX_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xB7] = LAX_ZeroPageY_Execute;
+            opcodeExecuteJumpTable[0xAF] = LAX_Absolute_Execute;
+            opcodeExecuteJumpTable[0xBF] = LAX_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0xA3] = LAX_IndirectX_Execute;
+            opcodeExecuteJumpTable[0xB3] = LAX_IndirectY_Execute;
+            opcodeExecuteJumpTable[0xAB] = LXA_Immediate_Execute;
+            opcodeExecuteJumpTable[0x87] = SAX_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x97] = SAX_ZeroPageY_Execute;
+            opcodeExecuteJumpTable[0x8F] = SAX_Absolute_Execute;
+            opcodeExecuteJumpTable[0x83] = SAX_IndirectX_Execute;
+            opcodeExecuteJumpTable[0x9F] = SHA_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x93] = SHA_IndirectY_Execute;
+            opcodeExecuteJumpTable[0x9E] = SHX_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x9C] = SHY_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x9B] = TAS_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0xC7] = DCP_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xD7] = DCP_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0xCF] = DCP_Absolute_Execute;
+            opcodeExecuteJumpTable[0xDF] = DCP_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0xDB] = DCP_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0xC3] = DCP_IndirectX_Execute;
+            opcodeExecuteJumpTable[0xD3] = DCP_IndirectY_Execute;
+            opcodeExecuteJumpTable[0xE7] = ISC_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0xF7] = ISC_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0xEF] = ISC_Absolute_Execute;
+            opcodeExecuteJumpTable[0xFF] = ISC_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0xFB] = ISC_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0xE3] = ISC_IndirectX_Execute;
+            opcodeExecuteJumpTable[0xF3] = ISC_IndirectY_Execute;
+            opcodeExecuteJumpTable[0x27] = RLA_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x37] = RLA_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x2F] = RLA_Absolute_Execute;
+            opcodeExecuteJumpTable[0x3F] = RLA_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x3B] = RLA_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x23] = RLA_IndirectX_Execute;
+            opcodeExecuteJumpTable[0x33] = RLA_IndirectY_Execute;
+            opcodeExecuteJumpTable[0x67] = RRA_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x77] = RRA_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x6F] = RRA_Absolute_Execute;
+            opcodeExecuteJumpTable[0x7F] = RRA_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x7B] = RRA_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x63] = RRA_IndirectX_Execute;
+            opcodeExecuteJumpTable[0x73] = RRA_IndirectY_Execute;
+            opcodeExecuteJumpTable[0x07] = SLO_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x17] = SLO_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x0F] = SLO_Absolute_Execute;
+            opcodeExecuteJumpTable[0x1F] = SLO_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x1B] = SLO_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x03] = SLO_IndirectX_Execute;
+            opcodeExecuteJumpTable[0x13] = SLO_IndirectY_Execute;
+            opcodeExecuteJumpTable[0x47] = SRE_ZeroPage_Execute;
+            opcodeExecuteJumpTable[0x57] = SRE_ZeroPageX_Execute;
+            opcodeExecuteJumpTable[0x4F] = SRE_Absolute_Execute;
+            opcodeExecuteJumpTable[0x5F] = SRE_AbsoluteX_Execute;
+            opcodeExecuteJumpTable[0x5B] = SRE_AbsoluteY_Execute;
+            opcodeExecuteJumpTable[0x43] = SRE_IndirectX_Execute;
+            opcodeExecuteJumpTable[0x53] = SRE_IndirectY_Execute;
+
+            // Fill the rest of the jump table with a default handler for unknown opcodes
+            for (int i = 0; i < opcodeExecuteJumpTable.Length; i++)
+            {
+                if (opcodeExecuteJumpTable[i] == null)
+                {
+                    opcodeExecuteJumpTable[i] = UnknownOpcodeHandler;
+                }
+            }
+        }
 
         // Other CPU components and functions
         private Emulator emulator = null!;
@@ -63,6 +652,14 @@
 
             // Disable interrupts
             I = true;
+
+            InitializeSetCyclesJumpTable();
+            InitializeExecutionJumpTable();
+        }
+
+        private void UnknownOpcodeHandler()
+        {
+            throw new NotImplementedException($"Opcode {opcode:X2} is not implemented.");
         }
 
         // Functions to update status flags
@@ -95,7 +692,7 @@
             //Debug.DisplayInstruction(this);
 
             // Execute pending operation
-            pendingOperation();
+            opcodeExecuteJumpTable[opcode]();
 
             // Check if remaining cycles since executed operations can add new operations
             if (remainingCycles > 0)
@@ -104,296 +701,14 @@
             // Check if an NMI is pending and handle it if necessary
             if (emulator.isNmiPending)
             {
-                NMI_Begin();
+                NMI_SetCycles();
                 emulator.isNmiPending = false;
                 return;
             }
 
             // Lookup next operation
-            byte opcode = ReadMemory(PC++);
-            switch (opcode)
-            {
-                // Register Transfers
-                case 0xAA: TAX(); break;
-                case 0x8A: TXA(); break;
-                case 0xA8: TAY(); break;
-                case 0x98: TYA(); break;
-                case 0xBA: TSX(); break;
-                case 0x9A: TXS(); break;
-                case 0x68: PLA(); break;
-                case 0x48: PHA(); break;
-                case 0x28: PLP(); break;
-                case 0x08: PHP(); break;
-
-                // Load and Store Operations
-                case 0xA9: LDA_Immediate(); break;
-                case 0xA5: LDA_ZeroPage(); break;
-                case 0xB5: LDA_ZeroPageX(); break;
-                case 0xAD: LDA_Absolute(); break;
-                case 0xBD: LDA_AbsoluteX(); break;
-                case 0xB9: LDA_AbsoluteY(); break;
-                case 0xA1: LDA_IndirectX(); break;
-                case 0xB1: LDA_IndirectY(); break;
-                case 0xA2: LDX_Immediate(); break;
-                case 0xA6: LDX_ZeroPage(); break;
-                case 0xB6: LDX_ZeroPageY(); break;
-                case 0xAE: LDX_Absolute(); break;
-                case 0xBE: LDX_AbsoluteY(); break;
-                case 0xA0: LDY_Immediate(); break;
-                case 0xA4: LDY_ZeroPage(); break;
-                case 0xB4: LDY_ZeroPageX(); break;
-                case 0xAC: LDY_Absolute(); break;
-                case 0xBC: LDY_AbsoluteX(); break;
-                case 0x85: STA_ZeroPage(); break;
-                case 0x95: STA_ZeroPageX(); break;
-                case 0x8D: STA_Absolute(); break;
-                case 0x9D: STA_AbsoluteX(); break;
-                case 0x99: STA_AbsoluteY(); break;
-                case 0x81: STA_IndirectX(); break;
-                case 0x91: STA_IndirectY(); break;
-                case 0x86: STX_ZeroPage(); break;
-                case 0x96: STX_ZeroPageY(); break;
-                case 0x8E: STX_Absolute(); break;
-                case 0x84: STY_ZeroPage(); break;
-                case 0x94: STY_ZeroPageX(); break;
-                case 0x8C: STY_Absolute(); break;
-
-                // Arithmetic and Logical Operations
-                case 0x69: ADC_Immediate(); break;
-                case 0x65: ADC_ZeroPage(); break;
-                case 0x75: ADC_ZeroPageX(); break;
-                case 0x6D: ADC_Absolute(); break;
-                case 0x7D: ADC_AbsoluteX(); break;
-                case 0x79: ADC_AbsoluteY(); break;
-                case 0x61: ADC_IndirectX(); break;
-                case 0x71: ADC_IndirectY(); break;
-                case 0xE9: SBC_Immediate(); break;
-                case 0xE5: SBC_ZeroPage(); break;
-                case 0xF5: SBC_ZeroPageX(); break;
-                case 0xED: SBC_Absolute(); break;
-                case 0xFD: SBC_AbsoluteX(); break;
-                case 0xF9: SBC_AbsoluteY(); break;
-                case 0xE1: SBC_IndirectX(); break;
-                case 0xF1: SBC_IndirectY(); break;
-                case 0x29: AND_Immediate(); break;
-                case 0x25: AND_ZeroPage(); break;
-                case 0x35: AND_ZeroPageX(); break;
-                case 0x2D: AND_Absolute(); break;
-                case 0x3D: AND_AbsoluteX(); break;
-                case 0x39: AND_AbsoluteY(); break;
-                case 0x21: AND_IndirectX(); break;
-                case 0x31: AND_IndirectY(); break;
-                case 0x09: ORA_Immediate(); break;
-                case 0x05: ORA_ZeroPage(); break;
-                case 0x15: ORA_ZeroPageX(); break;
-                case 0x0D: ORA_Absolute(); break;
-                case 0x1D: ORA_AbsoluteX(); break;
-                case 0x19: ORA_AbsoluteY(); break;
-                case 0x01: ORA_IndirectX(); break;
-                case 0x11: ORA_IndirectY(); break;
-                case 0x49: EOR_Immediate(); break;
-                case 0x45: EOR_ZeroPage(); break;
-                case 0x55: EOR_ZeroPageX(); break;
-                case 0x4D: EOR_Absolute(); break;
-                case 0x5D: EOR_AbsoluteX(); break;
-                case 0x59: EOR_AbsoluteY(); break;
-                case 0x41: EOR_IndirectX(); break;
-                case 0x51: EOR_IndirectY(); break;
-                case 0x24: BIT_ZeroPage(); break;
-                case 0x2C: BIT_Absolute(); break;
-
-                // Increment and Decrement Operations
-                case 0xE6: INC_ZeroPage(); break;
-                case 0xEE: INC_Absolute(); break;
-                case 0xF6: INC_ZeroPageX(); break;
-                case 0xFE: INC_AbsoluteX(); break;
-                case 0xC6: DEC_ZeroPage(); break;
-                case 0xD6: DEC_ZeroPageX(); break;
-                case 0xCE: DEC_Absolute(); break;
-                case 0xDE: DEC_AbsoluteX(); break;
-                case 0xE8: INX(); break;
-                case 0xC8: INY(); break;
-                case 0xCA: DEX(); break;
-                case 0x88: DEY(); break;
-
-                // Shift Operations
-                case 0x0A: ASL(); break;
-                case 0x06: ASL_ZeroPage(); break;
-                case 0x16: ASL_ZeroPageX(); break;
-                case 0x0E: ASL_Absolute(); break;
-                case 0x1E: ASL_AbsoluteX(); break;
-                case 0x4A: LSR(); break;
-                case 0x46: LSR_ZeroPage(); break;
-                case 0x56: LSR_ZeroPageX(); break;
-                case 0x4E: LSR_Absolute(); break;
-                case 0x5E: LSR_AbsoluteX(); break;
-                case 0x2A: ROL(); break;
-                case 0x26: ROL_ZeroPage(); break;
-                case 0x36: ROL_ZeroPageX(); break;
-                case 0x2E: ROL_Absolute(); break;
-                case 0x3E: ROL_AbsoluteX(); break;
-                case 0x6A: ROR(); break;
-                case 0x66: ROR_ZeroPage(); break;
-                case 0x76: ROR_ZeroPageX(); break;
-                case 0x6E: ROR_Absolute(); break;
-                case 0x7E: ROR_AbsoluteX(); break;
-
-                // Compare Operations
-                case 0xC9: CMP_Immediate(); break;
-                case 0xC5: CMP_ZeroPage(); break;
-                case 0xD5: CMP_ZeroPageX(); break;
-                case 0xCD: CMP_Absolute(); break;
-                case 0xDD: CMP_AbsoluteX(); break;
-                case 0xD9: CMP_AbsoluteY(); break;
-                case 0xC1: CMP_IndirectX(); break;
-                case 0xD1: CMP_IndirectY(); break;
-                case 0xE0: CPX_Immediate(); break;
-                case 0xE4: CPX_ZeroPage(); break;
-                case 0xEC: CPX_Absolute(); break;
-                case 0xC0: CPY_Immediate(); break;
-                case 0xC4: CPY_ZeroPage(); break;
-                case 0xCC: CPY_Absolute(); break;
-
-                // Branching Operations
-                case 0xD0: BNE_Relative(); break;
-                case 0xF0: BEQ_Relative(); break;
-                case 0x10: BPL_Relative(); break;
-                case 0x30: BMI_Relative(); break;
-                case 0x90: BCC_Relative(); break;
-                case 0xB0: BCS_Relative(); break;
-                case 0x50: BVC_Relative(); break;
-                case 0x70: BVS_Relative(); break;
-
-                // Jump and Call Operations
-                case 0x4C: JMP_Absolute(); break;
-                case 0x6C: JMP_Indirect(); break;
-                case 0x20: JSR_Absolute(); break;
-                case 0x60: RTS(); break;
-                case 0x40: RTI(); break;
-
-                // Status Flag Operations
-                case 0x18: CLC(); break;
-                case 0x38: SEC(); break;
-                case 0x58: CLI(); break;
-                case 0x78: SEI(); break;
-                case 0xD8: CLD(); break;
-                case 0xF8: SED(); break;
-                case 0xB8: CLV(); break;
-
-                // System Functions
-                case 0x00: BRK(); break;
-                case 0xEA: NOP(); break;
-
-                // Unofficial Instructions
-                case 0xEB: SBC_Immediate(); break;
-                case 0x1A:
-                case 0x3A:
-                case 0x5A:
-                case 0x7A:
-                case 0xDA:
-                case 0xFA: NOP(); break;
-                case 0x80:
-                case 0x82:
-                case 0x89:
-                case 0xC2:
-                case 0xE2: NOP_Immediate(); break;
-                case 0x04:
-                case 0x44:
-                case 0x64: NOP_ZeroPage(); break;
-                case 0x14: // NOP 2-byte Zero-Page, X (unofficial)
-                case 0x34:
-                case 0x54:
-                case 0x74:
-                case 0xD4:
-                case 0xF4: NOP_ZeroPageX(); break;
-                case 0x0C: NOP_Absolute(); break;
-                case 0x1C:
-                case 0x3C:
-                case 0x5C:
-                case 0x7C:
-                case 0xDC:
-                case 0xFC: NOP_AbsoluteX(); break;
-                case 0x02:
-                case 0x12:
-                case 0x22:
-                case 0x32:
-                case 0x42:
-                case 0x52:
-                case 0x62:
-                case 0x72:
-                case 0x92:
-                case 0xB2:
-                case 0xD2:
-                case 0xF2: STP(); break;
-                case 0x4B: ALR_Immediate(); break;
-                case 0x0B:
-                case 0x2B: ANC_Immediate(); break;
-                case 0x8B: ANE_Immediate(); break;
-                case 0x6B: ARR_Immediate(); break;
-                case 0xCB: AXS_Immediate(); break;
-                case 0xBB: LAS_AbsoluteY(); break;
-                case 0xA7: LAX_ZeroPage(); break;
-                case 0xB7: LAX_ZeroPageY(); break;
-                case 0xAF: LAX_Absolute(); break;
-                case 0xBF: LAX_AbsoluteY(); break;
-                case 0xA3: LAX_IndirectX(); break;
-                case 0xB3: LAX_IndirectY(); break;
-                case 0xAB: LXA_Immediate(); break;
-                case 0x87: SAX_ZeroPage(); break;
-                case 0x97: SAX_ZeroPageY(); break;
-                case 0x8F: SAX_Absolute(); break;
-                case 0x83: SAX_IndirectX(); break;
-                case 0x9F: SHA_AbsoluteY(); break;
-                case 0x93: SHA_IndirectY(); break;
-                case 0x9E: SHX_AbsoluteY(); break;
-                case 0x9C: SHY_AbsoluteX(); break;
-                case 0x9B: TAS_AbsoluteY(); break;
-                case 0xC7: DCP_ZeroPage(); break;
-                case 0xD7: DCP_ZeroPageX(); break;
-                case 0xCF: DCP_Absolute(); break;
-                case 0xDF: DCP_AbsoluteX(); break;
-                case 0xDB: DCP_AbsoluteY(); break;
-                case 0xC3: DCP_IndirectX(); break;
-                case 0xD3: DCP_IndirectY(); break;
-                case 0xE7: ISC_ZeroPage(); break;
-                case 0xF7: ISC_ZeroPageX(); break;
-                case 0xEF: ISC_Absolute(); break;
-                case 0xFF: ISC_AbsoluteX(); break;
-                case 0xFB: ISC_AbsoluteY(); break;
-                case 0xE3: ISC_IndirectX(); break;
-                case 0xF3: ISC_IndirectY(); break;
-                case 0x27: RLA_ZeroPage(); break;
-                case 0x37: RLA_ZeroPageX(); break;
-                case 0x2F: RLA_Absolute(); break;
-                case 0x3F: RLA_AbsoluteX(); break;
-                case 0x3B: RLA_AbsoluteY(); break;
-                case 0x23: RLA_IndirectX(); break;
-                case 0x33: RLA_IndirectY(); break;
-                case 0x67: RRA_ZeroPage(); break;
-                case 0x77: RRA_ZeroPageX(); break;
-                case 0x6F: RRA_Absolute(); break;
-                case 0x7F: RRA_AbsoluteX(); break;
-                case 0x7B: RRA_AbsoluteY(); break;
-                case 0x63: RRA_IndirectX(); break;
-                case 0x73: RRA_IndirectY(); break;
-                case 0x07: SLO_ZeroPage(); break;
-                case 0x17: SLO_ZeroPageX(); break;
-                case 0x0F: SLO_Absolute(); break;
-                case 0x1F: SLO_AbsoluteX(); break;
-                case 0x1B: SLO_AbsoluteY(); break;
-                case 0x03: SLO_IndirectX(); break;
-                case 0x13: SLO_IndirectY(); break;
-                case 0x47: SRE_ZeroPage(); break;
-                case 0x57: SRE_ZeroPageX(); break;
-                case 0x4F: SRE_Absolute(); break;
-                case 0x5F: SRE_AbsoluteX(); break;
-                case 0x5B: SRE_AbsoluteY(); break;
-                case 0x43: SRE_IndirectX(); break;
-                case 0x53: SRE_IndirectY(); break;
-
-                default:
-                    throw new NotImplementedException($"Opcode {opcode:X2} is not implemented.");
-            }
+            opcode = ReadMemory(PC);
+            opcodeSetCyclesJumpTable[opcode]();
         }
 
         // Helper functions for reading from and writing to memory
@@ -412,7 +727,6 @@
                 return memory.DebugRead(address);
             }
         }
-
 
         private byte ReadMemory(ushort address)
         {
@@ -434,7 +748,7 @@
         {
             if (address == 0x4014)
             {
-                DMA_Begin(value);
+                DMA_SetCycles(value);
             }
             else if (address == 0x4016)
             {
@@ -598,172 +912,263 @@
             return 0;
         }
 
-        private void TAX()
+        private void TAX_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = TAX_;
         }
 
-        private void TAX_()
+        private void TAX_Execute()
+        {
+            PC++;
+            TAX_Internal();
+        }
+
+        private void TAX_Internal()
         {
             X = A;
             UpdateZeroAndNegativeFlags(X);
         }
 
-        private void TXA()
+        private void TXA_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = TXA_;
         }
 
-        private void TXA_()
+        private void TXA_Execute()
+        {
+            PC++;
+            TXA_Internal();
+        }
+
+        private void TXA_Internal()
         {
             A = X;
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void TAY()
+        private void TAY_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = TAY_;
         }
 
-        private void TAY_()
+        private void TAY_Execute()
+        {
+            PC++;
+            TAY_Internal();
+        }
+
+        private void TAY_Internal()
         {
             Y = A;
             UpdateZeroAndNegativeFlags(Y);
         }
 
-        private void TYA()
+        private void TYA_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = TYA_;
         }
 
-        private void TYA_()
+        private void TYA_Execute()
+        {
+            PC++;
+            TYA_Internal();
+        }
+
+        private void TYA_Internal()
         {
             A = Y;
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void TSX()
+        private void TSX_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = TSX_;
         }
 
-        private void TSX_()
+        private void TSX_Execute()
+        {
+            PC++;
+            TSX_Internal();
+        }
+
+        private void TSX_Internal()
         {
             X = S;
             UpdateZeroAndNegativeFlags(X);
         }
 
-        private void TXS()
+        private void TXS_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = TXS_;
         }
 
-        private void TXS_()
+        private void TXS_Execute()
+        {
+            PC++;
+            TXS_Internal();
+        }
+
+        private void TXS_Internal()
         {
             S = X;
         }
 
-        private void PLA()
+        private void PLA_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = PLA_;
         }
 
-        private void PLA_()
+        private void PLA_Execute()
+        {
+            PC++;
+            PLA_Internal();
+        }
+
+        private void PLA_Internal()
         {
             A = PopStack();
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void PHA()
+        private void PHA_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = PHA_;
         }
 
-        private void PHA_()
+        private void PHA_Execute()
+        {
+            PC++;
+            PHA_Internal();
+        }
+
+        private void PHA_Internal()
         {
             PushStack(A);
         }
 
-        private void PLP()
+        private void PLP_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = PLP_;
         }
 
-        private void PLP_()
+        private void PLP_Execute()
+        {
+            PC++;
+            PLP_Internal();
+        }
+
+        private void PLP_Internal()
         {
             ByteToStatus(PopStack());
         }
 
-        private void PHP()
+        private void PHP_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = PHP_;
         }
 
-        private void PHP_()
+        private void PHP_Execute()
+        {
+            PC++;
+            PHP_Internal();
+        }
+
+        private void PHP_Internal()
         {
             PushStack(StatusToByte(true));
         }
 
+
         // Load and Store Operations
-        private void LDA_Immediate()
+        private void LDA_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => LDA_(Immediate());
         }
 
-        private void LDA_ZeroPage()
+        private void LDA_Immediate_Execute()
+        {
+            PC++;
+            LDA_(Immediate());
+        }
+
+        private void LDA_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => LDA_(ZeroPage());
         }
 
-        private void LDA_ZeroPageX()
+        private void LDA_ZeroPage_Execute()
+        {
+            PC++;
+            LDA_Internal(ZeroPage());
+        }
+
+        private void LDA_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => LDA_(ZeroPageX());
         }
 
-        private void LDA_Absolute()
+        private void LDA_ZeroPageX_Execute()
+        {
+            PC++;
+            LDA_Internal(ZeroPageX());
+        }
+
+        private void LDA_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => LDA_(Absolute());
         }
 
-        private void LDA_AbsoluteX()
+        private void LDA_Absolute_Execute()
+        {
+            PC++;
+            LDA_Internal(Absolute());
+        }
+
+        private void LDA_AbsoluteX_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = () => LDA_(AbsoluteX());
         }
 
-        private void LDA_AbsoluteY()
+        private void LDA_AbsoluteX_Execute()
+        {
+            PC++;
+            LDA_Internal(AbsoluteX());
+        }
+
+        private void LDA_AbsoluteY_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => LDA_(AbsoluteY());
         }
 
-        private void LDA_IndirectX()
+        private void LDA_AbsoluteY_Execute()
+        {
+            PC++;
+            LDA_Internal(AbsoluteY());
+        }
+
+        private void LDA_IndirectX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => LDA_(IndirectX());
         }
 
-        private void LDA_IndirectY()
+        private void LDA_IndirectX_Execute()
+        {
+            PC++;
+            LDA_Internal(IndirectX());
+        }
+
+        private void LDA_IndirectY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
-            pendingOperation = () => LDA_(IndirectY());
+        }
+
+        private void LDA_IndirectY_Execute()
+        {
+            PC++;
+            LDA_Internal(IndirectY());
         }
 
         private void LDA_(byte value)
@@ -772,138 +1177,223 @@
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void LDA_(ushort address)
+        private void LDA_Internal(ushort address)
         {
             A = ReadMemory(address);
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void LDX_Immediate()
+        private void LDX_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => LDX_(Immediate());
         }
 
-        private void LDX_ZeroPage()
+        private void LDX_Immediate_Execute()
+        {
+            PC++;
+            LDX_Internal(Immediate());
+        }
+
+        private void LDX_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => LDX_(ZeroPage());
         }
 
-        private void LDX_ZeroPageY()
+        private void LDX_ZeroPage_Execute()
+        {
+            PC++;
+            LDX_Internal(ZeroPage());
+        }
+
+        private void LDX_ZeroPageY_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => LDX_(ZeroPageY());
         }
 
-        private void LDX_Absolute()
+        private void LDX_ZeroPageY_Execute()
+        {
+            PC++;
+            LDX_Internal(ZeroPageY());
+        }
+
+        private void LDX_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => LDX_(Absolute());
         }
 
-        private void LDX_AbsoluteY()
+        private void LDX_Absolute_Execute()
+        {
+            PC++;
+            LDX_Internal(Absolute());
+        }
+
+        private void LDX_AbsoluteY_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => LDX_(AbsoluteY());
         }
 
-        private void LDX_(byte value)
+        private void LDX_AbsoluteY_Execute()
+        {
+            PC++;
+            LDX_Internal(AbsoluteY());
+        }
+
+        private void LDX_Internal(byte value)
         {
             X = value;
             UpdateZeroAndNegativeFlags(X);
         }
 
-        private void LDX_(ushort address)
+        private void LDX_Internal(ushort address)
         {
             X = ReadMemory(address);
             UpdateZeroAndNegativeFlags(X);
         }
 
-        private void LDY_Immediate()
+        private void LDY_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => LDY_(Immediate());
         }
 
-        private void LDY_ZeroPage()
+        private void LDY_Immediate_Execute()
+        {
+            PC++;
+            LDY_Internal(Immediate());
+        }
+
+        private void LDY_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => LDY_(ZeroPage());
         }
 
-        private void LDY_ZeroPageX()
+        private void LDY_ZeroPage_Execute()
+        {
+            PC++;
+            LDY_Internal(ZeroPage());
+        }
+
+        private void LDY_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => LDY_(ZeroPageX());
         }
 
-        private void LDY_Absolute()
+        private void LDY_ZeroPageX_Execute()
+        {
+            PC++;
+            LDY_Internal(ZeroPageX());
+        }
+
+        private void LDY_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => LDY_(Absolute());
         }
 
-        private void LDY_AbsoluteX()
+        private void LDY_Absolute_Execute()
+        {
+            PC++;
+            LDY_Internal(Absolute());
+        }
+
+        private void LDY_AbsoluteX_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = () => LDY_(AbsoluteX());
         }
 
-        private void LDY_(byte value)
+        private void LDY_AbsoluteX_Execute()
+        {
+            PC++;
+            LDY_Internal(AbsoluteX());
+        }
+
+        private void LDY_Internal(byte value)
         {
             Y = value;
             UpdateZeroAndNegativeFlags(Y);
         }
 
-        private void LDY_(ushort address)
+        private void LDY_Internal(ushort address)
         {
             Y = ReadMemory(address);
             UpdateZeroAndNegativeFlags(Y);
         }
 
-        private void STA_ZeroPage()
+        private void STA_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => STA_(ZeroPage());
         }
 
-        private void STA_ZeroPageX()
+        private void STA_ZeroPage_Execute()
+        {
+            PC++;
+            STA_(ZeroPage());
+        }
+
+        private void STA_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => STA_(ZeroPageX());
         }
 
-        private void STA_Absolute()
+        private void STA_ZeroPageX_Execute()
+        {
+            PC++;
+            STA_(ZeroPageX());
+        }
+
+        private void STA_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => STA_(Absolute());
         }
 
-        private void STA_AbsoluteX()
+        private void STA_Absolute_Execute()
+        {
+            PC++;
+            STA_(Absolute());
+        }
+
+        private void STA_AbsoluteX_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => STA_(AbsoluteX());
         }
 
-        private void STA_AbsoluteY()
+        private void STA_AbsoluteX_Execute()
+        {
+            PC++;
+            STA_(AbsoluteX());
+        }
+
+        private void STA_AbsoluteY_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => STA_(AbsoluteY());
         }
 
-        private void STA_IndirectX()
+        private void STA_AbsoluteY_Execute()
         {
-            remainingCycles = 6;
-            pendingOperation = () => STA_(IndirectX());
+            PC++;
+            STA_(AbsoluteY());
         }
 
-        private void STA_IndirectY()
+        private void STA_IndirectX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => STA_(IndirectY());
+        }
+
+        private void STA_IndirectX_Execute()
+        {
+            PC++;
+            STA_(IndirectX());
+        }
+
+        private void STA_IndirectY_SetCycles()
+        {
+            remainingCycles = 6;
+        }
+
+        private void STA_IndirectY_Execute()
+        {
+            PC++;
+            STA_(IndirectY());
         }
 
         private void STA_(ushort address)
@@ -911,22 +1401,37 @@
             WriteMemory(address, A);
         }
 
-        private void STX_ZeroPage()
+        private void STX_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => STX_(ZeroPage());
         }
 
-        private void STX_ZeroPageY()
+        private void STX_ZeroPage_Execute()
         {
-            remainingCycles = 4;
-            pendingOperation = () => STX_(ZeroPageY());
+            PC++;
+            STX_(ZeroPage());
         }
 
-        private void STX_Absolute()
+        private void STX_ZeroPageY_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => STX_(Absolute());
+        }
+
+        private void STX_ZeroPageY_Execute()
+        {
+            PC++;
+            STX_(ZeroPageY());
+        }
+
+        private void STX_Absolute_SetCycles()
+        {
+            remainingCycles = 4;
+        }
+
+        private void STX_Absolute_Execute()
+        {
+            PC++;
+            STX_(Absolute());
         }
 
         private void STX_(ushort address)
@@ -934,22 +1439,37 @@
             WriteMemory(address, X);
         }
 
-        private void STY_ZeroPage()
+        private void STY_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => STY_(ZeroPage());
         }
 
-        private void STY_ZeroPageX()
+        private void STY_ZeroPage_Execute()
         {
-            remainingCycles = 4;
-            pendingOperation = () => STY_(ZeroPageX());
+            PC++;
+            STY_(ZeroPage());
         }
 
-        private void STY_Absolute()
+        private void STY_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => STY_(Absolute());
+        }
+
+        private void STY_ZeroPageX_Execute()
+        {
+            PC++;
+            STY_(ZeroPageX());
+        }
+
+        private void STY_Absolute_SetCycles()
+        {
+            remainingCycles = 4;
+        }
+
+        private void STY_Absolute_Execute()
+        {
+            PC++;
+            STY_(Absolute());
         }
 
         private void STY_(ushort address)
@@ -958,55 +1478,95 @@
         }
 
         // Arithmetic and Logical Operations
-        private void ADC_Immediate()
+        private void ADC_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => ADC_(Immediate());
         }
 
-        private void ADC_ZeroPage()
+        private void ADC_Immediate_Execute()
+        {
+            PC++;
+            ADC_(Immediate());
+        }
+
+        private void ADC_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => ADC_(ZeroPage());
         }
 
-        private void ADC_ZeroPageX()
+        private void ADC_ZeroPage_Execute()
+        {
+            PC++;
+            ADC_(ZeroPage());
+        }
+
+        private void ADC_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => ADC_(ZeroPageX());
         }
 
-        private void ADC_Absolute()
+        private void ADC_ZeroPageX_Execute()
+        {
+            PC++;
+            ADC_(ZeroPageX());
+        }
+
+        private void ADC_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => ADC_(Absolute());
         }
 
-        private void ADC_AbsoluteX()
+        private void ADC_Absolute_Execute()
+        {
+            PC++;
+            ADC_(Absolute());
+        }
+
+        private void ADC_AbsoluteX_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = () => ADC_(AbsoluteX());
         }
 
-        private void ADC_AbsoluteY()
+        private void ADC_AbsoluteX_Execute()
+        {
+            PC++;
+            ADC_(AbsoluteX());
+        }
+
+        private void ADC_AbsoluteY_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => ADC_(AbsoluteY());
         }
 
-        private void ADC_IndirectX()
+        private void ADC_AbsoluteY_Execute()
+        {
+            PC++;
+            ADC_(AbsoluteY());
+        }
+
+        private void ADC_IndirectX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => ADC_(IndirectX());
         }
 
-        private void ADC_IndirectY()
+        private void ADC_IndirectX_Execute()
+        {
+            PC++;
+            ADC_(IndirectX());
+        }
+
+        private void ADC_IndirectY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
-            pendingOperation = () => ADC_(IndirectY());
+        }
+
+        private void ADC_IndirectY_Execute()
+        {
+            PC++;
+            ADC_(IndirectY());
         }
 
         private void ADC_(byte value)
@@ -1024,55 +1584,95 @@
             ADC_(value);
         }
 
-        private void SBC_Immediate()
+        private void SBC_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => SBC_(Immediate());
         }
 
-        private void SBC_ZeroPage()
+        private void SBC_Immediate_Execute()
+        {
+            PC++;
+            SBC_(Immediate());
+        }
+
+        private void SBC_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => SBC_(ZeroPage());
         }
 
-        private void SBC_ZeroPageX()
+        private void SBC_ZeroPage_Execute()
+        {
+            PC++;
+            SBC_(ZeroPage());
+        }
+
+        private void SBC_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => SBC_(ZeroPageX());
         }
 
-        private void SBC_Absolute()
+        private void SBC_ZeroPageX_Execute()
+        {
+            PC++;
+            SBC_(ZeroPageX());
+        }
+
+        private void SBC_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => SBC_(Absolute());
         }
 
-        private void SBC_AbsoluteX()
+        private void SBC_Absolute_Execute()
+        {
+            PC++;
+            SBC_(Absolute());
+        }
+
+        private void SBC_AbsoluteX_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = () => SBC_(AbsoluteX());
         }
 
-        private void SBC_AbsoluteY()
+        private void SBC_AbsoluteX_Execute()
+        {
+            PC++;
+            SBC_(AbsoluteX());
+        }
+
+        private void SBC_AbsoluteY_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => SBC_(AbsoluteY());
         }
 
-        private void SBC_IndirectX()
+        private void SBC_AbsoluteY_Execute()
+        {
+            PC++;
+            SBC_(AbsoluteY());
+        }
+
+        private void SBC_IndirectX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => SBC_(IndirectX());
         }
 
-        private void SBC_IndirectY()
+        private void SBC_IndirectX_Execute()
+        {
+            PC++;
+            SBC_(IndirectX());
+        }
+
+        private void SBC_IndirectY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
-            pendingOperation = () => SBC_(IndirectY());
+        }
+
+        private void SBC_IndirectY_Execute()
+        {
+            PC++;
+            SBC_(IndirectY());
         }
 
         private void SBC_(byte value)
@@ -1090,55 +1690,95 @@
             SBC_(value);
         }
 
-        private void AND_Immediate()
+        private void AND_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => AND_(Immediate());
         }
 
-        private void AND_ZeroPage()
+        private void AND_Immediate_Execute()
+        {
+            PC++;
+            AND_(Immediate());
+        }
+
+        private void AND_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => AND_(ZeroPage());
         }
 
-        private void AND_ZeroPageX()
+        private void AND_ZeroPage_Execute()
+        {
+            PC++;
+            AND_(ZeroPage());
+        }
+
+        private void AND_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => AND_(ZeroPageX());
         }
 
-        private void AND_Absolute()
+        private void AND_ZeroPageX_Execute()
+        {
+            PC++;
+            AND_(ZeroPageX());
+        }
+
+        private void AND_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => AND_(Absolute());
         }
 
-        private void AND_AbsoluteX()
+        private void AND_Absolute_Execute()
+        {
+            PC++;
+            AND_(Absolute());
+        }
+
+        private void AND_AbsoluteX_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = () => AND_(AbsoluteX());
         }
 
-        private void AND_AbsoluteY()
+        private void AND_AbsoluteX_Execute()
+        {
+            PC++;
+            AND_(AbsoluteX());
+        }
+
+        private void AND_AbsoluteY_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => AND_(AbsoluteY());
         }
 
-        private void AND_IndirectX()
+        private void AND_AbsoluteY_Execute()
+        {
+            PC++;
+            AND_(AbsoluteY());
+        }
+
+        private void AND_IndirectX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => AND_(IndirectX());
         }
 
-        private void AND_IndirectY()
+        private void AND_IndirectX_Execute()
+        {
+            PC++;
+            AND_(IndirectX());
+        }
+
+        private void AND_IndirectY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
-            pendingOperation = () => AND_(IndirectY());
+        }
+
+        private void AND_IndirectY_Execute()
+        {
+            PC++;
+            AND_(IndirectY());
         }
 
         private void AND_(byte value)
@@ -1153,55 +1793,95 @@
             AND_(value);
         }
 
-        private void ORA_Immediate()
+        private void ORA_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => ORA_(Immediate());
         }
 
-        private void ORA_ZeroPage()
+        private void ORA_Immediate_Execute()
+        {
+            PC++;
+            ORA_(Immediate());
+        }
+
+        private void ORA_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => ORA_(ZeroPage());
         }
 
-        private void ORA_ZeroPageX()
+        private void ORA_ZeroPage_Execute()
+        {
+            PC++;
+            ORA_(ZeroPage());
+        }
+
+        private void ORA_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => ORA_(ZeroPageX());
         }
 
-        private void ORA_Absolute()
+        private void ORA_ZeroPageX_Execute()
+        {
+            PC++;
+            ORA_(ZeroPageX());
+        }
+
+        private void ORA_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => ORA_(Absolute());
         }
 
-        private void ORA_AbsoluteX()
+        private void ORA_Absolute_Execute()
+        {
+            PC++;
+            ORA_(Absolute());
+        }
+
+        private void ORA_AbsoluteX_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = () => ORA_(AbsoluteX());
         }
 
-        private void ORA_AbsoluteY()
+        private void ORA_AbsoluteX_Execute()
+        {
+            PC++;
+            ORA_(AbsoluteX());
+        }
+
+        private void ORA_AbsoluteY_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => ORA_(AbsoluteY());
         }
 
-        private void ORA_IndirectX()
+        private void ORA_AbsoluteY_Execute()
+        {
+            PC++;
+            ORA_(AbsoluteY());
+        }
+
+        private void ORA_IndirectX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => ORA_(IndirectX());
         }
 
-        private void ORA_IndirectY()
+        private void ORA_IndirectX_Execute()
+        {
+            PC++;
+            ORA_(IndirectX());
+        }
+
+        private void ORA_IndirectY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
-            pendingOperation = () => ORA_(IndirectY());
+        }
+
+        private void ORA_IndirectY_Execute()
+        {
+            PC++;
+            ORA_(IndirectY());
         }
 
         private void ORA_(byte value)
@@ -1217,55 +1897,95 @@
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void EOR_Immediate()
+        private void EOR_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => EOR_(Immediate());
         }
 
-        private void EOR_ZeroPage()
+        private void EOR_Immediate_Execute()
+        {
+            PC++;
+            EOR_(Immediate());
+        }
+
+        private void EOR_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => EOR_(ZeroPage());
         }
 
-        private void EOR_ZeroPageX()
+        private void EOR_ZeroPage_Execute()
+        {
+            PC++;
+            EOR_(ZeroPage());
+        }
+
+        private void EOR_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => EOR_(ZeroPageX());
         }
 
-        private void EOR_Absolute()
+        private void EOR_ZeroPageX_Execute()
+        {
+            PC++;
+            EOR_(ZeroPageX());
+        }
+
+        private void EOR_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => EOR_(Absolute());
         }
 
-        private void EOR_AbsoluteX()
+        private void EOR_Absolute_Execute()
+        {
+            PC++;
+            EOR_(Absolute());
+        }
+
+        private void EOR_AbsoluteX_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = () => EOR_(AbsoluteX());
         }
 
-        private void EOR_AbsoluteY()
+        private void EOR_AbsoluteX_Execute()
+        {
+            PC++;
+            EOR_(AbsoluteX());
+        }
+
+        private void EOR_AbsoluteY_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => EOR_(AbsoluteY());
         }
 
-        private void EOR_IndirectX()
+        private void EOR_AbsoluteY_Execute()
+        {
+            PC++;
+            EOR_(AbsoluteY());
+        }
+
+        private void EOR_IndirectX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => EOR_(IndirectX());
         }
 
-        private void EOR_IndirectY()
+        private void EOR_IndirectX_Execute()
+        {
+            PC++;
+            EOR_(IndirectX());
+        }
+
+        private void EOR_IndirectY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
-            pendingOperation = () => EOR_(IndirectY());
+        }
+
+        private void EOR_IndirectY_Execute()
+        {
+            PC++;
+            EOR_(IndirectY());
         }
 
         private void EOR_(byte value)
@@ -1280,16 +2000,26 @@
             EOR_(value);
         }
 
-        private void BIT_ZeroPage()
+        private void BIT_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => BIT_(ZeroPage());
         }
 
-        private void BIT_Absolute()
+        private void BIT_ZeroPage_Execute()
+        {
+            PC++;
+            BIT_(ZeroPage());
+        }
+
+        private void BIT_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => BIT_(Absolute());
+        }
+
+        private void BIT_Absolute_Execute()
+        {
+            PC++;
+            BIT_(Absolute());
         }
 
         private void BIT_(byte value)
@@ -1307,28 +2037,48 @@
         }
 
         // Increment and Decrement Operations
-        private void INC_ZeroPage()
+        private void INC_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => INC_(ZeroPage());
         }
 
-        private void INC_Absolute()
+        private void INC_ZeroPage_Execute()
+        {
+            PC++;
+            INC_(ZeroPage());
+        }
+
+        private void INC_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => INC_(Absolute());
         }
 
-        private void INC_ZeroPageX()
+        private void INC_Absolute_Execute()
+        {
+            PC++;
+            INC_(Absolute());
+        }
+
+        private void INC_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => INC_(ZeroPageX());
         }
 
-        private void INC_AbsoluteX()
+        private void INC_ZeroPageX_Execute()
+        {
+            PC++;
+            INC_(ZeroPageX());
+        }
+
+        private void INC_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => INC_(AbsoluteX());
+        }
+
+        private void INC_AbsoluteX_Execute()
+        {
+            PC++;
+            INC_(AbsoluteX());
         }
 
         private void INC_(ushort address)
@@ -1339,28 +2089,48 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        private void DEC_ZeroPage()
+        private void DEC_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => DEC_(ZeroPage());
         }
 
-        private void DEC_ZeroPageX()
+        private void DEC_ZeroPage_Execute()
+        {
+            PC++;
+            DEC_(ZeroPage());
+        }
+
+        private void DEC_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => DEC_(ZeroPageX());
         }
 
-        private void DEC_Absolute()
+        private void DEC_ZeroPageX_Execute()
+        {
+            PC++;
+            DEC_(ZeroPageX());
+        }
+
+        private void DEC_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => DEC_(Absolute());
         }
 
-        private void DEC_AbsoluteX()
+        private void DEC_Absolute_Execute()
+        {
+            PC++;
+            DEC_(Absolute());
+        }
+
+        private void DEC_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => DEC_(AbsoluteX());
+        }
+
+        private void DEC_AbsoluteX_Execute()
+        {
+            PC++;
+            DEC_(AbsoluteX());
         }
 
         private void DEC_(ushort address)
@@ -1371,83 +2141,108 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        private void INX()
+        private void INX_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = INX_;
         }
 
-        private void INX_()
+        private void INX_Execute()
         {
+            PC++;
             X++;
             UpdateZeroAndNegativeFlags(X);
         }
 
-        private void INY()
+        private void INY_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = INY_;
         }
 
-        private void INY_()
+        private void INY_Execute()
         {
+            PC++;
             Y++;
             UpdateZeroAndNegativeFlags(Y);
         }
 
-        private void DEX()
+        private void DEX_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = DEX_;
         }
 
-        private void DEX_()
+        private void DEX_Execute()
         {
+            PC++;
             X--;
             UpdateZeroAndNegativeFlags(X);
         }
 
-        private void DEY()
+        private void DEY_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = DEY_;
         }
 
-        private void DEY_()
+        private void DEY_Execute()
         {
+            PC++;
             Y--;
             UpdateZeroAndNegativeFlags(Y);
         }
 
         // Shift Operations
-        private void ASL()
+        private void ASL_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = ASL_;
         }
 
-        private void ASL_ZeroPage()
+        private void ASL_Execute()
+        {
+            PC++;
+            ASL_Internal();
+        }
+
+        private void ASL_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => ASL_(ZeroPage());
         }
 
-        private void ASL_ZeroPageX()
+        private void ASL_ZeroPage_Execute()
+        {
+            PC++;
+            ASL_(ZeroPage());
+        }
+
+        private void ASL_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => ASL_(ZeroPageX());
         }
 
-        private void ASL_Absolute()
+        private void ASL_ZeroPageX_Execute()
+        {
+            PC++;
+            ASL_(ZeroPageX());
+        }
+
+        private void ASL_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => ASL_(Absolute());
         }
 
-        private void ASL_AbsoluteX()
+        private void ASL_Absolute_Execute()
+        {
+            PC++;
+            ASL_(Absolute());
+        }
+
+        private void ASL_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => ASL_(AbsoluteX());
+        }
+
+        private void ASL_AbsoluteX_Execute()
+        {
+            PC++;
+            ASL_(AbsoluteX());
         }
 
         private void ASL_(ushort address)
@@ -1459,41 +2254,66 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        private void ASL_()
+        private void ASL_Internal()
         {
             C = (A & 0x80) != 0;
             A <<= 1;
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void LSR()
+        private void LSR_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = LSR_;
         }
 
-        private void LSR_ZeroPage()
+        private void LSR_Execute()
+        {
+            PC++;
+            LSR_Internal();
+        }
+
+        private void LSR_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => LSR_(ZeroPage());
         }
 
-        private void LSR_ZeroPageX()
+        private void LSR_ZeroPage_Execute()
+        {
+            PC++;
+            LSR_(ZeroPage());
+        }
+
+        private void LSR_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => LSR_(ZeroPageX());
         }
 
-        private void LSR_Absolute()
+        private void LSR_ZeroPageX_Execute()
+        {
+            PC++;
+            LSR_(ZeroPageX());
+        }
+
+        private void LSR_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => LSR_(Absolute());
         }
 
-        private void LSR_AbsoluteX()
+        private void LSR_Absolute_Execute()
+        {
+            PC++;
+            LSR_(Absolute());
+        }
+
+        private void LSR_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => LSR_(AbsoluteX());
+        }
+
+        private void LSR_AbsoluteX_Execute()
+        {
+            PC++;
+            LSR_(AbsoluteX());
         }
 
         private void LSR_(ushort address)
@@ -1505,41 +2325,66 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        private void LSR_()
+        private void LSR_Internal()
         {
             C = (A & 0x01) != 0;
             A >>= 1;
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void ROL()
+        private void ROL_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = ROL_;
         }
 
-        private void ROL_ZeroPage()
+        private void ROL_Execute()
+        {
+            PC++;
+            ROL_Internal();
+        }
+
+        private void ROL_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => ROL_(ZeroPage());
         }
 
-        private void ROL_ZeroPageX()
+        private void ROL_ZeroPage_Execute()
+        {
+            PC++;
+            ROL_(ZeroPage());
+        }
+
+        private void ROL_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => ROL_(ZeroPageX());
         }
 
-        private void ROL_Absolute()
+        private void ROL_ZeroPageX_Execute()
+        {
+            PC++;
+            ROL_(ZeroPageX());
+        }
+
+        private void ROL_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => ROL_(Absolute());
         }
 
-        private void ROL_AbsoluteX()
+        private void ROL_Absolute_Execute()
+        {
+            PC++;
+            ROL_(Absolute());
+        }
+
+        private void ROL_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => ROL_(AbsoluteX());
+        }
+
+        private void ROL_AbsoluteX_Execute()
+        {
+            PC++;
+            ROL_(AbsoluteX());
         }
 
         private void ROL_(ushort address)
@@ -1554,7 +2399,7 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        private void ROL_()
+        private void ROL_Internal()
         {
             bool newC = (A & 0x80) != 0;
             A <<= 1;
@@ -1564,34 +2409,59 @@
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void ROR()
+        private void ROR_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = ROR_;
         }
 
-        private void ROR_ZeroPage()
+        private void ROR_Execute()
+        {
+            PC++;
+            ROR_Internal();
+        }
+
+        private void ROR_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => ROR_(ZeroPage());
         }
 
-        private void ROR_ZeroPageX()
+        private void ROR_ZeroPage_Execute()
+        {
+            PC++;
+            ROR_(ZeroPage());
+        }
+
+        private void ROR_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => ROR_(ZeroPageX());
         }
 
-        private void ROR_Absolute()
+        private void ROR_ZeroPageX_Execute()
+        {
+            PC++;
+            ROR_(ZeroPageX());
+        }
+
+        private void ROR_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => ROR_(Absolute());
         }
 
-        private void ROR_AbsoluteX()
+        private void ROR_Absolute_Execute()
+        {
+            PC++;
+            ROR_(Absolute());
+        }
+
+        private void ROR_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => ROR_(AbsoluteX());
+        }
+
+        private void ROR_AbsoluteX_Execute()
+        {
+            PC++;
+            ROR_(AbsoluteX());
         }
 
         private void ROR_(ushort address)
@@ -1606,7 +2476,7 @@
             UpdateZeroAndNegativeFlags(value);
         }
 
-        private void ROR_()
+        private void ROR_Internal()
         {
             bool newC = (A & 0x01) != 0;
             A >>= 1;
@@ -1617,55 +2487,95 @@
         }
 
         // Compare Operations
-        private void CMP_Immediate()
+        private void CMP_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => CMP_(Immediate());
         }
 
-        private void CMP_ZeroPage()
+        private void CMP_Immediate_Execute()
+        {
+            PC++;
+            CMP_(Immediate());
+        }
+
+        private void CMP_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => CMP_(ZeroPage());
         }
 
-        private void CMP_ZeroPageX()
+        private void CMP_ZeroPage_Execute()
+        {
+            PC++;
+            CMP_(ZeroPage());
+        }
+
+        private void CMP_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => CMP_(ZeroPageX());
         }
 
-        private void CMP_Absolute()
+        private void CMP_ZeroPageX_Execute()
+        {
+            PC++;
+            CMP_(ZeroPageX());
+        }
+
+        private void CMP_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => CMP_(Absolute());
         }
 
-        private void CMP_AbsoluteX()
+        private void CMP_Absolute_Execute()
+        {
+            PC++;
+            CMP_(Absolute());
+        }
+
+        private void CMP_AbsoluteX_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = () => CMP_(AbsoluteX());
         }
 
-        private void CMP_AbsoluteY()
+        private void CMP_AbsoluteX_Execute()
+        {
+            PC++;
+            CMP_(AbsoluteX());
+        }
+
+        private void CMP_AbsoluteY_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => CMP_(AbsoluteY());
         }
 
-        private void CMP_IndirectX()
+        private void CMP_AbsoluteY_Execute()
+        {
+            PC++;
+            CMP_(AbsoluteY());
+        }
+
+        private void CMP_IndirectX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => CMP_(IndirectX());
         }
 
-        private void CMP_IndirectY()
+        private void CMP_IndirectX_Execute()
+        {
+            PC++;
+            CMP_(IndirectX());
+        }
+
+        private void CMP_IndirectY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
-            pendingOperation = () => CMP_(IndirectY());
+        }
+
+        private void CMP_IndirectY_Execute()
+        {
+            PC++;
+            CMP_(IndirectY());
         }
 
         private void CMP_(byte value)
@@ -1683,22 +2593,37 @@
             C = A >= value;
         }
 
-        private void CPX_Immediate()
+        private void CPX_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => CPX_(Immediate());
         }
 
-        private void CPX_ZeroPage()
+        private void CPX_Immediate_Execute()
+        {
+            PC++;
+            CPX_(Immediate());
+        }
+
+        private void CPX_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => CPX_(ZeroPage());
         }
 
-        private void CPX_Absolute()
+        private void CPX_ZeroPage_Execute()
+        {
+            PC++;
+            CPX_(ZeroPage());
+        }
+
+        private void CPX_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => CPX_(Absolute());
+        }
+
+        private void CPX_Absolute_Execute()
+        {
+            PC++;
+            CPX_(Absolute());
         }
 
         private void CPX_(byte value)
@@ -1716,22 +2641,37 @@
             C = X >= value;
         }
 
-        private void CPY_Immediate()
+        private void CPY_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => CPY_(Immediate());
         }
 
-        private void CPY_ZeroPage()
+        private void CPY_Immediate_Execute()
+        {
+            PC++;
+            CPY_(Immediate());
+        }
+
+        private void CPY_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => CPY_(ZeroPage());
         }
 
-        private void CPY_Absolute()
+        private void CPY_ZeroPage_Execute()
+        {
+            PC++;
+            CPY_(ZeroPage());
+        }
+
+        private void CPY_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => CPY_(Absolute());
+        }
+
+        private void CPY_Absolute_Execute()
+        {
+            PC++;
+            CPY_(Absolute());
         }
 
         private void CPY_(byte value)
@@ -1749,11 +2689,16 @@
             C = Y >= value;
         }
 
-        private void BNE_Relative()
+        private void BNE_Relative_SetCycles()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
             remainingCycles += BranchCyclesNeeded_Relative(!Z);
-            pendingOperation = () => BNE_(Relative());
+        }
+
+        private void BNE_Relative_Execute()
+        {
+            PC++;
+            BNE_(Relative());
         }
 
         private void BNE_(sbyte offset)
@@ -1762,24 +2707,34 @@
                 PC += (ushort)(short)offset;
         }
 
-        private void BEQ_Relative()
+        private void BEQ_Relative_SetCycles()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
             remainingCycles += BranchCyclesNeeded_Relative(Z);
-            pendingOperation = () => BEQ_(Relative());
         }
+
+        private void BEQ_Relative_Execute()
+        {
+            PC++;
+            BEQ_(Relative());
+        }
+
         private void BEQ_(sbyte offset)
         {
             if (Z)
                 PC += (ushort)(short)offset;
         }
 
-        // Branching Operations
-        private void BPL_Relative()
+        private void BPL_Relative_SetCycles()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
             remainingCycles += BranchCyclesNeeded_Relative(!N);
-            pendingOperation = () => BPL_(Relative());
+        }
+
+        private void BPL_Relative_Execute()
+        {
+            PC++;
+            BPL_(Relative());
         }
 
         private void BPL_(sbyte offset)
@@ -1788,11 +2743,16 @@
                 PC += (ushort)(short)offset;
         }
 
-        private void BMI_Relative()
+        private void BMI_Relative_SetCycles()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
             remainingCycles += BranchCyclesNeeded_Relative(N);
-            pendingOperation = () => BMI_(Relative());
+        }
+
+        private void BMI_Relative_Execute()
+        {
+            PC++;
+            BMI_(Relative());
         }
 
         private void BMI_(sbyte offset)
@@ -1801,11 +2761,16 @@
                 PC += (ushort)(short)offset;
         }
 
-        private void BCC_Relative()
+        private void BCC_Relative_SetCycles()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
             remainingCycles += BranchCyclesNeeded_Relative(!C);
-            pendingOperation = () => BCC_(Relative());
+        }
+
+        private void BCC_Relative_Execute()
+        {
+            PC++;
+            BCC_(Relative());
         }
 
         private void BCC_(sbyte offset)
@@ -1814,11 +2779,16 @@
                 PC += (ushort)(short)offset;
         }
 
-        private void BCS_Relative()
+        private void BCS_Relative_SetCycles()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
             remainingCycles += BranchCyclesNeeded_Relative(C);
-            pendingOperation = () => BCS_(Relative());
+        }
+
+        private void BCS_Relative_Execute()
+        {
+            PC++;
+            BCS_(Relative());
         }
 
         private void BCS_(sbyte offset)
@@ -1827,11 +2797,16 @@
                 PC += (ushort)(short)offset;
         }
 
-        private void BVC_Relative()
+        private void BVC_Relative_SetCycles()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
             remainingCycles += BranchCyclesNeeded_Relative(!V);
-            pendingOperation = () => BVC_(Relative());
+        }
+
+        private void BVC_Relative_Execute()
+        {
+            PC++;
+            BVC_(Relative());
         }
 
         private void BVC_(sbyte offset)
@@ -1840,11 +2815,16 @@
                 PC += (ushort)(short)offset;
         }
 
-        private void BVS_Relative()
+        private void BVS_Relative_SetCycles()
         {
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
             remainingCycles += BranchCyclesNeeded_Relative(V);
-            pendingOperation = () => BVS_(Relative());
+        }
+
+        private void BVS_Relative_Execute()
+        {
+            PC++;
+            BVS_(Relative());
         }
 
         private void BVS_(sbyte offset)
@@ -1853,17 +2833,15 @@
                 PC += (ushort)(short)offset;
         }
 
-        // Jump and Call Operations
-        private void JMP_Absolute()
+        private void JMP_Absolute_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => JMP_(Absolute());
         }
 
-        private void JMP_Indirect()
+        private void JMP_Absolute_Execute()
         {
-            remainingCycles = 5;
-            pendingOperation = () => JMP_(Indirect_Bugged());
+            PC++;
+            JMP_(Absolute());
         }
 
         private void JMP_(ushort address)
@@ -1871,10 +2849,26 @@
             PC = address;
         }
 
-        private void JSR_Absolute()
+        private void JMP_Indirect_SetCycles()
+        {
+            remainingCycles = 5;
+        }
+
+        private void JMP_Indirect_Execute()
+        {
+            PC++;
+            JMP_(Indirect_Bugged());
+        }
+
+        private void JSR_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => JSR_(Absolute());
+        }
+
+        private void JSR_Absolute_Execute()
+        {
+            PC++;
+            JSR_(Absolute());
         }
 
         private void JSR_(ushort address)
@@ -1884,188 +2878,187 @@
             PC = address;
         }
 
-        private void RTS()
+
+        private void RTS_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = RTS_;
         }
 
-        private void RTS_()
+        private void RTS_Execute()
         {
+            PC++;
             PC = (ushort)(PopStack() | (PopStack() << 8));
             PC++;
         }
 
-        private void RTI()
+        private void RTI_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = RTI_;
         }
 
-        private void RTI_()
+        private void RTI_Execute()
         {
+            PC++;
             ByteToStatus(PopStack());
             PC = (ushort)(PopStack() | (PopStack() << 8));
         }
 
-        // Status Flag Operations
-        private void CLC()
+        private void CLC_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = CLC_;
         }
 
-        private void CLC_()
+        private void CLC_Execute()
         {
+            PC++;
             C = false;
         }
 
-        private void SEC()
+        private void SEC_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = SEC_;
         }
 
-        private void SEC_()
+        private void SEC_Execute()
         {
+            PC++;
             C = true;
         }
 
-        private void CLI()
+        private void CLI_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = CLI_;
         }
 
-        private void CLI_()
+        private void CLI_Execute()
         {
+            PC++;
             I = false;
         }
 
-        private void SEI()
+        private void SEI_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = SEI_;
         }
 
-        private void SEI_()
+        private void SEI_Execute()
         {
+            PC++;
             I = true;
         }
 
-        private void CLD()
+        private void CLD_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = CLD_;
         }
 
-        private void CLD_()
+        private void CLD_Execute()
         {
+            PC++;
             D = false;
         }
 
-        private void SED()
+        private void SED_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = SED_;
         }
 
-        private void SED_()
+        private void SED_Execute()
         {
+            PC++;
             D = true;
         }
 
-        private void CLV()
+        private void CLV_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = CLV_;
         }
 
-        private void CLV_()
+        private void CLV_Execute()
         {
+            PC++;
             V = false;
         }
 
-        // System Functions
-        private void BRK()
+        private void BRK_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = BRK_;
         }
 
-        private void BRK_()
+        private void BRK_Execute()
         {
+            PC++;
             PC++;
             PushStack((byte)(PC >> 8));
             PushStack((byte)(PC & 0xFF));
             PushStack(StatusToByte(true));
             I = true;
-            PC = (ushort)(ReadMemory(0xFFFE) | (ReadMemory(0xFFFF) << 8)); // Set PC to the interrupt vector address
+            PC = (ushort)(ReadMemory(0xFFFE) | (ReadMemory(0xFFFF) << 8));
         }
 
-        private void NOP()
+        private void NOP_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = NOP_;
         }
 
-        private void NOP_()
+        private void NOP_Execute()
         {
+            PC++;
         }
 
-        private void NOP_Immediate()
+        private void NOP_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = NOP_Immediate_;
         }
 
-        private void NOP_Immediate_()
+        private void NOP_Immediate_Execute()
         {
+            PC++;
             _ = Immediate();
         }
 
-        private void NOP_ZeroPage()
+        private void NOP_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = NOP_ZeroPage_;
         }
 
-        private void NOP_ZeroPage_()
+        private void NOP_ZeroPage_Execute()
         {
+            PC++;
             _ = ZeroPage();
         }
 
-        private void NOP_ZeroPageX()
+        private void NOP_ZeroPageX_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = NOP_ZeroPageX_;
         }
 
-        private void NOP_ZeroPageX_()
+        private void NOP_ZeroPageX_Execute()
         {
+            PC++;
             _ = ZeroPageX();
         }
 
-        private void NOP_Absolute()
+        private void NOP_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = NOP_Absolute_;
         }
 
-        private void NOP_Absolute_()
+        private void NOP_Absolute_Execute()
         {
+            PC++;
             _ = Absolute();
         }
 
-        private void NOP_AbsoluteX()
+        private void NOP_AbsoluteX_SetCycles()
         {
-            remainingCycles = 4; // +1 if page boundary is crossed
+            remainingCycles = 4;
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = NOP_AbsoluteX_;
         }
 
-        private void NOP_AbsoluteX_()
+        private void NOP_AbsoluteX_Execute()
         {
+            PC++;
             _ = AbsoluteX();
         }
 
@@ -2074,21 +3067,32 @@
             throw new InvalidOperationException("STP Instruction encountered.");
         }
 
-        private void ALR_Immediate()
+        private void ALR_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => ALR_(Immediate());
         }
+
+        private void ALR_Immediate_Execute()
+        {
+            PC++;
+            ALR_(Immediate());
+        }
+
         private void ALR_(byte operand)
         {
             AND_(operand);
-            LSR_();
+            LSR_Internal();
         }
 
-        private void ANC_Immediate()
+        private void ANC_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => ANC_(Immediate());
+        }
+
+        private void ANC_Immediate_Execute()
+        {
+            PC++;
+            ANC_(Immediate());
         }
 
         private void ANC_(byte operand)
@@ -2098,10 +3102,15 @@
             C = (A & 0x80) != 0; // Set the carry flag based on the value of the 7th bit of A
         }
 
-        private void ANE_Immediate()
+        private void ANE_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => ANE_(Immediate());
+        }
+
+        private void ANE_Immediate_Execute()
+        {
+            PC++;
+            ANE_(Immediate());
         }
 
         private void ANE_(byte operand)
@@ -2110,25 +3119,35 @@
             UpdateZeroAndNegativeFlags(A);
         }
 
-        private void ARR_Immediate()
+        private void ARR_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => ARR_(Immediate());
+        }
+
+        private void ARR_Immediate_Execute()
+        {
+            PC++;
+            ARR_(Immediate());
         }
 
         private void ARR_(byte operand)
         {
             AND_(operand);
-            ROR_();
+            ROR_Internal();
             UpdateZeroAndNegativeFlags(A);
             C = (A & 0x40) != 0; // Set bit 6 of A as the carry flag
             V = ((A & 0x40) ^ ((A & 0x20) << 1)) != 0; // Set bit 6 xor bit 5 of A as the overflow flag
         }
 
-        private void AXS_Immediate()
+        private void AXS_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => AXS_(Immediate());
+        }
+
+        private void AXS_Immediate_Execute()
+        {
+            PC++;
+            AXS_(Immediate());
         }
 
         private void AXS_(byte operand)
@@ -2139,11 +3158,16 @@
             C = result >= 0; // Set the carry flag based on the result without borrow
         }
 
-        private void LAS_AbsoluteY()
+        private void LAS_AbsoluteY_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => LAS_(AbsoluteY());
+        }
+
+        private void LAS_AbsoluteY_Execute()
+        {
+            PC++;
+            LAS_(AbsoluteY());
         }
 
         private void LAS_(ushort address)
@@ -2156,54 +3180,89 @@
             UpdateZeroAndNegativeFlags(result);
         }
 
-        private void LAX_ZeroPage()
+        private void LAX_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => LAX_(ZeroPage());
         }
 
-        private void LAX_ZeroPageY()
+        private void LAX_ZeroPage_Execute()
+        {
+            PC++;
+            LAX_(ZeroPage());
+        }
+
+        private void LAX_ZeroPageY_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => LAX_(ZeroPageY());
         }
 
-        private void LAX_Absolute()
+        private void LAX_ZeroPageY_Execute()
+        {
+            PC++;
+            LAX_(ZeroPageY());
+        }
+
+        private void LAX_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => LAX_(Absolute());
         }
 
-        private void LAX_AbsoluteY()
+        private void LAX_Absolute_Execute()
+        {
+            PC++;
+            LAX_(Absolute());
+        }
+
+        private void LAX_AbsoluteY_SetCycles()
         {
             remainingCycles = 4; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = () => LAX_(AbsoluteY());
         }
 
-        private void LAX_IndirectX()
+        private void LAX_AbsoluteY_Execute()
+        {
+            PC++;
+            LAX_(AbsoluteY());
+        }
+
+        private void LAX_IndirectX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => LAX_(IndirectX());
         }
 
-        private void LAX_IndirectY()
+        private void LAX_IndirectX_Execute()
+        {
+            PC++;
+            LAX_(IndirectX());
+        }
+
+        private void LAX_IndirectY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_IndirectY()) remainingCycles++;
-            pendingOperation = () => LAX_(IndirectY());
+        }
+
+        private void LAX_IndirectY_Execute()
+        {
+            PC++;
+            LAX_(IndirectY());
         }
 
         private void LAX_(ushort address)
         {
-            LDA_(address);
-            TAX();
+            LDA_Internal(address);
+            TAX_Internal();
         }
 
-        private void LXA_Immediate()
+        private void LXA_Immediate_SetCycles()
         {
             remainingCycles = 2;
-            pendingOperation = () => LXA_(Immediate());
+        }
+
+        private void LXA_Immediate_Execute()
+        {
+            PC++;
+            LXA_(Immediate());
         }
 
         private void LXA_(byte operand)
@@ -2214,28 +3273,48 @@
             UpdateZeroAndNegativeFlags(result);
         }
 
-        private void SAX_ZeroPage()
+        private void SAX_ZeroPage_SetCycles()
         {
             remainingCycles = 3;
-            pendingOperation = () => SAX_(ZeroPage());
         }
 
-        private void SAX_ZeroPageY()
+        private void SAX_ZeroPage_Execute()
+        {
+            PC++;
+            SAX_(ZeroPage());
+        }
+
+        private void SAX_ZeroPageY_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => SAX_(ZeroPageY());
         }
 
-        private void SAX_Absolute()
+        private void SAX_ZeroPageY_Execute()
+        {
+            PC++;
+            SAX_(ZeroPageY());
+        }
+
+        private void SAX_Absolute_SetCycles()
         {
             remainingCycles = 4;
-            pendingOperation = () => SAX_(Absolute());
         }
 
-        private void SAX_IndirectX()
+        private void SAX_Absolute_Execute()
+        {
+            PC++;
+            SAX_(Absolute());
+        }
+
+        private void SAX_IndirectX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => SAX_(IndirectX());
+        }
+
+        private void SAX_IndirectX_Execute()
+        {
+            PC++;
+            SAX_(IndirectX());
         }
 
         private void SAX_(ushort address)
@@ -2244,17 +3323,27 @@
             WriteMemory(address, result);
         }
 
-        private void SHA_AbsoluteY()
+        private void SHA_AbsoluteY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => SHA_(AbsoluteY());
         }
 
-        private void SHA_IndirectY()
+        private void SHA_AbsoluteY_Execute()
+        {
+            PC++;
+            SHA_(AbsoluteY());
+        }
+
+        private void SHA_IndirectY_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => SHA_(IndirectY());
+        }
+
+        private void SHA_IndirectY_Execute()
+        {
+            PC++;
+            SHA_(IndirectY());
         }
 
         private void SHA_(ushort address)
@@ -2263,11 +3352,16 @@
             WriteMemory(address, result);
         }
 
-        private void SHX_AbsoluteY()
+        private void SHX_AbsoluteY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => SHX_(AbsoluteY());
+        }
+
+        private void SHX_AbsoluteY_Execute()
+        {
+            PC++;
+            SHX_(AbsoluteY());
         }
 
         private void SHX_(ushort address)
@@ -2276,11 +3370,16 @@
             WriteMemory(address, result);
         }
 
-        private void SHY_AbsoluteX()
+        private void SHY_AbsoluteX_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteX()) remainingCycles++;
-            pendingOperation = () => SHY_(AbsoluteX());
+        }
+
+        private void SHY_AbsoluteX_Execute()
+        {
+            PC++;
+            SHY_(AbsoluteX());
         }
 
         private void SHY_(ushort address)
@@ -2289,11 +3388,16 @@
             WriteMemory(address, result);
         }
 
-        private void TAS_AbsoluteY()
+        private void TAS_AbsoluteY_SetCycles()
         {
             remainingCycles = 5; // +1 if page boundary is crossed
             if (IsPageBoundaryCrossed_AbsoluteY()) remainingCycles++;
-            pendingOperation = () => TAS_(AbsoluteY());
+        }
+
+        private void TAS_AbsoluteY_Execute()
+        {
+            PC++;
+            TAS_(AbsoluteY());
         }
 
         private void TAS_(ushort address)
@@ -2304,46 +3408,81 @@
             WriteMemory(address, result);
         }
 
-        private void DCP_ZeroPage()
+        private void DCP_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => DCP_(ZeroPage());
         }
 
-        private void DCP_ZeroPageX()
+        private void DCP_ZeroPage_Execute()
+        {
+            PC++;
+            DCP_(ZeroPage());
+        }
+
+        private void DCP_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => DCP_(ZeroPageX());
         }
 
-        private void DCP_Absolute()
+        private void DCP_ZeroPageX_Execute()
+        {
+            PC++;
+            DCP_(ZeroPageX());
+        }
+
+        private void DCP_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => DCP_(Absolute());
         }
 
-        private void DCP_AbsoluteX()
+        private void DCP_Absolute_Execute()
+        {
+            PC++;
+            DCP_(Absolute());
+        }
+
+        private void DCP_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => DCP_(AbsoluteX());
         }
 
-        private void DCP_AbsoluteY()
+        private void DCP_AbsoluteX_Execute()
+        {
+            PC++;
+            DCP_(AbsoluteX());
+        }
+
+        private void DCP_AbsoluteY_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => DCP_(AbsoluteY());
         }
 
-        private void DCP_IndirectX()
+        private void DCP_AbsoluteY_Execute()
         {
-            remainingCycles = 8;
-            pendingOperation = () => DCP_(IndirectX());
+            PC++;
+            DCP_(AbsoluteY());
         }
 
-        private void DCP_IndirectY()
+        private void DCP_IndirectX_SetCycles()
         {
             remainingCycles = 8;
-            pendingOperation = () => DCP_(IndirectY());
+        }
+
+        private void DCP_IndirectX_Execute()
+        {
+            PC++;
+            DCP_(IndirectX());
+        }
+
+        private void DCP_IndirectY_SetCycles()
+        {
+            remainingCycles = 8;
+        }
+
+        private void DCP_IndirectY_Execute()
+        {
+            PC++;
+            DCP_(IndirectY());
         }
 
         private void DCP_(ushort address)
@@ -2352,46 +3491,81 @@
             CMP_(address);
         }
 
-        private void ISC_ZeroPage()
+        private void ISC_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => ISC_(ZeroPage());
         }
 
-        private void ISC_ZeroPageX()
+        private void ISC_ZeroPage_Execute()
+        {
+            PC++;
+            ISC_(ZeroPage());
+        }
+
+        private void ISC_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => ISC_(ZeroPageX());
         }
 
-        private void ISC_Absolute()
+        private void ISC_ZeroPageX_Execute()
+        {
+            PC++;
+            ISC_(ZeroPageX());
+        }
+
+        private void ISC_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => ISC_(Absolute());
         }
 
-        private void ISC_AbsoluteX()
+        private void ISC_Absolute_Execute()
+        {
+            PC++;
+            ISC_(Absolute());
+        }
+
+        private void ISC_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => ISC_(AbsoluteX());
         }
 
-        private void ISC_AbsoluteY()
+        private void ISC_AbsoluteX_Execute()
+        {
+            PC++;
+            ISC_(AbsoluteX());
+        }
+
+        private void ISC_AbsoluteY_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => ISC_(AbsoluteY());
         }
 
-        private void ISC_IndirectX()
+        private void ISC_AbsoluteY_Execute()
         {
-            remainingCycles = 8;
-            pendingOperation = () => ISC_(IndirectX());
+            PC++;
+            ISC_(AbsoluteY());
         }
 
-        private void ISC_IndirectY()
+        private void ISC_IndirectX_SetCycles()
         {
             remainingCycles = 8;
-            pendingOperation = () => ISC_(IndirectY());
+        }
+
+        private void ISC_IndirectX_Execute()
+        {
+            PC++;
+            ISC_(IndirectX());
+        }
+
+        private void ISC_IndirectY_SetCycles()
+        {
+            remainingCycles = 8;
+        }
+
+        private void ISC_IndirectY_Execute()
+        {
+            PC++;
+            ISC_(IndirectY());
         }
 
         private void ISC_(ushort address)
@@ -2400,46 +3574,81 @@
             SBC_(address);
         }
 
-        private void RLA_ZeroPage()
+        private void RLA_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => RLA_(ZeroPage());
         }
 
-        private void RLA_ZeroPageX()
+        private void RLA_ZeroPage_Execute()
+        {
+            PC++;
+            RLA_(ZeroPage());
+        }
+
+        private void RLA_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => RLA_(ZeroPageX());
         }
 
-        private void RLA_Absolute()
+        private void RLA_ZeroPageX_Execute()
+        {
+            PC++;
+            RLA_(ZeroPageX());
+        }
+
+        private void RLA_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => RLA_(Absolute());
         }
 
-        private void RLA_AbsoluteX()
+        private void RLA_Absolute_Execute()
+        {
+            PC++;
+            RLA_(Absolute());
+        }
+
+        private void RLA_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => RLA_(AbsoluteX());
         }
 
-        private void RLA_AbsoluteY()
+        private void RLA_AbsoluteX_Execute()
+        {
+            PC++;
+            RLA_(AbsoluteX());
+        }
+
+        private void RLA_AbsoluteY_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => RLA_(AbsoluteY());
         }
 
-        private void RLA_IndirectX()
+        private void RLA_AbsoluteY_Execute()
         {
-            remainingCycles = 8;
-            pendingOperation = () => RLA_(IndirectX());
+            PC++;
+            RLA_(AbsoluteY());
         }
 
-        private void RLA_IndirectY()
+        private void RLA_IndirectX_SetCycles()
         {
             remainingCycles = 8;
-            pendingOperation = () => RLA_(IndirectY());
+        }
+
+        private void RLA_IndirectX_Execute()
+        {
+            PC++;
+            RLA_(IndirectX());
+        }
+
+        private void RLA_IndirectY_SetCycles()
+        {
+            remainingCycles = 8;
+        }
+
+        private void RLA_IndirectY_Execute()
+        {
+            PC++;
+            RLA_(IndirectY());
         }
 
         private void RLA_(ushort address)
@@ -2448,46 +3657,81 @@
             AND_(address);
         }
 
-        private void RRA_ZeroPage()
+        private void RRA_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => RRA_(ZeroPage());
         }
 
-        private void RRA_ZeroPageX()
+        private void RRA_ZeroPage_Execute()
+        {
+            PC++;
+            RRA_(ZeroPage());
+        }
+
+        private void RRA_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => RRA_(ZeroPageX());
         }
 
-        private void RRA_Absolute()
+        private void RRA_ZeroPageX_Execute()
+        {
+            PC++;
+            RRA_(ZeroPageX());
+        }
+
+        private void RRA_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => RRA_(Absolute());
         }
 
-        private void RRA_AbsoluteX()
+        private void RRA_Absolute_Execute()
+        {
+            PC++;
+            RRA_(Absolute());
+        }
+
+        private void RRA_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => RRA_(AbsoluteX());
         }
 
-        private void RRA_AbsoluteY()
+        private void RRA_AbsoluteX_Execute()
+        {
+            PC++;
+            RRA_(AbsoluteX());
+        }
+
+        private void RRA_AbsoluteY_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => RRA_(AbsoluteY());
         }
 
-        private void RRA_IndirectX()
+        private void RRA_AbsoluteY_Execute()
         {
-            remainingCycles = 8;
-            pendingOperation = () => RRA_(IndirectX());
+            PC++;
+            RRA_(AbsoluteY());
         }
 
-        private void RRA_IndirectY()
+        private void RRA_IndirectX_SetCycles()
         {
             remainingCycles = 8;
-            pendingOperation = () => RRA_(IndirectY());
+        }
+
+        private void RRA_IndirectX_Execute()
+        {
+            PC++;
+            RRA_(IndirectX());
+        }
+
+        private void RRA_IndirectY_SetCycles()
+        {
+            remainingCycles = 8;
+        }
+
+        private void RRA_IndirectY_Execute()
+        {
+            PC++;
+            RRA_(IndirectY());
         }
 
         private void RRA_(ushort address)
@@ -2496,46 +3740,81 @@
             ADC_(address);
         }
 
-        private void SLO_ZeroPage()
+        private void SLO_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => SLO_(ZeroPage());
         }
 
-        private void SLO_ZeroPageX()
+        private void SLO_ZeroPage_Execute()
+        {
+            PC++;
+            SLO_(ZeroPage());
+        }
+
+        private void SLO_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => SLO_(ZeroPageX());
         }
 
-        private void SLO_Absolute()
+        private void SLO_ZeroPageX_Execute()
+        {
+            PC++;
+            SLO_(ZeroPageX());
+        }
+
+        private void SLO_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => SLO_(Absolute());
         }
 
-        private void SLO_AbsoluteX()
+        private void SLO_Absolute_Execute()
+        {
+            PC++;
+            SLO_(Absolute());
+        }
+
+        private void SLO_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => SLO_(AbsoluteX());
         }
 
-        private void SLO_AbsoluteY()
+        private void SLO_AbsoluteX_Execute()
+        {
+            PC++;
+            SLO_(AbsoluteX());
+        }
+
+        private void SLO_AbsoluteY_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => SLO_(AbsoluteY());
         }
 
-        private void SLO_IndirectX()
+        private void SLO_AbsoluteY_Execute()
         {
-            remainingCycles = 8;
-            pendingOperation = () => SLO_(IndirectX());
+            PC++;
+            SLO_(AbsoluteY());
         }
 
-        private void SLO_IndirectY()
+        private void SLO_IndirectX_SetCycles()
         {
             remainingCycles = 8;
-            pendingOperation = () => SLO_(IndirectY());
+        }
+
+        private void SLO_IndirectX_Execute()
+        {
+            PC++;
+            SLO_(IndirectX());
+        }
+
+        private void SLO_IndirectY_SetCycles()
+        {
+            remainingCycles = 8;
+        }
+
+        private void SLO_IndirectY_Execute()
+        {
+            PC++;
+            SLO_(IndirectY());
         }
 
         private void SLO_(ushort address)
@@ -2544,46 +3823,81 @@
             ORA_(address);
         }
 
-        private void SRE_ZeroPage()
+        private void SRE_ZeroPage_SetCycles()
         {
             remainingCycles = 5;
-            pendingOperation = () => SRE_(ZeroPage());
         }
 
-        private void SRE_ZeroPageX()
+        private void SRE_ZeroPage_Execute()
+        {
+            PC++;
+            SRE_(ZeroPage());
+        }
+
+        private void SRE_ZeroPageX_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => SRE_(ZeroPageX());
         }
 
-        private void SRE_Absolute()
+        private void SRE_ZeroPageX_Execute()
+        {
+            PC++;
+            SRE_(ZeroPageX());
+        }
+
+        private void SRE_Absolute_SetCycles()
         {
             remainingCycles = 6;
-            pendingOperation = () => SRE_(Absolute());
         }
 
-        private void SRE_AbsoluteX()
+        private void SRE_Absolute_Execute()
+        {
+            PC++;
+            SRE_(Absolute());
+        }
+
+        private void SRE_AbsoluteX_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => SRE_(AbsoluteX());
         }
 
-        private void SRE_AbsoluteY()
+        private void SRE_AbsoluteX_Execute()
+        {
+            PC++;
+            SRE_(AbsoluteX());
+        }
+
+        private void SRE_AbsoluteY_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = () => SRE_(AbsoluteY());
         }
 
-        private void SRE_IndirectX()
+        private void SRE_AbsoluteY_Execute()
         {
-            remainingCycles = 8;
-            pendingOperation = () => SRE_(IndirectX());
+            PC++;
+            SRE_(AbsoluteY());
         }
 
-        private void SRE_IndirectY()
+        private void SRE_IndirectX_SetCycles()
         {
             remainingCycles = 8;
-            pendingOperation = () => SRE_(IndirectY());
+        }
+
+        private void SRE_IndirectX_Execute()
+        {
+            PC++;
+            SRE_(IndirectX());
+        }
+
+        private void SRE_IndirectY_SetCycles()
+        {
+            remainingCycles = 8;
+        }
+
+        private void SRE_IndirectY_Execute()
+        {
+            PC++;
+            SRE_(IndirectY());
         }
 
         private void SRE_(ushort address)
@@ -2605,13 +3919,13 @@
             return ReadMemory((ushort)(0x0100 | S));
         }
 
-        public void NMI_Begin()
+        public void NMI_SetCycles()
         {
             remainingCycles = 7;
-            pendingOperation = NMI_Setup;
+            opcode = 0x101;
         }
 
-        public void NMI_Setup()
+        public void NMI_Execute()
         {
             // Push the high byte of the program counter (PC) to the stack
             PushStack((byte)(PC >> 8));
@@ -2632,24 +3946,17 @@
         }
 
         // Begin the DMA transfer
-        public void DMA_Begin(byte page)
-        {
-            remainingCycles = 1;
-            pendingOperation = () => DMA_Setup(page);
-        }
-
-        // Setup the DMA transfer
-        public void DMA_Setup(byte page)
+        public void DMA_SetCycles(byte page)
         {
             dmaPage = page;
             dmaAddress = 0;
             dmaCycleCounter = 512;
-            remainingCycles = 1;
-            pendingOperation = () => DMA_Transfer();
+            remainingCycles = 2;
+            opcode = 0x100;
         }
 
         // Handle the DMA transfer
-        public void DMA_Transfer()
+        public void DMA_Execute()
         {
             // Only perform a read/write operation every 2 cycles
             if (dmaCycleCounter % 2 == 0)
