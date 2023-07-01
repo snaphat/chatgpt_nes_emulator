@@ -52,8 +52,8 @@ namespace Emulation
         private byte paletteColor;
         private byte[] pixelColor;
         private int index;
-
-        private List<byte>[] spritesPerScanline;
+        private int spriteHeight = 8;
+        private readonly List<int>[] spritesPerScanline = new List<int>[SCREEN_HEIGHT];
 
         private Emulator emulator = null!;
 
@@ -72,10 +72,9 @@ namespace Emulation
                 nameTable3 = nameTable1;
             }
 
-            spritesPerScanline = new List<byte>[SCREEN_HEIGHT];
             for (int i = 0; i < SCREEN_HEIGHT; i++)
             {
-                spritesPerScanline[i] = new List<byte>();
+                spritesPerScanline[i] = new List<int>();
             }
         }
 
@@ -196,7 +195,17 @@ namespace Emulation
             switch (address)
             {
                 case 0x2000: // PPU Control Register
-                    ppuControl = (byte)(0xFC & value); // ingore bits 1-2 for storing ppuControl
+                    ppuControl = (byte)(0xFC & value); // ignore bits 1-2 for storing ppuControl
+                    int newSpriteHeight = (ppuControl & SPRITE_SIZE_FLAG) != 0 ? 16 : 8;
+                    if (newSpriteHeight != spriteHeight)
+                    {
+                        if (newSpriteHeight == 16)
+                            IncreaseSpritesPerScanline();
+                        else
+                            ReduceSpritesPerScanline();
+                    }
+                    spriteHeight = newSpriteHeight;
+
                     t = (ushort)((t & 0xF3FF) | ((value & 0x03) << 10)); // Update bits 10-11 of t with bits 1-2 of value
                     break;
 
@@ -349,6 +358,32 @@ namespace Emulation
             }
         }
 
+        public void ReduceSpritesPerScanline()
+        {
+            for (int i = 0; i < 64; i++)
+            {
+                int yAddress = oam[i * 4];
+                for (int y = yAddress + 8; y < yAddress + 16 && y < SCREEN_HEIGHT; y++) // Ensure y is within the valid scanline range
+                {
+                    if (spritesPerScanline[y].Contains(i))
+                        spritesPerScanline[y].Remove(i);
+                }
+            }
+        }
+
+        public void IncreaseSpritesPerScanline()
+        {
+            for (int i = 0; i < 64; i++)
+            {
+                int yAddress = oam[i * 4];
+                for (int y = yAddress + 8; y < yAddress + 16 && y < SCREEN_HEIGHT; y++) // Ensure y is within the valid scanline range
+                {
+                    if (!spritesPerScanline[y].Contains(i))
+                        spritesPerScanline[y].Add(i);
+                }
+            }
+        }
+
         public void CacheSpritesPerScanline()
         {
             // first clear all sprites from all scanlines
@@ -436,7 +471,7 @@ namespace Emulation
 
         public void RenderSprite(byte backgroundPaletteColor)
         {
-            foreach (byte i in spritesPerScanline[scanline]) // scanline is the current scanline being rendered
+            foreach (int i in spritesPerScanline[scanline]) // scanline is the current scanline being rendered
             {
                 // Get sprite X and Y from OAM
                 byte spriteY = oam[(i * 4) + 0];
@@ -447,7 +482,7 @@ namespace Emulation
                     continue;
 
                 // Check if the scanline is within the sprite's vertical range
-                int height = (ppuControl & SPRITE_SIZE_FLAG) != 0 ? 16 : 8;
+                int height = spriteHeight;
                 if (scanline < spriteY || scanline >= spriteY + height)
                 {
                     continue;
@@ -505,6 +540,8 @@ namespace Emulation
                 screenBuffer[index] = pixelColor[2];     // Blue component
                 screenBuffer[index + 1] = pixelColor[1]; // Green component
                 screenBuffer[index + 2] = pixelColor[0]; // Red component
+
+                break;
             }
         }
 
