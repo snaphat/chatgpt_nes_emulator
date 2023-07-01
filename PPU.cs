@@ -53,7 +53,7 @@ namespace Emulation
         private byte[] pixelColor;
         private int index;
         private int spriteHeight = 8;
-        private readonly List<int>[] spritesPerScanline = new List<int>[SCREEN_HEIGHT];
+        private readonly List<int>[] spritesPerScanline  = new List<int>[SCREEN_HEIGHT];
 
         private Emulator emulator = null!;
 
@@ -218,10 +218,20 @@ namespace Emulation
                     break;
 
                 case 0x2004: // OAM Data Register
+                    int spriteIndex = oamAddress / 4;
+                    int attributeIndex = oamAddress % 4;
+                    if (attributeIndex == 0 && oam[oamAddress] != value) // Check if the Y address has changed
+                    {
+                        int oldMinY = oam[oamAddress];
+                        int oldMaxY = oldMinY + spriteHeight;
+                        int newMinY = value;
+                        int newMaxY = newMinY + spriteHeight;
+                        CacheSpritesPerScanline(spriteIndex, oldMinY, oldMaxY, newMinY, newMaxY);
+                    }
+
                     oam[oamAddress] = value;
                     oamAddress++;
                     oamAddress &= 0xFF;
-                    CacheSpritesPerScanline();
                     break;
 
                 case 0x2005: // PPU Scroll Register
@@ -384,25 +394,18 @@ namespace Emulation
             }
         }
 
-        public void CacheSpritesPerScanline()
+        public void CacheSpritesPerScanline(int i, int oldMinY, int oldMaxY, int newMinY, int newMaxY)
         {
-            // first clear all sprites from all scanlines
-            for (int i = 0; i < SCREEN_HEIGHT; i++)
+            // remove sprite index from all scanlines it was visible on
+            for (int y = oldMinY; y < oldMaxY && y < SCREEN_HEIGHT; y++)
             {
-                spritesPerScanline[i].Clear();
+                spritesPerScanline[y].Remove(i);
             }
 
-            // then add sprites to scanlines they are visible on
-            for (int i = 0; i < 64; i++)
+            // add sprite index to all scanlines it is visible on
+            for (int y = newMinY; y < newMaxY && y < SCREEN_HEIGHT; y++)
             {
-                byte spriteY = oam[(i * 4) + 0];
-                int height = (ppuControl & SPRITE_SIZE_FLAG) != 0 ? 16 : 8;
-
-                // add sprite index to all scanlines it is visible on
-                for (int y = spriteY; y < spriteY + height && y < SCREEN_HEIGHT; y++)
-                {
-                    spritesPerScanline[y].Add((byte)i);
-                }
+                spritesPerScanline[y].Add(i);
             }
         }
 
