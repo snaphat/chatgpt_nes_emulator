@@ -11,6 +11,10 @@ namespace Emulation
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool AllocConsole();
 
+        // Create a Bitmap object to hold the NES frame with Format32bppRgb pixel format
+        Bitmap frameBitmap = new(256, 240, PixelFormat.Format24bppRgb);
+        Rectangle frameRectangle = new(0, 0, 256, 240);
+
         public Form()
         {
             InitializeComponent();
@@ -21,7 +25,7 @@ namespace Emulation
             AllocConsole();
 
             // Create an instance of the emulator and load the ROM
-            const string romFilePath = "Elevator Action (USA).nes"; /* Provide the path to the ROM file */
+            const string romFilePath = "Pac-Man (USA) (Namco).nes"; /* Provide the path to the ROM file */
             emulator = new Emulator(romFilePath, this);
 
             // Setup the PictureBox
@@ -40,12 +44,8 @@ namespace Emulation
             PPU ppu = emulator.GetPPU();
             byte[] screenBuffer = ppu.GetScreenBuffer();
 
-            // Create a Bitmap object to hold the NES frame with Format32bppRgb pixel format
-            Bitmap frameBitmap = new(256, 240, PixelFormat.Format24bppRgb);
-
             // Lock the bitmap data for faster manipulation
-            BitmapData bitmapData = frameBitmap.LockBits(new Rectangle(0, 0, frameBitmap.Width, frameBitmap.Height),
-                                                         ImageLockMode.WriteOnly, frameBitmap.PixelFormat);
+            BitmapData bitmapData = frameBitmap.LockBits(frameRectangle, ImageLockMode.WriteOnly, frameBitmap.PixelFormat);
 
             // Copy the pixel data from the screen buffer to the bitmap data
             Marshal.Copy(screenBuffer, 0, bitmapData.Scan0, screenBuffer.Length);
