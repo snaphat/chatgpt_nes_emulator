@@ -2,6 +2,7 @@
 namespace Emulation
 {
     using System.Numerics;
+    using System.Runtime.CompilerServices;
     using static Globals;
 
     public class PPU
@@ -216,14 +217,14 @@ namespace Emulation
                 case 0x2004: // OAM Data Register
                     int spriteIndex = oamAddress / 4;
                     int attributeIndex = oamAddress % 4;
-                    if (attributeIndex == 0 && oam[oamAddress] != value) // Check if the Y address has changed
+                    if (attributeIndex == 0) // Check if the Y address has changed
                     {
                         int oldY = oam[oamAddress];
                         int newY = value;
                         int x = oam[oamAddress + 3];
                         CacheSpritesPerDot(spriteIndex, oldY, newY, x, x);
                     }
-                    else if (attributeIndex == 3 && oam[oamAddress] != value)
+                    else if (attributeIndex == 3) // Check if the X address has changed
                     {
                         int y = oam[oamAddress - 3];
                         int oldX = oam[oamAddress];
@@ -370,6 +371,7 @@ namespace Emulation
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ReduceCachedSpritesPerDot()
         {
             for (int i = 0; i < 64; i++)
@@ -388,6 +390,7 @@ namespace Emulation
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void IncreaseCachedSpritesPerDot()
         {
             for (int i = 0; i < 64; i++)
@@ -406,14 +409,17 @@ namespace Emulation
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void CacheSpritesPerDot(int i, int oldY, int newY, int oldX, int newX)
         {
             // Calculate the bit mask for the sprite index
             ulong spriteMask = 1UL << i;
 
             // Calculate the dot range based on old and new X and Y coordinates
-            int endX = Math.Min(SCREEN_WIDTH, oldX + 8);
-            int endY = Math.Min(SCREEN_HEIGHT, oldY + spriteHeight);
+            int endX = oldX + 8;
+            if (SCREEN_WIDTH < endX) endX = SCREEN_WIDTH;
+            int endY = oldY + spriteHeight;
+            if (SCREEN_HEIGHT < endY) endY = SCREEN_HEIGHT;
 
             // Remove sprite index from all dots within the old valid range
             for (int y = oldY; y < endY; y++)
@@ -425,8 +431,10 @@ namespace Emulation
             }
 
             // Calculate the dot range for the new X and Y coordinates
-            endX = Math.Min(SCREEN_WIDTH, newX + 8);
-            endY = Math.Min(SCREEN_HEIGHT, newY + spriteHeight);
+            endX = newX + 8;
+            if (SCREEN_WIDTH < endX) endX = SCREEN_WIDTH;
+            endY = newY + spriteHeight;
+            if (SCREEN_HEIGHT < endY) endY = SCREEN_HEIGHT;
 
             // Add sprite index to all dots within the new valid range
             for (int y = newY; y < endY; y++)
