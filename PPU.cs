@@ -217,14 +217,14 @@ namespace Emulation
                 case 0x2004: // OAM Data Register
                     int spriteIndex = oamAddress / 4;
                     int attributeIndex = oamAddress % 4;
-                    if (attributeIndex == 0) // Check if the Y address has changed
+                    if (attributeIndex == 0 && oam[oamAddress] != value) // Check if the Y address has changed
                     {
                         int oldY = oam[oamAddress];
                         int newY = value;
                         int x = oam[oamAddress + 3];
                         CacheSpritesPerDot(spriteIndex, oldY, newY, x, x);
                     }
-                    else if (attributeIndex == 3) // Check if the X address has changed
+                    else if (attributeIndex == 3 && oam[oamAddress] != value) // Check if the X address has changed
                     {
                         int y = oam[oamAddress - 3];
                         int oldX = oam[oamAddress];
