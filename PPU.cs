@@ -1,6 +1,7 @@
 ﻿
 namespace Emulation
 {
+    using System.Numerics;
     using static Globals;
 
     public class PPU
@@ -53,7 +54,7 @@ namespace Emulation
         private byte[] pixelColor;
         private int index;
         private int spriteHeight = 8;
-        private readonly List<int>[] spritesPerScanline  = new List<int>[SCREEN_HEIGHT];
+        private readonly ulong[] spritesPerScanline = new ulong[SCREEN_HEIGHT];
 
         private Emulator emulator = null!;
 
@@ -74,7 +75,7 @@ namespace Emulation
 
             for (int i = 0; i < SCREEN_HEIGHT; i++)
             {
-                spritesPerScanline[i] = new List<int>();
+                spritesPerScanline[i] = 0UL;
             }
         }
 
@@ -373,10 +374,11 @@ namespace Emulation
             for (int i = 0; i < 64; i++)
             {
                 int yAddress = oam[i * 4];
+                ulong bitmask = ~(1UL << i); // Create a bitmask with the i-th bit cleared
+
                 for (int y = yAddress + 8; y < yAddress + 16 && y < SCREEN_HEIGHT; y++) // Ensure y is within the valid scanline range
                 {
-                    if (spritesPerScanline[y].Contains(i))
-                        spritesPerScanline[y].Remove(i);
+                    spritesPerScanline[y] &= bitmask;
                 }
             }
         }
@@ -386,26 +388,32 @@ namespace Emulation
             for (int i = 0; i < 64; i++)
             {
                 int yAddress = oam[i * 4];
+                ulong bitmask = 1UL << i; // Create a bitmask with only the i-th bit set
+
                 for (int y = yAddress + 8; y < yAddress + 16 && y < SCREEN_HEIGHT; y++) // Ensure y is within the valid scanline range
                 {
-                    if (!spritesPerScanline[y].Contains(i))
-                        spritesPerScanline[y].Add(i);
+                    spritesPerScanline[y] |= bitmask;
                 }
             }
         }
 
         public void CacheSpritesPerScanline(int i, int oldMinY, int oldMaxY, int newMinY, int newMaxY)
         {
-            // remove sprite index from all scanlines it was visible on
-            for (int y = oldMinY; y < oldMaxY && y < SCREEN_HEIGHT; y++)
+            // Calculate the bit mask for the sprite index
+            ulong spriteMask = 1UL << i;
+
+            // Remove sprite index from all scanlines it was visible on
+            int maxY = Math.Min(SCREEN_HEIGHT, oldMaxY);
+            for (int y = oldMinY; y < maxY && y < SCREEN_HEIGHT; y++)
             {
-                spritesPerScanline[y].Remove(i);
+                spritesPerScanline[y] &= ~spriteMask;
             }
 
-            // add sprite index to all scanlines it is visible on
-            for (int y = newMinY; y < newMaxY && y < SCREEN_HEIGHT; y++)
+            // Add sprite index to all scanlines it is visible on
+            maxY = Math.Min(SCREEN_HEIGHT, newMaxY);
+            for (int y = newMinY; y < maxY; y++)
             {
-                spritesPerScanline[y].Add(i);
+                spritesPerScanline[y] |= spriteMask;
             }
         }
 
@@ -474,20 +482,30 @@ namespace Emulation
 
         public void RenderSprite(byte backgroundPaletteColor)
         {
-            foreach (int i in spritesPerScanline[scanline]) // scanline is the current scanline being rendered
+            ulong spriteMask = spritesPerScanline[scanline];
+
+            int i = 0;
+            while (spriteMask != 0)
             {
+                int trailingZeros = BitOperations.TrailingZeroCount(spriteMask);
+                spriteMask >>= trailingZeros + 1;
+                i += trailingZeros;
+
                 // Get sprite X and Y from OAM
                 byte spriteY = oam[(i * 4) + 0];
                 byte spriteX = oam[(i * 4) + 3];
-
                 // Check if the dot is within the sprite's horizontal range
                 if (dot < spriteX || dot >= spriteX + 8)
+                {
+                    i++;
                     continue;
+                }
 
                 // Check if the scanline is within the sprite's vertical range
                 int height = spriteHeight;
                 if (scanline < spriteY || scanline >= spriteY + height)
                 {
+                    i++;
                     continue;
                 }
 
@@ -517,12 +535,18 @@ namespace Emulation
 
                 // Skip transparent pixels (palette index 0)
                 if (pixelData == 0)
+                {
+                    i++;
                     continue;
+                }
 
                 // Check sprite priority
                 bool spriteIsBehindBackground = (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0;
                 if (spriteIsBehindBackground && backgroundPaletteColor != 0)
+                {
+                    i++;
                     continue;
+                }
 
                 // Compute the palette address
                 int paletteAddress = PALETTE_TABLE_SPRITE_BASE_ADDRESS + ((spriteAttributes & 0x03) << 2) + pixelData;
