@@ -196,9 +196,9 @@ namespace Emulation
                     if (newSpriteHeight != spriteHeight)
                     {
                         if (newSpriteHeight == 16)
-                            IncreaseSpritesPerScanline();
+                            IncreaseCachedSpritesPerDot();
                         else
-                            ReduceSpritesPerScanline();
+                            ReduceCachedSpritesPerDot();
                     }
                     spriteHeight = newSpriteHeight;
 
@@ -370,30 +370,38 @@ namespace Emulation
             }
         }
 
-        public void ReduceSpritesPerScanline()
+        public void ReduceCachedSpritesPerDot()
         {
             for (int i = 0; i < 64; i++)
             {
                 int yAddress = oam[i * 4];
+                int xAddress = oam[(i * 4) + 3];
                 ulong bitmask = ~(1UL << i); // Create a bitmask with the i-th bit cleared
 
                 for (int y = yAddress + 8; y < yAddress + 16 && y < SCREEN_HEIGHT; y++) // Ensure y is within the valid scanline range
                 {
-                    //spritesPerScanline[y] &= bitmask;
+                    for (int x = xAddress; x < xAddress + 8 && x < SCREEN_WIDTH; x++) // Ensure x is within the valid dot range
+                    {
+                        spritesPerDot[y, x] &= bitmask;
+                    }
                 }
             }
         }
 
-        public void IncreaseSpritesPerScanline()
+        public void IncreaseCachedSpritesPerDot()
         {
             for (int i = 0; i < 64; i++)
             {
                 int yAddress = oam[i * 4];
+                int xAddress = oam[(i * 4) + 3];
                 ulong bitmask = 1UL << i; // Create a bitmask with only the i-th bit set
 
                 for (int y = yAddress + 8; y < yAddress + 16 && y < SCREEN_HEIGHT; y++) // Ensure y is within the valid scanline range
                 {
-                    //spritesPerScanline[y] |= bitmask;
+                    for (int x = xAddress; x < xAddress + 8 && x < SCREEN_WIDTH; x++) // Ensure x is within the valid dot range
+                    {
+                        spritesPerDot[y, x] |= bitmask;
+                    }
                 }
             }
         }
