@@ -54,7 +54,7 @@ namespace Emulation
         private byte[] pixelColor;
         private int index;
         private int spriteHeight = 8;
-        private readonly ulong[] spritesPerScanline = new ulong[SCREEN_HEIGHT];
+        private readonly ulong[,] spritesPerDot = new ulong[SCREEN_HEIGHT, SCREEN_WIDTH];
 
         private Emulator emulator = null!;
 
@@ -71,11 +71,6 @@ namespace Emulation
             {
                 nameTable2 = nameTable0;
                 nameTable3 = nameTable1;
-            }
-
-            for (int i = 0; i < SCREEN_HEIGHT; i++)
-            {
-                spritesPerScanline[i] = 0UL;
             }
         }
 
@@ -223,11 +218,17 @@ namespace Emulation
                     int attributeIndex = oamAddress % 4;
                     if (attributeIndex == 0 && oam[oamAddress] != value) // Check if the Y address has changed
                     {
-                        int oldMinY = oam[oamAddress];
-                        int oldMaxY = oldMinY + spriteHeight;
-                        int newMinY = value;
-                        int newMaxY = newMinY + spriteHeight;
-                        CacheSpritesPerScanline(spriteIndex, oldMinY, oldMaxY, newMinY, newMaxY);
+                        int oldY = oam[oamAddress];
+                        int newY = value;
+                        int x = oam[oamAddress + 3];
+                        CacheSpritesPerDot(spriteIndex, oldY, newY, x, x);
+                    }
+                    else if (attributeIndex == 3 && oam[oamAddress] != value)
+                    {
+                        int y = oam[oamAddress - 3];
+                        int oldX = oam[oamAddress];
+                        int newX = value;
+                        CacheSpritesPerDot(spriteIndex, y, y, oldX, newX);
                     }
 
                     oam[oamAddress] = value;
@@ -378,7 +379,7 @@ namespace Emulation
 
                 for (int y = yAddress + 8; y < yAddress + 16 && y < SCREEN_HEIGHT; y++) // Ensure y is within the valid scanline range
                 {
-                    spritesPerScanline[y] &= bitmask;
+                    //spritesPerScanline[y] &= bitmask;
                 }
             }
         }
@@ -392,28 +393,40 @@ namespace Emulation
 
                 for (int y = yAddress + 8; y < yAddress + 16 && y < SCREEN_HEIGHT; y++) // Ensure y is within the valid scanline range
                 {
-                    spritesPerScanline[y] |= bitmask;
+                    //spritesPerScanline[y] |= bitmask;
                 }
             }
         }
 
-        public void CacheSpritesPerScanline(int i, int oldMinY, int oldMaxY, int newMinY, int newMaxY)
+        public void CacheSpritesPerDot(int i, int oldY, int newY, int oldX, int newX)
         {
             // Calculate the bit mask for the sprite index
             ulong spriteMask = 1UL << i;
 
-            // Remove sprite index from all scanlines it was visible on
-            int maxY = Math.Min(SCREEN_HEIGHT, oldMaxY);
-            for (int y = oldMinY; y < maxY && y < SCREEN_HEIGHT; y++)
+            // Calculate the dot range based on old and new X and Y coordinates
+            int endX = Math.Min(SCREEN_WIDTH, oldX + 8);
+            int endY = Math.Min(SCREEN_HEIGHT, oldY + spriteHeight);
+
+            // Remove sprite index from all dots within the old valid range
+            for (int y = oldY; y < endY; y++)
             {
-                spritesPerScanline[y] &= ~spriteMask;
+                for (int x = oldX; x < endX; x++)
+                {
+                    spritesPerDot[y, x] &= ~spriteMask;
+                }
             }
 
-            // Add sprite index to all scanlines it is visible on
-            maxY = Math.Min(SCREEN_HEIGHT, newMaxY);
-            for (int y = newMinY; y < maxY; y++)
+            // Calculate the dot range for the new X and Y coordinates
+            endX = Math.Min(SCREEN_WIDTH, newX + 8);
+            endY = Math.Min(SCREEN_HEIGHT, newY + spriteHeight);
+
+            // Add sprite index to all dots within the new valid range
+            for (int y = newY; y < endY; y++)
             {
-                spritesPerScanline[y] |= spriteMask;
+                for (int x = newX; x < endX; x++)
+                {
+                    spritesPerDot[y, x] |= spriteMask;
+                }
             }
         }
 
@@ -482,32 +495,15 @@ namespace Emulation
 
         public void RenderSprite(byte backgroundPaletteColor)
         {
-            ulong spriteMask = spritesPerScanline[scanline];
+            ulong spriteMask = spritesPerDot[scanline, dot];
 
-            int i = 0;
-            while (spriteMask != 0)
+            if (spriteMask != 0)
             {
-                int trailingZeros = BitOperations.TrailingZeroCount(spriteMask);
-                spriteMask >>= trailingZeros + 1;
-                i += trailingZeros;
+                int i = BitOperations.TrailingZeroCount(spriteMask);
 
                 // Get sprite X and Y from OAM
                 byte spriteY = oam[(i * 4) + 0];
                 byte spriteX = oam[(i * 4) + 3];
-                // Check if the dot is within the sprite's horizontal range
-                if (dot < spriteX || dot >= spriteX + 8)
-                {
-                    i++;
-                    continue;
-                }
-
-                // Check if the scanline is within the sprite's vertical range
-                int height = spriteHeight;
-                if (scanline < spriteY || scanline >= spriteY + height)
-                {
-                    i++;
-                    continue;
-                }
 
                 // Get sprite tile and attributes from OAM
                 byte spriteTile = oam[(i * 4) + 1];
@@ -518,7 +514,7 @@ namespace Emulation
 
                 // Flip vertically if the attribute bit is set
                 if ((spriteAttributes & FLIP_SPRITE_VERTICALLY_FLAG) != 0)
-                    row = height - 1 - row;
+                    row = spriteHeight - 1 - row;
 
                 // Compute the pattern table address
                 ushort patternTableAddress = (ushort)(((ppuControl & SPRITE_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (spriteTile << 4) | row);
@@ -535,18 +531,11 @@ namespace Emulation
 
                 // Skip transparent pixels (palette index 0)
                 if (pixelData == 0)
-                {
-                    i++;
-                    continue;
-                }
-
+                    return;
                 // Check sprite priority
                 bool spriteIsBehindBackground = (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0;
                 if (spriteIsBehindBackground && backgroundPaletteColor != 0)
-                {
-                    i++;
-                    continue;
-                }
+                    return;
 
                 // Compute the palette address
                 int paletteAddress = PALETTE_TABLE_SPRITE_BASE_ADDRESS + ((spriteAttributes & 0x03) << 2) + pixelData;
@@ -567,8 +556,6 @@ namespace Emulation
                 screenBuffer[index] = pixelColor[2];     // Blue component
                 screenBuffer[index + 1] = pixelColor[1]; // Green component
                 screenBuffer[index + 2] = pixelColor[0]; // Red component
-
-                break;
             }
         }
 
