@@ -513,9 +513,12 @@ namespace Emulation
         {
             ulong spriteMask = spritesPerDot[scanline, dot];
 
-            if (spriteMask != 0)
+            int i = 0;
+            while (spriteMask != 0)
             {
-                int i = BitOperations.TrailingZeroCount(spriteMask);
+                int trailingZeros = BitOperations.TrailingZeroCount(spriteMask);
+                spriteMask >>= trailingZeros + 1;
+                i += trailingZeros;
 
                 // Get sprite X and Y from OAM
                 byte spriteY = oam[(i * 4) + 0];
@@ -547,11 +550,17 @@ namespace Emulation
 
                 // Skip transparent pixels (palette index 0)
                 if (pixelData == 0)
-                    return;
+                {
+                    i++;
+                    continue;
+                }
                 // Check sprite priority
                 bool spriteIsBehindBackground = (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0;
                 if (spriteIsBehindBackground && backgroundPaletteColor != 0)
-                    return;
+                {
+                    i++;
+                    continue;
+                }
 
                 // Compute the palette address
                 int paletteAddress = PALETTE_TABLE_SPRITE_BASE_ADDRESS + ((spriteAttributes & 0x03) << 2) + pixelData;
@@ -572,6 +581,8 @@ namespace Emulation
                 screenBuffer[index] = pixelColor[2];     // Blue component
                 screenBuffer[index + 1] = pixelColor[1]; // Green component
                 screenBuffer[index + 2] = pixelColor[0]; // Red component
+
+                break;
             }
         }
 
