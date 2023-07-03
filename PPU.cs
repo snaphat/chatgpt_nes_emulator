@@ -23,7 +23,7 @@ namespace Emulation
 
         // Screen buffer to store the rendered pixels
         private readonly byte[] screenBuffer = new byte[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
-        private readonly byte[] screenTest = new byte[SCREEN_WIDTH * SCREEN_HEIGHT];
+        private readonly int[] previousPaletteColor = new int[SCREEN_WIDTH * SCREEN_HEIGHT]; // for caching the previous palette color
 
         // PPU registers
         private ushort v; // Current VRAM address (15 bits)
@@ -498,25 +498,33 @@ namespace Emulation
                             }
                         }
 
-                        // Calculate the index in the screen buffer based on the scanline and pixel position
-                        int screenIndex = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
+                        // Calculate the index in the palette buffer based on the scanline and pixel position
+                        int paletteColorIndex = (scanline * SCREEN_WIDTH) + dot;
 
-                        // Lookup pixel color
-                        if (paletteColor != 0)
+                        if (previousPaletteColor[paletteColorIndex] != paletteColor)
                         {
-                            var pixelColor = ColorMap.LUT[paletteColor];
+                            previousPaletteColor[paletteColorIndex] = paletteColor;
 
-                            // Set the RGB values in the screen buffer at the calculated index
-                            screenBuffer[screenIndex] = pixelColor[2];     // Blue component
-                            screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
-                            screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
-                        }
-                        else
-                        {
-                            // Set the RGB values in the screen buffer at the calculated index
-                            screenBuffer[screenIndex] = 0;     // Blue component
-                            screenBuffer[screenIndex + 1] = 0; // Green component
-                            screenBuffer[screenIndex + 2] = 0; // Red component
+                            // Calculate the index in the screen buffer based on the scanline and pixel position
+                            int screenIndex = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
+
+                            // Lookup pixel color
+                            if (paletteColor != 0)
+                            {
+                                var pixelColor = ColorMap.LUT[paletteColor];
+
+                                // Set the RGB values in the screen buffer at the calculated index
+                                screenBuffer[screenIndex] = pixelColor[2];     // Blue component
+                                screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
+                                screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
+                            }
+                            else
+                            {
+                                // Set the RGB values in the screen buffer at the calculated index
+                                screenBuffer[screenIndex] = 0;     // Blue component
+                                screenBuffer[screenIndex + 1] = 0; // Green component
+                                screenBuffer[screenIndex + 2] = 0; // Red component
+                            }
                         }
 
                         // Every 8 cycles (dots), increment v and start a new tile.
