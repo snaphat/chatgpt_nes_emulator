@@ -106,13 +106,13 @@ namespace Emulation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte ReadRegister(ushort address)
         {
-            switch (address)
+            switch (address & 0x7)
             {
-                case 0x2000: // PPU Control Register
-                case 0x2001: // PPU Mask Register
+                case 0x0: // PPU Control Register
+                case 0x1: // PPU Mask Register
                     break;
 
-                case 0x2002: // PPU Status Register
+                case 0x2: // PPU Status Register
                     // Read and clear the vertical blank flag in the status register
                     openBus = ppuStatus;
                     ppuStatus = (byte)(ppuStatus & ~IN_VBLANK_FLAG);
@@ -121,18 +121,18 @@ namespace Emulation
                     w = false;
                     break;
 
-                case 0x2003: // OAM Address Register
+                case 0x3: // OAM Address Register
                     break;
 
-                case 0x2004: // OAM Data Register
+                case 0x4: // OAM Data Register
                     openBus = oam[oamAddress];
                     break;
 
-                case 0x2005: // PPU Scroll Register
-                case 0x2006: // PPU Address Register
+                case 0x5: // PPU Scroll Register
+                case 0x6: // PPU Address Register
                     break;
 
-                case 0x2007: // VRAM Data Register
+                case 0x7: // VRAM Data Register
                     if (v is >= 0x0000 and <= 0x3EFF)
                     {
                         // Read from internal read buffer and update the buffer with the new value
@@ -167,9 +167,9 @@ namespace Emulation
         public void WriteRegister(ushort address, byte value)
         {
             openBus = value;
-            switch (address)
+            switch (address & 0x7)
             {
-                case 0x2000: // PPU Control Register
+                case 0x0: // PPU Control Register
                     ppuControl = (byte)(0xFC & value); // ignore bits 1-2 for storing ppuControl
                     int newSpriteHeight = (ppuControl & SPRITE_SIZE_FLAG) != 0 ? 16 : 8;
                     if (newSpriteHeight != spriteHeight)
@@ -184,15 +184,15 @@ namespace Emulation
                     t = (ushort)((t & 0xF3FF) | ((value & 0x03) << 10)); // Update bits 10-11 of t with bits 1-2 of value
                     break;
 
-                case 0x2001: // PPU Mask Register
+                case 0x1: // PPU Mask Register
                     ppuMask = value;
                     break;
 
-                case 0x2003: // OAM Address Register
+                case 0x3: // OAM Address Register
                     oamAddress = value;
                     break;
 
-                case 0x2004: // OAM Data Register
+                case 0x4: // OAM Data Register
                     if (oam[oamAddress] != value)
                     {
                         int attributeIndex = oamAddress % 4;
@@ -220,7 +220,7 @@ namespace Emulation
                     oamAddress &= 0xFF;
                     break;
 
-                case 0x2005: // PPU Scroll Register
+                case 0x5: // PPU Scroll Register
                     if (!w)
                     {
                         // First write to PPUSCROLL
@@ -237,7 +237,7 @@ namespace Emulation
                     }
                     break;
 
-                case 0x2006: // PPU Address Register
+                case 0x6: // PPU Address Register
                     if (!w)
                     {
                         // First write to PPUADDR
@@ -253,7 +253,7 @@ namespace Emulation
                     }
                     break;
 
-                case 0x2007: // VRAM Data Register
+                case 0x7: // VRAM Data Register
                     WriteVRAM(v, value);
                     // Increment v after writing
                     v += (ushort)(((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0) ? 32 : 1);
