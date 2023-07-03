@@ -30,7 +30,7 @@
             if (address < 0x2000)
             {
                 // Access RAM
-                return memory[address % 0x0800];
+                return memory[address & 0x07FF];
             }
             else if (address <= 0x3FFF)
             {
@@ -48,7 +48,7 @@
             if (address < 0x2000)
             {
                 // Access RAM
-                return memory[address % 0x0800];
+                return memory[address & 0x07FF];
             }
             else if (address <= 0x3FFF)
             {
@@ -66,7 +66,7 @@
             if (address < 0x2000)
             {
                 // Write to RAM
-                memory[address % 0x0800] = value;
+                memory[address & 0x07FF] = value;
             }
             else if (address <= 0x3FFF)
             {

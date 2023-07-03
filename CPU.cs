@@ -4046,7 +4046,7 @@
         public void DMA_Execute()
         {
             // Only perform a read/write operation every 2 cycles
-            if (dmaCycleCounter % 2 == 0)
+            if ((dmaCycleCounter & 1) == 0)
             {
                 byte value = ReadMemory((ushort)(dmaPage << 8 | dmaAddress));
                 ppu.WriteRegister(0x2004, value);

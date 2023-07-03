@@ -195,7 +195,7 @@ namespace Emulation
                 case 0x4: // OAM Data Register
                     if (oam[oamAddress] != value)
                     {
-                        int attributeIndex = oamAddress % 4;
+                        int attributeIndex = oamAddress & 3;
                         if (attributeIndex == 0)
                         {
                             int spriteIndex = oamAddress / 4;
@@ -311,7 +311,7 @@ namespace Emulation
             else if (address >= PALETTE_TABLE_START && address < PALETTE_TABLE_END)
             {
                 // Handle mirroring in Palette Table
-                if (address % 4 == 0)
+                if ((address & 3) == 0)
                 {
                     // 0x3F00, 0x3F04, 0x3F08, 0x3F0C mirror to 0x3F10, 0x3F14, 0x3F18, 0x3F1C
                     ushort mirrorAddress = (ushort)(address ^ 0x10);
@@ -526,7 +526,7 @@ namespace Emulation
                         }
 
                         // Every 8 cycles (dots), increment v and start a new tile.
-                        if (dot % 8 == 7)
+                        if ((dot & 7) == 7)
                         {
                             // Increment coarse X scroll
                             if ((v & 0x1F) == 31) // If coarse X == 31
