@@ -421,10 +421,6 @@ namespace Emulation
 
         public int RenderBackground()
         {
-            // Implement background clipping
-            if ((ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) == 0 && dot < 8)
-                return 0;
-
             // Select the correct pixel within the tile
             var paletteIndex = ((patternDataHi << x) & 0x80) >> 6 | ((patternDataLo << x) & 0x80) >> 7; // Use the fine X scroll for the column within the tile
 
@@ -556,7 +552,7 @@ namespace Emulation
                         // Calculate the index in the screen buffer based on the scanline and pixel position
                         index = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
 
-                        if ((ppuMask & SHOW_BACKGROUND) != 0)
+                        if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
                             backgroundPaletteColor = RenderBackground();
                         if ((ppuMask & SHOW_SPRITES) != 0 && (dot >= 8 || (ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) != 0))
                             RenderSprite(backgroundPaletteColor);
