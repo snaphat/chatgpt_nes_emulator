@@ -38,8 +38,6 @@ namespace Emulation
         private byte patternDataLo;
         private byte patternDataHi;
         private int paletteTableOffset;
-        private int screenIndex;
-
         private int spriteHeight = 8;
         private readonly ulong[,] spritesPerDot = new ulong[SCREEN_HEIGHT, SCREEN_WIDTH];
 
@@ -393,6 +391,9 @@ namespace Emulation
             }
         }
 
+        // Tile offset reset every 8 cycles
+        int tileOffset;
+
         public void RenderCycle()
         {
             if ((ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
@@ -401,16 +402,13 @@ namespace Emulation
                 if (scanline < SCREEN_HEIGHT)
                 {
                     // Perform cycle-based rendering operations here
+                    var paletteColor = 0;
 
                     // Render a pixel for each dot on a visible scanline
                     if (dot < SCREEN_WIDTH)
                     {
-                        int tileOffset = dot % 8;
-
-                        int backgroundPaletteColor = 0;
-
                         // Calculate the index in the screen buffer based on the scanline and pixel position
-                        screenIndex = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
+                        int screenIndex = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
 
                         // Render background
                         if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
@@ -423,24 +421,10 @@ namespace Emulation
                             patternDataLo <<= 1;
 
                             // Check if the pixel is transparent
-                            if (paletteIndex == 0)
-                            {
-                                screenBuffer[screenIndex] = 0;     // Blue component
-                                screenBuffer[screenIndex + 1] = 0; // Green component
-                                screenBuffer[screenIndex + 2] = 0; // Red component
-                            }
-                            else
+                            if (paletteIndex != 0)
                             {
                                 // Fetch the color from the correct palette and color index
-                                backgroundPaletteColor = vram[paletteTableOffset + paletteIndex];
-
-                                // Lookup pixel color
-                                var pixelColor = ColorMap.LUT[backgroundPaletteColor];
-
-                                // Set the RGB values in the screen buffer at the calculated index
-                                screenBuffer[screenIndex] = pixelColor[2];     // Blue component
-                                screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
-                                screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
+                                paletteColor = vram[paletteTableOffset + paletteIndex];
                             }
                         }
 
@@ -449,20 +433,22 @@ namespace Emulation
                         {
                             ulong spriteMask = spritesPerDot[scanline, dot];
 
-                            int i = 0;
+                            int spriteIndex = 0;
                             while (spriteMask != 0)
                             {
-                                int trailingZeros = BitOperations.TrailingZeroCount(spriteMask);
+                                var trailingZeros = BitOperations.TrailingZeroCount(spriteMask);
                                 spriteMask >>= trailingZeros + 1;
-                                i += trailingZeros;
+                                spriteIndex += trailingZeros;
+
+                                var oamEntry = spriteIndex * 4;
 
                                 // Get sprite X and Y from OAM
-                                var spriteY = oam[(i * 4) + 0];
-                                var spriteX = oam[(i * 4) + 3];
+                                var spriteY = oam[oamEntry + 0];
+                                var spriteX = oam[oamEntry + 3];
 
                                 // Get sprite tile and attributes from OAM
-                                var spriteTile = oam[(i * 4) + 1];
-                                var spriteAttributes = oam[(i * 4) + 2];
+                                var spriteTile = oam[oamEntry + 1];
+                                var spriteAttributes = oam[oamEntry + 2];
 
                                 // Compute the tile row
                                 var row = scanline - spriteY;
@@ -487,43 +473,56 @@ namespace Emulation
                                 // Skip transparent pixels (palette index 0)
                                 if (pixelData == 0)
                                 {
-                                    i++;
+                                    spriteIndex++;
                                     continue;
                                 }
                                 // Check sprite priority
                                 var spriteIsBehindBackground = (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0;
-                                if (spriteIsBehindBackground && backgroundPaletteColor != 0)
+                                if (spriteIsBehindBackground && paletteColor != 0) // background palette
                                 {
-                                    i++;
+                                    spriteIndex++;
                                     continue;
                                 }
 
                                 // Compute the palette address
                                 var paletteAddress = PALETTE_TABLE_SPRITE_START + ((spriteAttributes & 0x03) << 2) + pixelData;
 
-                                // Fetch the color from the palette
-                                var paletteColor = vram[paletteAddress];
-
                                 // Check for sprite 0 hit
-                                if (i == 0 && backgroundPaletteColor != 0)
+                                if (spriteIndex == 0 && paletteColor != 0)
                                 {
                                     ppuStatus |= SPRITE0_HIT_FLAG;
                                 }
 
-                                // Lookup pixel color
-                                var pixelColor = ColorMap.LUT[paletteColor];
-
-                                // Set the RGB values in the screen buffer at the calculated index
-                                screenBuffer[screenIndex] = pixelColor[2];     // Blue component
-                                screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
-                                screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
+                                // Fetch the color for the sprite palette
+                                paletteColor = vram[paletteAddress];
 
                                 break;
                             }
                         }
 
+                        // Lookup pixel color
+                        if (paletteColor != 0)
+                        {
+                            var pixelColor = ColorMap.LUT[paletteColor];
+
+                            // Set the RGB values in the screen buffer at the calculated index
+                            screenBuffer[screenIndex] = pixelColor[2];     // Blue component
+                            screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
+                            screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
+                        }
+                        else
+                        {
+                            // Set the RGB values in the screen buffer at the calculated index
+                            screenBuffer[screenIndex] = 0;     // Blue component
+                            screenBuffer[screenIndex + 1] = 0; // Green component
+                            screenBuffer[screenIndex + 2] = 0; // Red component
+                        }
+
+                        // Get offset into tile for background
+                        tileOffset++;
+
                         // Every 8 cycles (dots), increment v and start a new tile.
-                        if (tileOffset == 7)
+                        if (tileOffset >= 8)
                         {
                             // Increment coarse X scroll
                             if ((v & 0x1F) == 31) // If coarse X == 31
@@ -559,6 +558,9 @@ namespace Emulation
 
                             // Extract the correct bits
                             paletteTableOffset = PALETTE_TABLE_START + (((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
+
+                            // Reset tile offset
+                            tileOffset = 0;
                         }
                     }
                     else if (dot == 256)
