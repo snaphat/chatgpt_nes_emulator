@@ -4,8 +4,6 @@
     using static Globals;
     public class Memory
     {
-        private readonly byte[] ram = new byte[0x0800]; // 2KB of RAM
-        private byte[] prgRom = null!; // PRG-ROM data
         //private byte[] chrRom; // CHR-ROM data
 
         public PPU ppu = null!;
@@ -14,74 +12,41 @@
         public int mirrorArrangement;
         public bool fourScreenMirroring;
 
+        private readonly byte[] memory = new byte[0x10000]; // 64 KB, the size of NES addressable memory
+
         public void Initialize(PPU ppu)
         {
             this.ppu = ppu;
-            for (int i = 0; i < ram.Length; i++)
+            for (int i = 0; i < memory.Length; i++)
             {
-                ram[i] = 0xFF;
+                memory[i] = 0xFF;
             }
         }
 
         // Read a byte from the specified address in memory
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte DebugRead(ushort address)
         {
-            if (address < 0x2000)
-            {
-                // Access RAM
-                return ram[address % 0x0800];
-            }
-            else if (address >= 0x2000 && address <= 0x3FFF)
+            if (address >= 0x2000 && address <= 0x3FFF)
             {
                 // Access PPU registers
                 return ppu.DebugReadRegister(address);
             }
-            else if (address >= 0x8000 && address < 0xC000)
-            {
-                // Access the first 16KB of PRG-ROM
-                int prgRomAddress = address - 0x8000;
-                return prgRom[prgRomAddress];
-            }
-            else if (address >= 0xC000 && address <= 0xFFFF)
-            {
-                // Access the last 16KB of PRG-ROM
-                int prgRomAddress = address - 0xC000 + (prgRom.Length - 0x4000);
-                return prgRom[prgRomAddress];
-            }
 
-            // Default to returning 0x00 if no specific handling is implemented
-            return 0x00;
+            return memory[address];
         }
 
         // Read a byte from the specified address in memory
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte Read(ushort address)
         {
-            if (address < 0x2000)
-            {
-                // Access RAM
-                return ram[address % 0x0800];
-            }
-            else if (address >= 0x2000 && address <= 0x3FFF)
+            if (address is >= 0x2000 and <= 0x3FFF)
             {
                 // Access PPU registers
                 return ppu.ReadRegister(address);
             }
-            else if (address >= 0x8000 && address < 0xC000)
-            {
-                // Access the first 16KB of PRG-ROM
-                int prgRomAddress = address - 0x8000;
-                return prgRom[prgRomAddress];
-            }
-            else if (address >= 0xC000 && address <= 0xFFFF)
-            {
-                // Access the last 16KB of PRG-ROM
-                int prgRomAddress = address - 0xC000 + (prgRom.Length - 0x4000);
-                return prgRom[prgRomAddress];
-            }
-
-            // Default to returning 0x00 if no specific handling is implemented
-            return 0x00;
+            // Access RAM or PRG-ROM
+            return memory[address];
         }
 
         // Write a byte value to the specified address in memory
@@ -91,24 +56,12 @@
             if (address < 0x2000)
             {
                 // Write to RAM
-                ram[address % 0x0800] = value;
+                memory[address % 0x0800] = value;
             }
-            else if (address >= 0x2000 && address <= 0x3FFF)
+            else if (address <= 0x3FFF)
             {
                 // Write to PPU registers
                 ppu.WriteRegister(address, value);
-            }
-            else if (address >= 0x8000 && address < 0xC000)
-            {
-                // Handle writes to the first 16KB of PRG-ROM
-                int prgRomAddress = address - 0x8000;
-                prgRom[prgRomAddress] = value;
-            }
-            else if (address >= 0xC000 && address <= 0xFFFF)
-            {
-                // Handle writes to the last 16KB of PRG-ROM
-                int prgRomAddress = address - 0xC000 + (prgRom.Length - 0x4000);
-                prgRom[prgRomAddress] = value;
             }
         }
 
@@ -130,7 +83,15 @@
             }
 
             // Continue with the remaining code for setting PRG-ROM and CHR-ROM data
-            prgRom = prgRomData;
+            if (prgRomData.Length == 0x4000)
+            {
+                Array.Copy(prgRomData, 0, memory, 0x8000, 0x4000); // Copy first 16KB to 0x8000
+                Array.Copy(prgRomData, 0, memory, 0xC000, 0x4000); // Copy second 16KB to 0xC000
+            }
+            else if (prgRomData.Length == 0x8000)
+            {
+                Array.Copy(prgRomData, 0, memory, 0x8000, 0x8000); // Copy 32KB to 0x8000
+            }
         }
 
         public void LoadROM(string romFilePath)
