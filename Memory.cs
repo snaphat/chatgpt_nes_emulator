@@ -27,12 +27,17 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte DebugRead(ushort address)
         {
-            if (address >= 0x2000 && address <= 0x3FFF)
+            if (address < 0x2000)
+            {
+                // Access RAM
+                return memory[address % 0x0800];
+            }
+            else if (address <= 0x3FFF)
             {
                 // Access PPU registers
                 return ppu.DebugReadRegister(address);
             }
-
+            // Access PRG-ROM
             return memory[address];
         }
 
@@ -40,12 +45,17 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte Read(ushort address)
         {
-            if (address is >= 0x2000 and <= 0x3FFF)
+            if (address < 0x2000)
+            {
+                // Access RAM
+                return memory[address % 0x0800];
+            }
+            else if (address <= 0x3FFF)
             {
                 // Access PPU registers
                 return ppu.ReadRegister(address);
             }
-            // Access RAM or PRG-ROM
+            // Access PRG-ROM
             return memory[address];
         }
 
