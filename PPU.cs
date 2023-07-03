@@ -11,13 +11,8 @@ namespace Emulation
         private int scanline;
 
         private readonly byte[] oam = new byte[OAM_SIZE]; // Object Attribute Memory
-        private readonly byte[] patternTable0 = new byte[PATTERN_TABLE_SIZE]; // Pattern Table 0
-        private readonly byte[] patternTable1 = new byte[PATTERN_TABLE_SIZE]; // Pattern Table 1
-        private readonly byte[] nameTable0 = new byte[NAME_TABLE_SIZE]; // Nametable 0
-        private byte[] nameTable1 = new byte[NAME_TABLE_SIZE]; // Nametable 1
-        private byte[] nameTable2 = new byte[NAME_TABLE_SIZE]; // Nametable 2
-        private byte[] nameTable3 = new byte[NAME_TABLE_SIZE]; // Nametable 3
-        private readonly byte[] paletteRAM = new byte[PALETTE_RAM_SIZE]; // Palette RAM
+        private const int VRAM_SIZE = 0x4000;
+        private readonly byte[] vram = new byte[VRAM_SIZE];
 
         // PPU registers
         public byte ppuControl; // PPU Control Register (0x2000)
@@ -39,40 +34,21 @@ namespace Emulation
         private byte openBus;
 
         // State to avoid recomputations
-        private ushort nameTableAddress;
-        private byte tileIndex;
-        private ushort patternTableAddress;
         private byte patternDataLo;
         private byte patternDataHi;
-        private byte pixelData;
-        private ushort attributeTableAddress;
-        private byte attributeByte;
         private byte attributeData;
-        private int paletteIndex;
-        private int paletteOffset;
-        private int finalPaletteIndex;
-        private byte paletteColor;
-        private byte[] pixelColor;
         private int index;
+
         private int spriteHeight = 8;
         private readonly ulong[,] spritesPerDot = new ulong[SCREEN_HEIGHT, SCREEN_WIDTH];
 
         private Emulator emulator = null!;
+        private Memory memory = null!;
 
         public void Initialize(Emulator emulator, Memory memory)
         {
             this.emulator = emulator;
-
-            if (memory.mirrorArrangement == HORIZONTAL_MIRRORING)
-            {
-                nameTable1 = nameTable0;
-                nameTable3 = nameTable2;
-            }
-            else if (memory.mirrorArrangement == VERTICAL_MIRRORING)
-            {
-                nameTable2 = nameTable0;
-                nameTable3 = nameTable1;
-            }
+            this.memory = memory;
         }
 
         public byte[] GetScreenBuffer()
@@ -114,7 +90,7 @@ namespace Emulation
                     else
                     {
                         // Read directly from VRAM and update the internal buffer
-                        temp = ReadVRAM(v);
+                        temp = vram[v];
                     }
                     break;
 
@@ -160,7 +136,7 @@ namespace Emulation
                     {
                         // Read from internal read buffer and update the buffer with the new value
                         openBus = ppudataBuffer;
-                        ppudataBuffer = ReadVRAM(v);
+                        ppudataBuffer = vram[v];
 
                         // Increment the VRAM address based on the VRAM increment mode
                         v += (ushort)((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1);
@@ -168,7 +144,7 @@ namespace Emulation
                     else
                     {
                         // Read directly from VRAM and update the internal buffer
-                        openBus = ReadVRAM(v);
+                        openBus = vram[v];
                         ppudataBuffer = openBus;
 
                         // Increment the VRAM address based on the VRAM increment mode
@@ -284,90 +260,60 @@ namespace Emulation
             }
         }
 
-        private byte ReadVRAM(ushort address)
-        {
-            if (address is >= PATTERN_TABLE_0_BASE_ADDRESS and < PATTERN_TABLE_0_BASE_ADDRESS + PATTERN_TABLE_SIZE)
-            {
-                // Accessing Pattern Table 0
-                return patternTable0[address];
-            }
-            else if (address is >= PATTERN_TABLE_1_BASE_ADDRESS and < PATTERN_TABLE_1_BASE_ADDRESS + PATTERN_TABLE_SIZE)
-            {
-                // Accessing Pattern Table 1
-                return patternTable1[address & (PATTERN_TABLE_SIZE - 1)];
-            }
-            else if (address is >= NAME_TABLE_0_BASE_ADDRESS and < NAME_TABLE_0_BASE_ADDRESS + NAME_TABLE_SIZE)
-            {
-                // Accessing Nametable 0
-                return nameTable0[address & (NAME_TABLE_SIZE - 1)];
-            }
-            else if (address is >= NAME_TABLE_1_BASE_ADDRESS and < NAME_TABLE_1_BASE_ADDRESS + NAME_TABLE_SIZE)
-            {
-                // Accessing Nametable 1
-                return nameTable1[address & (NAME_TABLE_SIZE - 1)];
-            }
-            else if (address is >= NAME_TABLE_2_BASE_ADDRESS and < NAME_TABLE_2_BASE_ADDRESS + NAME_TABLE_SIZE)
-            {
-                // Accessing Nametable 2
-                return nameTable2[address & (NAME_TABLE_SIZE - 1)];
-            }
-            else if (address is >= NAME_TABLE_3_BASE_ADDRESS and < NAME_TABLE_3_BASE_ADDRESS + NAME_TABLE_SIZE)
-            {
-                // Accessing Nametable 3
-                return nameTable3[address & (NAME_TABLE_SIZE - 1)];
-            }
-            else if (address is >= PALETTE_TABLE_BASE_ADDRESS and < PALETTE_TABLE_BASE_ADDRESS + (PALETTE_RAM_SIZE * 8))
-            {
-                // Accessing Palette RAM
-                // Handle address mirrors of $3F00/$3F04/$3F08/$3F0C to $3F10/$3F14/$3F18/$3F1C
-                int realPaletteAddress = address & (PALETTE_RAM_SIZE - 1);
-                if (realPaletteAddress % 4 == 0) realPaletteAddress &= ~0x10;
-                return paletteRAM[realPaletteAddress];
-            }
-
-            return 0x00; // Default value if the address is not within any of the defined regions
-        }
-
-        // Write a byte value to VRAM at the current VRAM address and increment the address
         public void WriteVRAM(ushort address, byte value)
         {
-            if (address is >= PATTERN_TABLE_0_BASE_ADDRESS and < PATTERN_TABLE_0_BASE_ADDRESS + PATTERN_TABLE_SIZE)
+            if (address >= PATTERN_TABLE_0_START && address < PATTERN_TABLE_0_END)
             {
-                // Writing to Pattern Table 0
-                patternTable0[address] = value;
+                vram[address] = value;
             }
-            else if (address is >= PATTERN_TABLE_1_BASE_ADDRESS and < PATTERN_TABLE_1_BASE_ADDRESS + PATTERN_TABLE_SIZE)
+            else if (address >= PATTERN_TABLE_1_START && address < PATTERN_TABLE_1_END)
             {
-                // Writing to Pattern Table 1
-                patternTable1[address & (PATTERN_TABLE_SIZE - 1)] = value;
+                vram[address] = value;
             }
-            else if (address is >= NAME_TABLE_0_BASE_ADDRESS and < NAME_TABLE_0_BASE_ADDRESS + NAME_TABLE_SIZE)
+            else if ((address >= NAME_TABLE_0_START && address < NAME_TABLE_0_END) || (address >= NAME_TABLE_2_START && address < NAME_TABLE_2_END))
             {
-                // Writing to Nametable 0
-                nameTable0[address & (NAME_TABLE_SIZE - 1)] = value;
+                if (memory.mirrorArrangement == HORIZONTAL_MIRRORING)
+                {
+                    // Mirror horizontally - left to right
+                    vram[address] = value;
+                    vram[address + NAME_TABLE_1_START - NAME_TABLE_0_START] = value;  // Horizontal Mirror
+                }
+                else
+                {
+                    // Mirror vertically - top to bottom
+                    vram[address] = value;
+                    vram[address + NAME_TABLE_2_START - NAME_TABLE_0_START] = value;  // Vertical Mirror
+                }
             }
-            else if (address is >= NAME_TABLE_1_BASE_ADDRESS and < NAME_TABLE_1_BASE_ADDRESS + NAME_TABLE_SIZE)
+            else if ((address >= NAME_TABLE_1_START && address < NAME_TABLE_1_END) || (address >= NAME_TABLE_3_START && address < NAME_TABLE_3_END))
             {
-                // Writing to Nametable 1
-                nameTable1[address & (NAME_TABLE_SIZE - 1)] = value;
+                if (memory.mirrorArrangement == HORIZONTAL_MIRRORING)
+                {
+                    // Mirror horizontally - right to left
+                    vram[address] = value;
+                    vram[address - NAME_TABLE_1_START + NAME_TABLE_0_START] = value;  // Horizontal Mirror
+                }
+                else
+                {
+                    // Mirror vertically - bottom to top
+                    vram[address] = value;
+                    vram[address - NAME_TABLE_3_START + NAME_TABLE_1_START] = value;  // Vertical Mirror
+                }
             }
-            else if (address is >= NAME_TABLE_2_BASE_ADDRESS and < NAME_TABLE_2_BASE_ADDRESS + NAME_TABLE_SIZE)
+            else if (address >= PALETTE_TABLE_START && address < PALETTE_TABLE_END)
             {
-                // Accessing Nametable 2
-                nameTable2[address & (NAME_TABLE_SIZE - 1)] = value;
-            }
-            else if (address is >= NAME_TABLE_3_BASE_ADDRESS and < NAME_TABLE_3_BASE_ADDRESS + NAME_TABLE_SIZE)
-            {
-                // Accessing Nametable 3
-                nameTable3[address & (NAME_TABLE_SIZE - 1)] = value;
-            }
-            else if (address is >= PALETTE_TABLE_BASE_ADDRESS and < PALETTE_TABLE_BASE_ADDRESS + (PALETTE_RAM_SIZE * 8))
-            {
-                // Writing to Palette RAM
-                // Handle address mirrors of $3F00/$3F04/$3F08/$3F0C to $3F10/$3F14/$3F18/$3F1C
-                int realPaletteAddress = address & (PALETTE_RAM_SIZE - 1);
-                if (realPaletteAddress % 4 == 0) realPaletteAddress &= ~0x10;
-                paletteRAM[realPaletteAddress] = value;
+                // Handle mirroring in Palette Table
+                if (address % 4 == 0)
+                {
+                    // 0x3F00, 0x3F04, 0x3F08, 0x3F0C mirror to 0x3F10, 0x3F14, 0x3F18, 0x3F1C
+                    ushort mirrorAddress = (ushort)(address ^ 0x10);
+                    vram[address] = value;
+                    vram[mirrorAddress] = value;
+                }
+                else
+                {
+                    vram[address] = value;
+                }
             }
         }
 
@@ -449,35 +395,37 @@ namespace Emulation
         public void StartScanline()
         {
             // Calculate the name table address for the current coordinates
-            nameTableAddress = (ushort)(NAME_TABLE_0_BASE_ADDRESS | (v & 0x0FFF));
+            var nameTableAddress = (ushort)(NAME_TABLE_0_START | (v & 0x0FFF));
 
             // Compute the tile index
-            tileIndex = ReadVRAM(nameTableAddress);
+            var tileIndex = vram[nameTableAddress];
 
             // Fetch the pixel data for the current tile and position
-            patternTableAddress = (ushort)(((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12)); // Use the fine Y scroll for the row within the tile
-            patternDataLo = ReadVRAM(patternTableAddress);
-            patternDataHi = ReadVRAM((ushort)(patternTableAddress + 8));
+            var patternTableAddress = ((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12); // Use the fine Y scroll for the row within the tile
+
+            // Get pattern table bytes
+            patternDataLo = vram[patternTableAddress];
+            patternDataHi = vram[patternTableAddress + 8];
 
             // Compute the attribute table address
-            attributeTableAddress = (ushort)(ATTRIBUTE_TABLE_BASE_ADDRESS | (nameTableAddress & 0xC00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07));
+            var attributeTableAddress = (nameTableAddress & 0x3c00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07);
 
             // Read the attribute byte
-            attributeByte = ReadVRAM(attributeTableAddress);
+            var attributeByte = vram[attributeTableAddress];
 
             // Extract the correct bits
             attributeData = (byte)((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03);
 
         }
 
-        public byte RenderBackground()
+        public int RenderBackground()
         {
             // Implement background clipping
             if ((ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) == 0 && dot < 8)
                 return 0;
 
             // Select the correct pixel within the tile
-            pixelData = (byte)(((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1)); // Use the fine X scroll for the column within the tile
+            var pixelData = ((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1); // Use the fine X scroll for the column within the tile
 
             // Check if the pixel is transparent
             if (pixelData == 0)
@@ -488,17 +436,17 @@ namespace Emulation
                 return 0;
             }
 
-            paletteIndex = pixelData & 0x03; // Mask the pixel data to ensure it's 2 bits
+            var paletteIndex = pixelData & 0x03; // Mask the pixel data to ensure it's 2 bits
 
             // Apply the attribute data to determine the correct palette index
-            paletteOffset = (attributeData & 0x03) * 4;
+            var paletteOffset = (attributeData & 0x03) * 4;
 
             // Fetch the color from the correct palette and color index
-            finalPaletteIndex = PALETTE_TABLE_BASE_ADDRESS + paletteOffset + paletteIndex;
-            paletteColor = ReadVRAM((ushort)finalPaletteIndex);
+            paletteIndex = PALETTE_TABLE_START + paletteOffset + paletteIndex;
+            var paletteColor = vram[paletteIndex];
 
             // Lookup pixel color
-            pixelColor = ColorMap.LUT[paletteColor];
+            var pixelColor = ColorMap.LUT[paletteColor];
 
             // Set the RGB values in the screen buffer at the calculated index
             screenBuffer[index] = pixelColor[2];     // Blue component
@@ -509,7 +457,7 @@ namespace Emulation
             return paletteColor;
         }
 
-        public void RenderSprite(byte backgroundPaletteColor)
+        public void RenderSprite(int backgroundPaletteColor)
         {
             ulong spriteMask = spritesPerDot[scanline, dot];
 
@@ -521,32 +469,32 @@ namespace Emulation
                 i += trailingZeros;
 
                 // Get sprite X and Y from OAM
-                byte spriteY = oam[(i * 4) + 0];
-                byte spriteX = oam[(i * 4) + 3];
+                var spriteY = oam[(i * 4) + 0];
+                var spriteX = oam[(i * 4) + 3];
 
                 // Get sprite tile and attributes from OAM
-                byte spriteTile = oam[(i * 4) + 1];
-                byte spriteAttributes = oam[(i * 4) + 2];
+                var spriteTile = oam[(i * 4) + 1];
+                var spriteAttributes = oam[(i * 4) + 2];
 
                 // Compute the tile row
-                int row = scanline - spriteY;
+                var row = scanline - spriteY;
 
                 // Flip vertically if the attribute bit is set
                 if ((spriteAttributes & FLIP_SPRITE_VERTICALLY_FLAG) != 0)
                     row = spriteHeight - 1 - row;
 
                 // Compute the pattern table address
-                ushort patternTableAddress = (ushort)(((ppuControl & SPRITE_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (spriteTile << 4) | row);
+                var patternTableAddress = ((ppuControl & SPRITE_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (spriteTile << 4) | row;
 
                 // Read the pattern data
-                byte patternDataLo = ReadVRAM(patternTableAddress);
-                byte patternDataHi = ReadVRAM((ushort)(patternTableAddress + 8));
+                var patternDataLo = vram[patternTableAddress];
+                var patternDataHi = vram[patternTableAddress + 8];
 
                 // Flip horizontally if the attribute bit is set
-                int x = (spriteAttributes & FLIP_SPRITE_HORIZONTALLY_FLAG) != 0 ? 7 - (dot - spriteX) : dot - spriteX;
+                var x = (spriteAttributes & FLIP_SPRITE_HORIZONTALLY_FLAG) != 0 ? 7 - (dot - spriteX) : dot - spriteX;
 
                 // Compute the pixel data
-                byte pixelData = (byte)(((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1));
+                var pixelData = ((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1);
 
                 // Skip transparent pixels (palette index 0)
                 if (pixelData == 0)
@@ -555,7 +503,7 @@ namespace Emulation
                     continue;
                 }
                 // Check sprite priority
-                bool spriteIsBehindBackground = (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0;
+                var spriteIsBehindBackground = (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0;
                 if (spriteIsBehindBackground && backgroundPaletteColor != 0)
                 {
                     i++;
@@ -563,10 +511,10 @@ namespace Emulation
                 }
 
                 // Compute the palette address
-                int paletteAddress = PALETTE_TABLE_SPRITE_BASE_ADDRESS + ((spriteAttributes & 0x03) << 2) + pixelData;
+                var paletteAddress = PALETTE_TABLE_SPRITE_START + ((spriteAttributes & 0x03) << 2) + pixelData;
 
                 // Fetch the color from the palette
-                byte paletteColor = ReadVRAM((ushort)paletteAddress);
+                var paletteColor = vram[paletteAddress];
 
                 // Check for sprite 0 hit
                 if (i == 0 && backgroundPaletteColor != 0)
@@ -598,7 +546,7 @@ namespace Emulation
                     // Render a pixel for each dot on a visible scanline
                     if (dot < SCREEN_WIDTH)
                     {
-                        byte backgroundPaletteColor = 0;
+                        int backgroundPaletteColor = 0;
 
                         // Calculate the index in the screen buffer based on the scanline and pixel position
                         index = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
