@@ -1122,7 +1122,7 @@
         private void LDA_Immediate_Execute()
         {
             PC++;
-            LDA_Internal(Immediate());
+            LDA_Internal_Value(Immediate());
         }
 
         private void LDA_ZeroPage_SetCycles()
@@ -1133,7 +1133,7 @@
         private void LDA_ZeroPage_Execute()
         {
             PC++;
-            LDA_Internal(ZeroPage());
+            LDA_Internal_Address(ZeroPage());
         }
 
         private void LDA_ZeroPageX_SetCycles()
@@ -1144,7 +1144,7 @@
         private void LDA_ZeroPageX_Execute()
         {
             PC++;
-            LDA_Internal(ZeroPageX());
+            LDA_Internal_Address(ZeroPageX());
         }
 
         private void LDA_Absolute_SetCycles()
@@ -1155,7 +1155,7 @@
         private void LDA_Absolute_Execute()
         {
             PC++;
-            LDA_Internal(Absolute());
+            LDA_Internal_Address(Absolute());
         }
 
         private void LDA_AbsoluteX_SetCycles()
@@ -1167,7 +1167,7 @@
         private void LDA_AbsoluteX_Execute()
         {
             PC++;
-            LDA_Internal(AbsoluteX());
+            LDA_Internal_Address(AbsoluteX());
         }
 
         private void LDA_AbsoluteY_SetCycles()
@@ -1179,7 +1179,7 @@
         private void LDA_AbsoluteY_Execute()
         {
             PC++;
-            LDA_Internal(AbsoluteY());
+            LDA_Internal_Address(AbsoluteY());
         }
 
         private void LDA_IndirectX_SetCycles()
@@ -1190,7 +1190,7 @@
         private void LDA_IndirectX_Execute()
         {
             PC++;
-            LDA_Internal(IndirectX());
+            LDA_Internal_Address(IndirectX());
         }
 
         private void LDA_IndirectY_SetCycles()
@@ -1202,18 +1202,18 @@
         private void LDA_IndirectY_Execute()
         {
             PC++;
-            LDA_Internal(IndirectY());
+            LDA_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void LDA_Internal(byte value)
+        private void LDA_Internal_Value(byte value)
         {
             A = value;
             UpdateZeroAndNegativeFlags(A);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void LDA_Internal(ushort address)
+        private void LDA_Internal_Address(ushort address)
         {
             A = ReadMemory(address);
             UpdateZeroAndNegativeFlags(A);
@@ -1227,7 +1227,7 @@
         private void LDX_Immediate_Execute()
         {
             PC++;
-            LDX_Internal(Immediate());
+            LDX_Internal_Value(Immediate());
         }
 
         private void LDX_ZeroPage_SetCycles()
@@ -1238,7 +1238,7 @@
         private void LDX_ZeroPage_Execute()
         {
             PC++;
-            LDX_Internal(ZeroPage());
+            LDX_Internal_Address(ZeroPage());
         }
 
         private void LDX_ZeroPageY_SetCycles()
@@ -1249,7 +1249,7 @@
         private void LDX_ZeroPageY_Execute()
         {
             PC++;
-            LDX_Internal(ZeroPageY());
+            LDX_Internal_Address(ZeroPageY());
         }
 
         private void LDX_Absolute_SetCycles()
@@ -1260,7 +1260,7 @@
         private void LDX_Absolute_Execute()
         {
             PC++;
-            LDX_Internal(Absolute());
+            LDX_Internal_Address(Absolute());
         }
 
         private void LDX_AbsoluteY_SetCycles()
@@ -1272,18 +1272,18 @@
         private void LDX_AbsoluteY_Execute()
         {
             PC++;
-            LDX_Internal(AbsoluteY());
+            LDX_Internal_Address(AbsoluteY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void LDX_Internal(byte value)
+        private void LDX_Internal_Value(byte value)
         {
             X = value;
             UpdateZeroAndNegativeFlags(X);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void LDX_Internal(ushort address)
+        private void LDX_Internal_Address(ushort address)
         {
             X = ReadMemory(address);
             UpdateZeroAndNegativeFlags(X);
@@ -1297,7 +1297,7 @@
         private void LDY_Immediate_Execute()
         {
             PC++;
-            LDY_Internal(Immediate());
+            LDY_Internal_Value(Immediate());
         }
 
         private void LDY_ZeroPage_SetCycles()
@@ -1308,7 +1308,7 @@
         private void LDY_ZeroPage_Execute()
         {
             PC++;
-            LDY_Internal(ZeroPage());
+            LDY_Internal_Address(ZeroPage());
         }
 
         private void LDY_ZeroPageX_SetCycles()
@@ -1319,7 +1319,7 @@
         private void LDY_ZeroPageX_Execute()
         {
             PC++;
-            LDY_Internal(ZeroPageX());
+            LDY_Internal_Address(ZeroPageX());
         }
 
         private void LDY_Absolute_SetCycles()
@@ -1330,7 +1330,7 @@
         private void LDY_Absolute_Execute()
         {
             PC++;
-            LDY_Internal(Absolute());
+            LDY_Internal_Address(Absolute());
         }
 
         private void LDY_AbsoluteX_SetCycles()
@@ -1342,18 +1342,18 @@
         private void LDY_AbsoluteX_Execute()
         {
             PC++;
-            LDY_Internal(AbsoluteX());
+            LDY_Internal_Address(AbsoluteX());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void LDY_Internal(byte value)
+        private void LDY_Internal_Value(byte value)
         {
             Y = value;
             UpdateZeroAndNegativeFlags(Y);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void LDY_Internal(ushort address)
+        private void LDY_Internal_Address(ushort address)
         {
             Y = ReadMemory(address);
             UpdateZeroAndNegativeFlags(Y);
@@ -1367,7 +1367,7 @@
         private void STA_ZeroPage_Execute()
         {
             PC++;
-            STA_Internal(ZeroPage());
+            STA_Internal_Address(ZeroPage());
         }
 
         private void STA_ZeroPageX_SetCycles()
@@ -1378,7 +1378,7 @@
         private void STA_ZeroPageX_Execute()
         {
             PC++;
-            STA_Internal(ZeroPageX());
+            STA_Internal_Address(ZeroPageX());
         }
 
         private void STA_Absolute_SetCycles()
@@ -1389,7 +1389,7 @@
         private void STA_Absolute_Execute()
         {
             PC++;
-            STA_Internal(Absolute());
+            STA_Internal_Address(Absolute());
         }
 
         private void STA_AbsoluteX_SetCycles()
@@ -1400,7 +1400,7 @@
         private void STA_AbsoluteX_Execute()
         {
             PC++;
-            STA_Internal(AbsoluteX());
+            STA_Internal_Address(AbsoluteX());
         }
 
         private void STA_AbsoluteY_SetCycles()
@@ -1411,7 +1411,7 @@
         private void STA_AbsoluteY_Execute()
         {
             PC++;
-            STA_Internal(AbsoluteY());
+            STA_Internal_Address(AbsoluteY());
         }
 
         private void STA_IndirectX_SetCycles()
@@ -1422,7 +1422,7 @@
         private void STA_IndirectX_Execute()
         {
             PC++;
-            STA_Internal(IndirectX());
+            STA_Internal_Address(IndirectX());
         }
 
         private void STA_IndirectY_SetCycles()
@@ -1433,11 +1433,11 @@
         private void STA_IndirectY_Execute()
         {
             PC++;
-            STA_Internal(IndirectY());
+            STA_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void STA_Internal(ushort address)
+        private void STA_Internal_Address(ushort address)
         {
             WriteMemory(address, A);
         }
@@ -1450,7 +1450,7 @@
         private void STX_ZeroPage_Execute()
         {
             PC++;
-            STX_Internal(ZeroPage());
+            STX_Internal_Address(ZeroPage());
         }
 
         private void STX_ZeroPageY_SetCycles()
@@ -1461,7 +1461,7 @@
         private void STX_ZeroPageY_Execute()
         {
             PC++;
-            STX_Internal(ZeroPageY());
+            STX_Internal_Address(ZeroPageY());
         }
 
         private void STX_Absolute_SetCycles()
@@ -1472,11 +1472,11 @@
         private void STX_Absolute_Execute()
         {
             PC++;
-            STX_Internal(Absolute());
+            STX_Internal_Address(Absolute());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void STX_Internal(ushort address)
+        private void STX_Internal_Address(ushort address)
         {
             WriteMemory(address, X);
         }
@@ -1489,7 +1489,7 @@
         private void STY_ZeroPage_Execute()
         {
             PC++;
-            STY_Internal(ZeroPage());
+            STY_Internal_Address(ZeroPage());
         }
 
         private void STY_ZeroPageX_SetCycles()
@@ -1500,7 +1500,7 @@
         private void STY_ZeroPageX_Execute()
         {
             PC++;
-            STY_Internal(ZeroPageX());
+            STY_Internal_Address(ZeroPageX());
         }
 
         private void STY_Absolute_SetCycles()
@@ -1511,11 +1511,11 @@
         private void STY_Absolute_Execute()
         {
             PC++;
-            STY_Internal(Absolute());
+            STY_Internal_Address(Absolute());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void STY_Internal(ushort address)
+        private void STY_Internal_Address(ushort address)
         {
             WriteMemory(address, Y);
         }
@@ -1529,7 +1529,7 @@
         private void ADC_Immediate_Execute()
         {
             PC++;
-            ADC_Internal(Immediate());
+            ADC_Internal_Value(Immediate());
         }
 
         private void ADC_ZeroPage_SetCycles()
@@ -1540,7 +1540,7 @@
         private void ADC_ZeroPage_Execute()
         {
             PC++;
-            ADC_Internal(ZeroPage());
+            ADC_Internal_Address(ZeroPage());
         }
 
         private void ADC_ZeroPageX_SetCycles()
@@ -1551,7 +1551,7 @@
         private void ADC_ZeroPageX_Execute()
         {
             PC++;
-            ADC_Internal(ZeroPageX());
+            ADC_Internal_Address(ZeroPageX());
         }
 
         private void ADC_Absolute_SetCycles()
@@ -1562,7 +1562,7 @@
         private void ADC_Absolute_Execute()
         {
             PC++;
-            ADC_Internal(Absolute());
+            ADC_Internal_Address(Absolute());
         }
 
         private void ADC_AbsoluteX_SetCycles()
@@ -1574,7 +1574,7 @@
         private void ADC_AbsoluteX_Execute()
         {
             PC++;
-            ADC_Internal(AbsoluteX());
+            ADC_Internal_Address(AbsoluteX());
         }
 
         private void ADC_AbsoluteY_SetCycles()
@@ -1586,7 +1586,7 @@
         private void ADC_AbsoluteY_Execute()
         {
             PC++;
-            ADC_Internal(AbsoluteY());
+            ADC_Internal_Address(AbsoluteY());
         }
 
         private void ADC_IndirectX_SetCycles()
@@ -1597,7 +1597,7 @@
         private void ADC_IndirectX_Execute()
         {
             PC++;
-            ADC_Internal(IndirectX());
+            ADC_Internal_Address(IndirectX());
         }
 
         private void ADC_IndirectY_SetCycles()
@@ -1609,11 +1609,11 @@
         private void ADC_IndirectY_Execute()
         {
             PC++;
-            ADC_Internal(IndirectY());
+            ADC_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ADC_Internal(byte value)
+        private void ADC_Internal_Value(byte value)
         {
             int sum = A + value + (C ? 1 : 0);
             C = sum > 0xFF;  // Update carry flag based on carry-out from bit 7
@@ -1623,10 +1623,10 @@
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ADC_Internal(ushort address)
+        private void ADC_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
-            ADC_Internal(value);
+            ADC_Internal_Value(value);
         }
 
         private void SBC_Immediate_SetCycles()
@@ -1637,7 +1637,7 @@
         private void SBC_Immediate_Execute()
         {
             PC++;
-            SBC_Internal(Immediate());
+            SBC_Internal_Value(Immediate());
         }
 
         private void SBC_ZeroPage_SetCycles()
@@ -1648,7 +1648,7 @@
         private void SBC_ZeroPage_Execute()
         {
             PC++;
-            SBC_Internal(ZeroPage());
+            SBC_Internal_Address(ZeroPage());
         }
 
         private void SBC_ZeroPageX_SetCycles()
@@ -1659,7 +1659,7 @@
         private void SBC_ZeroPageX_Execute()
         {
             PC++;
-            SBC_Internal(ZeroPageX());
+            SBC_Internal_Address(ZeroPageX());
         }
 
         private void SBC_Absolute_SetCycles()
@@ -1670,7 +1670,7 @@
         private void SBC_Absolute_Execute()
         {
             PC++;
-            SBC_Internal(Absolute());
+            SBC_Internal_Address(Absolute());
         }
 
         private void SBC_AbsoluteX_SetCycles()
@@ -1682,7 +1682,7 @@
         private void SBC_AbsoluteX_Execute()
         {
             PC++;
-            SBC_Internal(AbsoluteX());
+            SBC_Internal_Address(AbsoluteX());
         }
 
         private void SBC_AbsoluteY_SetCycles()
@@ -1694,7 +1694,7 @@
         private void SBC_AbsoluteY_Execute()
         {
             PC++;
-            SBC_Internal(AbsoluteY());
+            SBC_Internal_Address(AbsoluteY());
         }
 
         private void SBC_IndirectX_SetCycles()
@@ -1705,7 +1705,7 @@
         private void SBC_IndirectX_Execute()
         {
             PC++;
-            SBC_Internal(IndirectX());
+            SBC_Internal_Address(IndirectX());
         }
 
         private void SBC_IndirectY_SetCycles()
@@ -1717,11 +1717,11 @@
         private void SBC_IndirectY_Execute()
         {
             PC++;
-            SBC_Internal(IndirectY());
+            SBC_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SBC_Internal(byte value)
+        private void SBC_Internal_Value(byte value)
         {
             int difference = A - value - (C ? 0 : 1);
             C = difference >= 0;
@@ -1731,10 +1731,10 @@
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SBC_Internal(ushort address)
+        private void SBC_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
-            SBC_Internal(value);
+            SBC_Internal_Value(value);
         }
 
         private void AND_Immediate_SetCycles()
@@ -1745,7 +1745,7 @@
         private void AND_Immediate_Execute()
         {
             PC++;
-            AND_Internal(Immediate());
+            AND_Internal_Value(Immediate());
         }
 
         private void AND_ZeroPage_SetCycles()
@@ -1756,7 +1756,7 @@
         private void AND_ZeroPage_Execute()
         {
             PC++;
-            AND_Internal(ZeroPage());
+            AND_Internal_Address(ZeroPage());
         }
 
         private void AND_ZeroPageX_SetCycles()
@@ -1767,7 +1767,7 @@
         private void AND_ZeroPageX_Execute()
         {
             PC++;
-            AND_Internal(ZeroPageX());
+            AND_Internal_Address(ZeroPageX());
         }
 
         private void AND_Absolute_SetCycles()
@@ -1778,7 +1778,7 @@
         private void AND_Absolute_Execute()
         {
             PC++;
-            AND_Internal(Absolute());
+            AND_Internal_Address(Absolute());
         }
 
         private void AND_AbsoluteX_SetCycles()
@@ -1790,7 +1790,7 @@
         private void AND_AbsoluteX_Execute()
         {
             PC++;
-            AND_Internal(AbsoluteX());
+            AND_Internal_Address(AbsoluteX());
         }
 
         private void AND_AbsoluteY_SetCycles()
@@ -1802,7 +1802,7 @@
         private void AND_AbsoluteY_Execute()
         {
             PC++;
-            AND_Internal(AbsoluteY());
+            AND_Internal_Address(AbsoluteY());
         }
 
         private void AND_IndirectX_SetCycles()
@@ -1813,7 +1813,7 @@
         private void AND_IndirectX_Execute()
         {
             PC++;
-            AND_Internal(IndirectX());
+            AND_Internal_Address(IndirectX());
         }
 
         private void AND_IndirectY_SetCycles()
@@ -1825,21 +1825,21 @@
         private void AND_IndirectY_Execute()
         {
             PC++;
-            AND_Internal(IndirectY());
+            AND_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void AND_Internal(byte value)
+        private void AND_Internal_Value(byte value)
         {
             A &= value;
             UpdateZeroAndNegativeFlags(A);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void AND_Internal(ushort address)
+        private void AND_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
-            AND_Internal(value);
+            AND_Internal_Value(value);
         }
 
         private void ORA_Immediate_SetCycles()
@@ -1850,7 +1850,7 @@
         private void ORA_Immediate_Execute()
         {
             PC++;
-            ORA_Internal(Immediate());
+            ORA_Internal_Value(Immediate());
         }
 
         private void ORA_ZeroPage_SetCycles()
@@ -1861,7 +1861,7 @@
         private void ORA_ZeroPage_Execute()
         {
             PC++;
-            ORA_Internal(ZeroPage());
+            ORA_Internal_Address(ZeroPage());
         }
 
         private void ORA_ZeroPageX_SetCycles()
@@ -1872,7 +1872,7 @@
         private void ORA_ZeroPageX_Execute()
         {
             PC++;
-            ORA_Internal(ZeroPageX());
+            ORA_Internal_Address(ZeroPageX());
         }
 
         private void ORA_Absolute_SetCycles()
@@ -1883,7 +1883,7 @@
         private void ORA_Absolute_Execute()
         {
             PC++;
-            ORA_Internal(Absolute());
+            ORA_Internal_Address(Absolute());
         }
 
         private void ORA_AbsoluteX_SetCycles()
@@ -1895,7 +1895,7 @@
         private void ORA_AbsoluteX_Execute()
         {
             PC++;
-            ORA_Internal(AbsoluteX());
+            ORA_Internal_Address(AbsoluteX());
         }
 
         private void ORA_AbsoluteY_SetCycles()
@@ -1907,7 +1907,7 @@
         private void ORA_AbsoluteY_Execute()
         {
             PC++;
-            ORA_Internal(AbsoluteY());
+            ORA_Internal_Address(AbsoluteY());
         }
 
         private void ORA_IndirectX_SetCycles()
@@ -1918,7 +1918,7 @@
         private void ORA_IndirectX_Execute()
         {
             PC++;
-            ORA_Internal(IndirectX());
+            ORA_Internal_Address(IndirectX());
         }
 
         private void ORA_IndirectY_SetCycles()
@@ -1930,18 +1930,18 @@
         private void ORA_IndirectY_Execute()
         {
             PC++;
-            ORA_Internal(IndirectY());
+            ORA_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ORA_Internal(byte value)
+        private void ORA_Internal_Value(byte value)
         {
             A |= value;
             UpdateZeroAndNegativeFlags(A);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ORA_Internal(ushort address)
+        private void ORA_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             A |= value;
@@ -1956,7 +1956,7 @@
         private void EOR_Immediate_Execute()
         {
             PC++;
-            EOR_Internal(Immediate());
+            EOR_Internal_Value(Immediate());
         }
 
         private void EOR_ZeroPage_SetCycles()
@@ -1967,7 +1967,7 @@
         private void EOR_ZeroPage_Execute()
         {
             PC++;
-            EOR_Internal(ZeroPage());
+            EOR_Internal_Address(ZeroPage());
         }
 
         private void EOR_ZeroPageX_SetCycles()
@@ -1978,7 +1978,7 @@
         private void EOR_ZeroPageX_Execute()
         {
             PC++;
-            EOR_Internal(ZeroPageX());
+            EOR_Internal_Address(ZeroPageX());
         }
 
         private void EOR_Absolute_SetCycles()
@@ -1989,7 +1989,7 @@
         private void EOR_Absolute_Execute()
         {
             PC++;
-            EOR_Internal(Absolute());
+            EOR_Internal_Address(Absolute());
         }
 
         private void EOR_AbsoluteX_SetCycles()
@@ -2001,7 +2001,7 @@
         private void EOR_AbsoluteX_Execute()
         {
             PC++;
-            EOR_Internal(AbsoluteX());
+            EOR_Internal_Address(AbsoluteX());
         }
 
         private void EOR_AbsoluteY_SetCycles()
@@ -2013,7 +2013,7 @@
         private void EOR_AbsoluteY_Execute()
         {
             PC++;
-            EOR_Internal(AbsoluteY());
+            EOR_Internal_Address(AbsoluteY());
         }
 
         private void EOR_IndirectX_SetCycles()
@@ -2024,7 +2024,7 @@
         private void EOR_IndirectX_Execute()
         {
             PC++;
-            EOR_Internal(IndirectX());
+            EOR_Internal_Address(IndirectX());
         }
 
         private void EOR_IndirectY_SetCycles()
@@ -2036,21 +2036,21 @@
         private void EOR_IndirectY_Execute()
         {
             PC++;
-            EOR_Internal(IndirectY());
+            EOR_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void EOR_Internal(byte value)
+        private void EOR_Internal_Value(byte value)
         {
             A ^= value;
             UpdateZeroAndNegativeFlags(A);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void EOR_Internal(ushort address)
+        private void EOR_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
-            EOR_Internal(value);
+            EOR_Internal_Value(value);
         }
 
         private void BIT_ZeroPage_SetCycles()
@@ -2061,7 +2061,7 @@
         private void BIT_ZeroPage_Execute()
         {
             PC++;
-            BIT_Internal(ZeroPage());
+            BIT_Internal_Address(ZeroPage());
         }
 
         private void BIT_Absolute_SetCycles()
@@ -2072,11 +2072,11 @@
         private void BIT_Absolute_Execute()
         {
             PC++;
-            BIT_Internal(Absolute());
+            BIT_Internal_Address(Absolute());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void BIT_Internal(byte value)
+        private void BIT_Internal_Value(byte value)
         {
             byte result = (byte)(A & value);
             N = (value & 0x80) != 0;
@@ -2085,10 +2085,10 @@
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void BIT_Internal(ushort address)
+        private void BIT_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
-            BIT_Internal(value);
+            BIT_Internal_Value(value);
         }
 
         // Increment and Decrement Operations
@@ -2100,7 +2100,7 @@
         private void INC_ZeroPage_Execute()
         {
             PC++;
-            INC_Internal(ZeroPage());
+            INC_Internal_Address(ZeroPage());
         }
 
         private void INC_Absolute_SetCycles()
@@ -2111,7 +2111,7 @@
         private void INC_Absolute_Execute()
         {
             PC++;
-            INC_Internal(Absolute());
+            INC_Internal_Address(Absolute());
         }
 
         private void INC_ZeroPageX_SetCycles()
@@ -2122,7 +2122,7 @@
         private void INC_ZeroPageX_Execute()
         {
             PC++;
-            INC_Internal(ZeroPageX());
+            INC_Internal_Address(ZeroPageX());
         }
 
         private void INC_AbsoluteX_SetCycles()
@@ -2133,11 +2133,11 @@
         private void INC_AbsoluteX_Execute()
         {
             PC++;
-            INC_Internal(AbsoluteX());
+            INC_Internal_Address(AbsoluteX());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void INC_Internal(ushort address)
+        private void INC_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             value++;
@@ -2153,7 +2153,7 @@
         private void DEC_ZeroPage_Execute()
         {
             PC++;
-            DEC_Internal(ZeroPage());
+            DEC_Internal_Address(ZeroPage());
         }
 
         private void DEC_ZeroPageX_SetCycles()
@@ -2164,7 +2164,7 @@
         private void DEC_ZeroPageX_Execute()
         {
             PC++;
-            DEC_Internal(ZeroPageX());
+            DEC_Internal_Address(ZeroPageX());
         }
 
         private void DEC_Absolute_SetCycles()
@@ -2175,7 +2175,7 @@
         private void DEC_Absolute_Execute()
         {
             PC++;
-            DEC_Internal(Absolute());
+            DEC_Internal_Address(Absolute());
         }
 
         private void DEC_AbsoluteX_SetCycles()
@@ -2186,11 +2186,11 @@
         private void DEC_AbsoluteX_Execute()
         {
             PC++;
-            DEC_Internal(AbsoluteX());
+            DEC_Internal_Address(AbsoluteX());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void DEC_Internal(ushort address)
+        private void DEC_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             value--;
@@ -2266,7 +2266,7 @@
         private void ASL_ZeroPage_Execute()
         {
             PC++;
-            ASL_Internal(ZeroPage());
+            ASL_Internal_Address(ZeroPage());
         }
 
         private void ASL_ZeroPageX_SetCycles()
@@ -2277,7 +2277,7 @@
         private void ASL_ZeroPageX_Execute()
         {
             PC++;
-            ASL_Internal(ZeroPageX());
+            ASL_Internal_Address(ZeroPageX());
         }
 
         private void ASL_Absolute_SetCycles()
@@ -2288,7 +2288,7 @@
         private void ASL_Absolute_Execute()
         {
             PC++;
-            ASL_Internal(Absolute());
+            ASL_Internal_Address(Absolute());
         }
 
         private void ASL_AbsoluteX_SetCycles()
@@ -2299,11 +2299,11 @@
         private void ASL_AbsoluteX_Execute()
         {
             PC++;
-            ASL_Internal(AbsoluteX());
+            ASL_Internal_Address(AbsoluteX());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ASL_Internal(ushort address)
+        private void ASL_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             C = (value & 0x80) != 0;
@@ -2339,7 +2339,7 @@
         private void LSR_ZeroPage_Execute()
         {
             PC++;
-            LSR_Internal(ZeroPage());
+            LSR_Internal_Address(ZeroPage());
         }
 
         private void LSR_ZeroPageX_SetCycles()
@@ -2350,7 +2350,7 @@
         private void LSR_ZeroPageX_Execute()
         {
             PC++;
-            LSR_Internal(ZeroPageX());
+            LSR_Internal_Address(ZeroPageX());
         }
 
         private void LSR_Absolute_SetCycles()
@@ -2361,7 +2361,7 @@
         private void LSR_Absolute_Execute()
         {
             PC++;
-            LSR_Internal(Absolute());
+            LSR_Internal_Address(Absolute());
         }
 
         private void LSR_AbsoluteX_SetCycles()
@@ -2372,11 +2372,11 @@
         private void LSR_AbsoluteX_Execute()
         {
             PC++;
-            LSR_Internal(AbsoluteX());
+            LSR_Internal_Address(AbsoluteX());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void LSR_Internal(ushort address)
+        private void LSR_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             C = (value & 0x01) != 0;
@@ -2412,7 +2412,7 @@
         private void ROL_ZeroPage_Execute()
         {
             PC++;
-            ROL_Internal(ZeroPage());
+            ROL_Internal_Address(ZeroPage());
         }
 
         private void ROL_ZeroPageX_SetCycles()
@@ -2423,7 +2423,7 @@
         private void ROL_ZeroPageX_Execute()
         {
             PC++;
-            ROL_Internal(ZeroPageX());
+            ROL_Internal_Address(ZeroPageX());
         }
 
         private void ROL_Absolute_SetCycles()
@@ -2434,7 +2434,7 @@
         private void ROL_Absolute_Execute()
         {
             PC++;
-            ROL_Internal(Absolute());
+            ROL_Internal_Address(Absolute());
         }
 
         private void ROL_AbsoluteX_SetCycles()
@@ -2445,11 +2445,11 @@
         private void ROL_AbsoluteX_Execute()
         {
             PC++;
-            ROL_Internal(AbsoluteX());
+            ROL_Internal_Address(AbsoluteX());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ROL_Internal(ushort address)
+        private void ROL_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             bool newC = (value & 0x80) != 0;
@@ -2491,7 +2491,7 @@
         private void ROR_ZeroPage_Execute()
         {
             PC++;
-            ROR_Internal(ZeroPage());
+            ROR_Internal_Address(ZeroPage());
         }
 
         private void ROR_ZeroPageX_SetCycles()
@@ -2502,7 +2502,7 @@
         private void ROR_ZeroPageX_Execute()
         {
             PC++;
-            ROR_Internal(ZeroPageX());
+            ROR_Internal_Address(ZeroPageX());
         }
 
         private void ROR_Absolute_SetCycles()
@@ -2513,7 +2513,7 @@
         private void ROR_Absolute_Execute()
         {
             PC++;
-            ROR_Internal(Absolute());
+            ROR_Internal_Address(Absolute());
         }
 
         private void ROR_AbsoluteX_SetCycles()
@@ -2524,11 +2524,11 @@
         private void ROR_AbsoluteX_Execute()
         {
             PC++;
-            ROR_Internal(AbsoluteX());
+            ROR_Internal_Address(AbsoluteX());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ROR_Internal(ushort address)
+        private void ROR_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             bool newC = (value & 0x01) != 0;
@@ -2560,7 +2560,7 @@
         private void CMP_Immediate_Execute()
         {
             PC++;
-            CMP_Internal(Immediate());
+            CMP_Internal_Value(Immediate());
         }
 
         private void CMP_ZeroPage_SetCycles()
@@ -2571,7 +2571,7 @@
         private void CMP_ZeroPage_Execute()
         {
             PC++;
-            CMP_Internal(ZeroPage());
+            CMP_Internal_Address(ZeroPage());
         }
 
         private void CMP_ZeroPageX_SetCycles()
@@ -2582,7 +2582,7 @@
         private void CMP_ZeroPageX_Execute()
         {
             PC++;
-            CMP_Internal(ZeroPageX());
+            CMP_Internal_Address(ZeroPageX());
         }
 
         private void CMP_Absolute_SetCycles()
@@ -2593,7 +2593,7 @@
         private void CMP_Absolute_Execute()
         {
             PC++;
-            CMP_Internal(Absolute());
+            CMP_Internal_Address(Absolute());
         }
 
         private void CMP_AbsoluteX_SetCycles()
@@ -2605,7 +2605,7 @@
         private void CMP_AbsoluteX_Execute()
         {
             PC++;
-            CMP_Internal(AbsoluteX());
+            CMP_Internal_Address(AbsoluteX());
         }
 
         private void CMP_AbsoluteY_SetCycles()
@@ -2617,7 +2617,7 @@
         private void CMP_AbsoluteY_Execute()
         {
             PC++;
-            CMP_Internal(AbsoluteY());
+            CMP_Internal_Address(AbsoluteY());
         }
 
         private void CMP_IndirectX_SetCycles()
@@ -2628,7 +2628,7 @@
         private void CMP_IndirectX_Execute()
         {
             PC++;
-            CMP_Internal(IndirectX());
+            CMP_Internal_Address(IndirectX());
         }
 
         private void CMP_IndirectY_SetCycles()
@@ -2640,11 +2640,11 @@
         private void CMP_IndirectY_Execute()
         {
             PC++;
-            CMP_Internal(IndirectY());
+            CMP_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CMP_Internal(byte value)
+        private void CMP_Internal_Value(byte value)
         {
             ushort result = (byte)(A - value);
             UpdateZeroAndNegativeFlags((byte)result);
@@ -2652,7 +2652,7 @@
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CMP_Internal(ushort address)
+        private void CMP_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             ushort result = (byte)(A - value);
@@ -2668,7 +2668,7 @@
         private void CPX_Immediate_Execute()
         {
             PC++;
-            CPX_Internal(Immediate());
+            CPX_Internal_Value(Immediate());
         }
 
         private void CPX_ZeroPage_SetCycles()
@@ -2679,7 +2679,7 @@
         private void CPX_ZeroPage_Execute()
         {
             PC++;
-            CPX_Internal(ZeroPage());
+            CPX_Internal_Address(ZeroPage());
         }
 
         private void CPX_Absolute_SetCycles()
@@ -2690,17 +2690,17 @@
         private void CPX_Absolute_Execute()
         {
             PC++;
-            CPX_Internal(Absolute());
+            CPX_Internal_Address(Absolute());
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CPX_Internal(byte value)
+        private void CPX_Internal_Value(byte value)
         {
             ushort result = (byte)(X - value);
             UpdateZeroAndNegativeFlags((byte)result);
             C = X >= value;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CPX_Internal(ushort address)
+        private void CPX_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             ushort result = (byte)(X - value);
@@ -2716,7 +2716,7 @@
         private void CPY_Immediate_Execute()
         {
             PC++;
-            CPY_Internal(Immediate());
+            CPY_Internal_Value(Immediate());
         }
 
         private void CPY_ZeroPage_SetCycles()
@@ -2727,7 +2727,7 @@
         private void CPY_ZeroPage_Execute()
         {
             PC++;
-            CPY_Internal(ZeroPage());
+            CPY_Internal_Address(ZeroPage());
         }
 
         private void CPY_Absolute_SetCycles()
@@ -2738,11 +2738,11 @@
         private void CPY_Absolute_Execute()
         {
             PC++;
-            CPY_Internal(Absolute());
+            CPY_Internal_Address(Absolute());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CPY_Internal(byte value)
+        private void CPY_Internal_Value(byte value)
         {
             ushort result = (ushort)(Y - value);
             UpdateZeroAndNegativeFlags((byte)result);
@@ -2750,7 +2750,7 @@
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CPY_Internal(ushort address)
+        private void CPY_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             ushort result = (ushort)(Y - value);
@@ -2910,10 +2910,10 @@
         private void JMP_Absolute_Execute()
         {
             PC++;
-            JMP_Internal(Absolute());
+            JMP_Internal_Address(Absolute());
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void JMP_Internal(ushort address)
+        private void JMP_Internal_Address(ushort address)
         {
             PC = address;
         }
@@ -2926,7 +2926,7 @@
         private void JMP_Indirect_Execute()
         {
             PC++;
-            JMP_Internal(Indirect_Bugged());
+            JMP_Internal_Address(Indirect_Bugged());
         }
 
         private void JSR_Absolute_SetCycles()
@@ -2937,10 +2937,10 @@
         private void JSR_Absolute_Execute()
         {
             PC++;
-            JSR_Internal(Absolute());
+            JSR_Internal_Address(Absolute());
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void JSR_Internal(ushort address)
+        private void JSR_Internal_Address(ushort address)
         {
             PushStack((byte)((PC - 1) >> 8));
             PushStack((byte)(PC - 1));
@@ -3143,13 +3143,13 @@
         private void ALR_Immediate_Execute()
         {
             PC++;
-            ALR_Internal(Immediate());
+            ALR_Internal_Value(Immediate());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ALR_Internal(byte operand)
+        private void ALR_Internal_Value(byte value)
         {
-            AND_Internal(operand);
+            AND_Internal_Value(value);
             LSR_Internal();
         }
 
@@ -3161,13 +3161,13 @@
         private void ANC_Immediate_Execute()
         {
             PC++;
-            ANC_Internal(Immediate());
+            ANC_Internal_Value(Immediate());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ANC_Internal(byte operand)
+        private void ANC_Internal_Value(byte value)
         {
-            AND_Internal(operand);
+            AND_Internal_Value(value);
             UpdateZeroAndNegativeFlags(A);
             C = (A & 0x80) != 0; // Set the carry flag based on the value of the 7th bit of A
         }
@@ -3180,13 +3180,13 @@
         private void ANE_Immediate_Execute()
         {
             PC++;
-            ANE_Internal(Immediate());
+            ANE_Internal_Value(Immediate());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ANE_Internal(byte operand)
+        private void ANE_Internal_Value(byte value)
         {
-            A = (byte)(A & X & operand);
+            A = (byte)(A & X & value);
             UpdateZeroAndNegativeFlags(A);
         }
 
@@ -3198,13 +3198,13 @@
         private void ARR_Immediate_Execute()
         {
             PC++;
-            ARR_Internal(Immediate());
+            ARR_Internal_Value(Immediate());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ARR_Internal(byte operand)
+        private void ARR_Internal_Value(byte value)
         {
-            AND_Internal(operand);
+            AND_Internal_Value(value);
             ROR_Internal();
             UpdateZeroAndNegativeFlags(A);
             C = (A & 0x40) != 0; // Set bit 6 of A as the carry flag
@@ -3219,13 +3219,13 @@
         private void AXS_Immediate_Execute()
         {
             PC++;
-            AXS_Internal(Immediate());
+            AXS_Internal_Value(Immediate());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void AXS_Internal(byte operand)
+        private void AXS_Internal_Value(byte value)
         {
-            int result = (A & X) - operand;
+            int result = (A & X) - value;
             X = (byte)(result & 0xFF);
             UpdateZeroAndNegativeFlags(X);
             C = result >= 0; // Set the carry flag based on the result without borrow
@@ -3240,11 +3240,11 @@
         private void LAS_AbsoluteY_Execute()
         {
             PC++;
-            LAS_Internal(AbsoluteY());
+            LAS_Internal_Address(AbsoluteY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void LAS_Internal(ushort address)
+        private void LAS_Internal_Address(ushort address)
         {
             byte value = ReadMemory(address);
             byte result = (byte)(value & S);
@@ -3262,7 +3262,7 @@
         private void LAX_ZeroPage_Execute()
         {
             PC++;
-            LAX_Internal(ZeroPage());
+            LAX_Internal_Address(ZeroPage());
         }
 
         private void LAX_ZeroPageY_SetCycles()
@@ -3273,7 +3273,7 @@
         private void LAX_ZeroPageY_Execute()
         {
             PC++;
-            LAX_Internal(ZeroPageY());
+            LAX_Internal_Address(ZeroPageY());
         }
 
         private void LAX_Absolute_SetCycles()
@@ -3284,7 +3284,7 @@
         private void LAX_Absolute_Execute()
         {
             PC++;
-            LAX_Internal(Absolute());
+            LAX_Internal_Address(Absolute());
         }
 
         private void LAX_AbsoluteY_SetCycles()
@@ -3296,7 +3296,7 @@
         private void LAX_AbsoluteY_Execute()
         {
             PC++;
-            LAX_Internal(AbsoluteY());
+            LAX_Internal_Address(AbsoluteY());
         }
 
         private void LAX_IndirectX_SetCycles()
@@ -3307,7 +3307,7 @@
         private void LAX_IndirectX_Execute()
         {
             PC++;
-            LAX_Internal(IndirectX());
+            LAX_Internal_Address(IndirectX());
         }
 
         private void LAX_IndirectY_SetCycles()
@@ -3319,12 +3319,12 @@
         private void LAX_IndirectY_Execute()
         {
             PC++;
-            LAX_Internal(IndirectY());
+            LAX_Internal_Address(IndirectY());
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void LAX_Internal(ushort address)
+        private void LAX_Internal_Address(ushort address)
         {
-            LDA_Internal(address);
+            LDA_Internal_Address(address);
             TAX_Internal();
         }
 
@@ -3336,12 +3336,12 @@
         private void LXA_Immediate_Execute()
         {
             PC++;
-            LXA_Internal(Immediate());
+            LXA_Internal_Value(Immediate());
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void LXA_Internal(byte operand)
+        private void LXA_Internal_Value(byte value)
         {
-            byte result = (byte)(A & operand);
+            byte result = (byte)(A & value);
             A = result;
             X = result;
             UpdateZeroAndNegativeFlags(result);
@@ -3355,7 +3355,7 @@
         private void SAX_ZeroPage_Execute()
         {
             PC++;
-            SAX_Internal(ZeroPage());
+            SAX_Internal_Address(ZeroPage());
         }
 
         private void SAX_ZeroPageY_SetCycles()
@@ -3366,7 +3366,7 @@
         private void SAX_ZeroPageY_Execute()
         {
             PC++;
-            SAX_Internal(ZeroPageY());
+            SAX_Internal_Address(ZeroPageY());
         }
 
         private void SAX_Absolute_SetCycles()
@@ -3377,7 +3377,7 @@
         private void SAX_Absolute_Execute()
         {
             PC++;
-            SAX_Internal(Absolute());
+            SAX_Internal_Address(Absolute());
         }
 
         private void SAX_IndirectX_SetCycles()
@@ -3388,11 +3388,11 @@
         private void SAX_IndirectX_Execute()
         {
             PC++;
-            SAX_Internal(IndirectX());
+            SAX_Internal_Address(IndirectX());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SAX_Internal(ushort address)
+        private void SAX_Internal_Address(ushort address)
         {
             byte result = (byte)(A & X);
             WriteMemory(address, result);
@@ -3407,7 +3407,7 @@
         private void SHA_AbsoluteY_Execute()
         {
             PC++;
-            SHA_Internal(AbsoluteY());
+            SHA_Internal_Address(AbsoluteY());
         }
 
         private void SHA_IndirectY_SetCycles()
@@ -3418,11 +3418,11 @@
         private void SHA_IndirectY_Execute()
         {
             PC++;
-            SHA_Internal(IndirectY());
+            SHA_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SHA_Internal(ushort address)
+        private void SHA_Internal_Address(ushort address)
         {
             byte result = (byte)(A & X & ((address >> 8) + 1));
             WriteMemory(address, result);
@@ -3437,11 +3437,11 @@
         private void SHX_AbsoluteY_Execute()
         {
             PC++;
-            SHX_Internal(AbsoluteY());
+            SHX_Internal_Address(AbsoluteY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SHX_Internal(ushort address)
+        private void SHX_Internal_Address(ushort address)
         {
             byte result = (byte)(X & ((address >> 8) + 1));
             WriteMemory(address, result);
@@ -3456,11 +3456,11 @@
         private void SHY_AbsoluteX_Execute()
         {
             PC++;
-            SHY_Internal(AbsoluteX());
+            SHY_Internal_Address(AbsoluteX());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SHY_Internal(ushort address)
+        private void SHY_Internal_Address(ushort address)
         {
             byte result = (byte)(Y & ((address >> 8) + 1));
             WriteMemory(address, result);
@@ -3475,11 +3475,11 @@
         private void TAS_AbsoluteY_Execute()
         {
             PC++;
-            TAS_Internal(AbsoluteY());
+            TAS_Internal_Address(AbsoluteY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void TAS_Internal(ushort address)
+        private void TAS_Internal_Address(ushort address)
         {
             byte result = (byte)(A & X);
             S = result;
@@ -3495,7 +3495,7 @@
         private void DCP_ZeroPage_Execute()
         {
             PC++;
-            DCP_Internal(ZeroPage());
+            DCP_Internal_Address(ZeroPage());
         }
 
         private void DCP_ZeroPageX_SetCycles()
@@ -3506,7 +3506,7 @@
         private void DCP_ZeroPageX_Execute()
         {
             PC++;
-            DCP_Internal(ZeroPageX());
+            DCP_Internal_Address(ZeroPageX());
         }
 
         private void DCP_Absolute_SetCycles()
@@ -3517,7 +3517,7 @@
         private void DCP_Absolute_Execute()
         {
             PC++;
-            DCP_Internal(Absolute());
+            DCP_Internal_Address(Absolute());
         }
 
         private void DCP_AbsoluteX_SetCycles()
@@ -3528,7 +3528,7 @@
         private void DCP_AbsoluteX_Execute()
         {
             PC++;
-            DCP_Internal(AbsoluteX());
+            DCP_Internal_Address(AbsoluteX());
         }
 
         private void DCP_AbsoluteY_SetCycles()
@@ -3539,7 +3539,7 @@
         private void DCP_AbsoluteY_Execute()
         {
             PC++;
-            DCP_Internal(AbsoluteY());
+            DCP_Internal_Address(AbsoluteY());
         }
 
         private void DCP_IndirectX_SetCycles()
@@ -3550,7 +3550,7 @@
         private void DCP_IndirectX_Execute()
         {
             PC++;
-            DCP_Internal(IndirectX());
+            DCP_Internal_Address(IndirectX());
         }
 
         private void DCP_IndirectY_SetCycles()
@@ -3561,14 +3561,14 @@
         private void DCP_IndirectY_Execute()
         {
             PC++;
-            DCP_Internal(IndirectY());
+            DCP_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void DCP_Internal(ushort address)
+        private void DCP_Internal_Address(ushort address)
         {
-            DEC_Internal(address);
-            CMP_Internal(address);
+            DEC_Internal_Address(address);
+            CMP_Internal_Address(address);
         }
 
         private void ISC_ZeroPage_SetCycles()
@@ -3579,7 +3579,7 @@
         private void ISC_ZeroPage_Execute()
         {
             PC++;
-            ISC_Internal(ZeroPage());
+            ISC_Internal_Address(ZeroPage());
         }
 
         private void ISC_ZeroPageX_SetCycles()
@@ -3590,7 +3590,7 @@
         private void ISC_ZeroPageX_Execute()
         {
             PC++;
-            ISC_Internal(ZeroPageX());
+            ISC_Internal_Address(ZeroPageX());
         }
 
         private void ISC_Absolute_SetCycles()
@@ -3601,7 +3601,7 @@
         private void ISC_Absolute_Execute()
         {
             PC++;
-            ISC_Internal(Absolute());
+            ISC_Internal_Address(Absolute());
         }
 
         private void ISC_AbsoluteX_SetCycles()
@@ -3612,7 +3612,7 @@
         private void ISC_AbsoluteX_Execute()
         {
             PC++;
-            ISC_Internal(AbsoluteX());
+            ISC_Internal_Address(AbsoluteX());
         }
 
         private void ISC_AbsoluteY_SetCycles()
@@ -3623,7 +3623,7 @@
         private void ISC_AbsoluteY_Execute()
         {
             PC++;
-            ISC_Internal(AbsoluteY());
+            ISC_Internal_Address(AbsoluteY());
         }
 
         private void ISC_IndirectX_SetCycles()
@@ -3634,7 +3634,7 @@
         private void ISC_IndirectX_Execute()
         {
             PC++;
-            ISC_Internal(IndirectX());
+            ISC_Internal_Address(IndirectX());
         }
 
         private void ISC_IndirectY_SetCycles()
@@ -3645,14 +3645,14 @@
         private void ISC_IndirectY_Execute()
         {
             PC++;
-            ISC_Internal(IndirectY());
+            ISC_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void ISC_Internal(ushort address)
+        private void ISC_Internal_Address(ushort address)
         {
-            INC_Internal(address);
-            SBC_Internal(address);
+            INC_Internal_Address(address);
+            SBC_Internal_Address(address);
         }
 
         private void RLA_ZeroPage_SetCycles()
@@ -3663,7 +3663,7 @@
         private void RLA_ZeroPage_Execute()
         {
             PC++;
-            RLA_Internal(ZeroPage());
+            RLA_Internal_Address(ZeroPage());
         }
 
         private void RLA_ZeroPageX_SetCycles()
@@ -3674,7 +3674,7 @@
         private void RLA_ZeroPageX_Execute()
         {
             PC++;
-            RLA_Internal(ZeroPageX());
+            RLA_Internal_Address(ZeroPageX());
         }
 
         private void RLA_Absolute_SetCycles()
@@ -3685,7 +3685,7 @@
         private void RLA_Absolute_Execute()
         {
             PC++;
-            RLA_Internal(Absolute());
+            RLA_Internal_Address(Absolute());
         }
 
         private void RLA_AbsoluteX_SetCycles()
@@ -3696,7 +3696,7 @@
         private void RLA_AbsoluteX_Execute()
         {
             PC++;
-            RLA_Internal(AbsoluteX());
+            RLA_Internal_Address(AbsoluteX());
         }
 
         private void RLA_AbsoluteY_SetCycles()
@@ -3707,7 +3707,7 @@
         private void RLA_AbsoluteY_Execute()
         {
             PC++;
-            RLA_Internal(AbsoluteY());
+            RLA_Internal_Address(AbsoluteY());
         }
 
         private void RLA_IndirectX_SetCycles()
@@ -3718,7 +3718,7 @@
         private void RLA_IndirectX_Execute()
         {
             PC++;
-            RLA_Internal(IndirectX());
+            RLA_Internal_Address(IndirectX());
         }
 
         private void RLA_IndirectY_SetCycles()
@@ -3729,14 +3729,14 @@
         private void RLA_IndirectY_Execute()
         {
             PC++;
-            RLA_Internal(IndirectY());
+            RLA_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void RLA_Internal(ushort address)
+        private void RLA_Internal_Address(ushort address)
         {
-            ROL_Internal(address);
-            AND_Internal(address);
+            ROL_Internal_Address(address);
+            AND_Internal_Address(address);
         }
 
         private void RRA_ZeroPage_SetCycles()
@@ -3747,7 +3747,7 @@
         private void RRA_ZeroPage_Execute()
         {
             PC++;
-            RRA_Internal(ZeroPage());
+            RRA_Internal_Address(ZeroPage());
         }
 
         private void RRA_ZeroPageX_SetCycles()
@@ -3758,7 +3758,7 @@
         private void RRA_ZeroPageX_Execute()
         {
             PC++;
-            RRA_Internal(ZeroPageX());
+            RRA_Internal_Address(ZeroPageX());
         }
 
         private void RRA_Absolute_SetCycles()
@@ -3769,7 +3769,7 @@
         private void RRA_Absolute_Execute()
         {
             PC++;
-            RRA_Internal(Absolute());
+            RRA_Internal_Address(Absolute());
         }
 
         private void RRA_AbsoluteX_SetCycles()
@@ -3780,7 +3780,7 @@
         private void RRA_AbsoluteX_Execute()
         {
             PC++;
-            RRA_Internal(AbsoluteX());
+            RRA_Internal_Address(AbsoluteX());
         }
 
         private void RRA_AbsoluteY_SetCycles()
@@ -3791,7 +3791,7 @@
         private void RRA_AbsoluteY_Execute()
         {
             PC++;
-            RRA_Internal(AbsoluteY());
+            RRA_Internal_Address(AbsoluteY());
         }
 
         private void RRA_IndirectX_SetCycles()
@@ -3802,7 +3802,7 @@
         private void RRA_IndirectX_Execute()
         {
             PC++;
-            RRA_Internal(IndirectX());
+            RRA_Internal_Address(IndirectX());
         }
 
         private void RRA_IndirectY_SetCycles()
@@ -3813,14 +3813,14 @@
         private void RRA_IndirectY_Execute()
         {
             PC++;
-            RRA_Internal(IndirectY());
+            RRA_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void RRA_Internal(ushort address)
+        private void RRA_Internal_Address(ushort address)
         {
-            ROR_Internal(address);
-            ADC_Internal(address);
+            ROR_Internal_Address(address);
+            ADC_Internal_Address(address);
         }
 
         private void SLO_ZeroPage_SetCycles()
@@ -3831,7 +3831,7 @@
         private void SLO_ZeroPage_Execute()
         {
             PC++;
-            SLO_Internal(ZeroPage());
+            SLO_Internal_Address(ZeroPage());
         }
 
         private void SLO_ZeroPageX_SetCycles()
@@ -3842,7 +3842,7 @@
         private void SLO_ZeroPageX_Execute()
         {
             PC++;
-            SLO_Internal(ZeroPageX());
+            SLO_Internal_Address(ZeroPageX());
         }
 
         private void SLO_Absolute_SetCycles()
@@ -3853,7 +3853,7 @@
         private void SLO_Absolute_Execute()
         {
             PC++;
-            SLO_Internal(Absolute());
+            SLO_Internal_Address(Absolute());
         }
 
         private void SLO_AbsoluteX_SetCycles()
@@ -3864,7 +3864,7 @@
         private void SLO_AbsoluteX_Execute()
         {
             PC++;
-            SLO_Internal(AbsoluteX());
+            SLO_Internal_Address(AbsoluteX());
         }
 
         private void SLO_AbsoluteY_SetCycles()
@@ -3875,7 +3875,7 @@
         private void SLO_AbsoluteY_Execute()
         {
             PC++;
-            SLO_Internal(AbsoluteY());
+            SLO_Internal_Address(AbsoluteY());
         }
 
         private void SLO_IndirectX_SetCycles()
@@ -3886,7 +3886,7 @@
         private void SLO_IndirectX_Execute()
         {
             PC++;
-            SLO_Internal(IndirectX());
+            SLO_Internal_Address(IndirectX());
         }
 
         private void SLO_IndirectY_SetCycles()
@@ -3897,14 +3897,14 @@
         private void SLO_IndirectY_Execute()
         {
             PC++;
-            SLO_Internal(IndirectY());
+            SLO_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SLO_Internal(ushort address)
+        private void SLO_Internal_Address(ushort address)
         {
-            ASL_Internal(address);
-            ORA_Internal(address);
+            ASL_Internal_Address(address);
+            ORA_Internal_Address(address);
         }
 
         private void SRE_ZeroPage_SetCycles()
@@ -3915,7 +3915,7 @@
         private void SRE_ZeroPage_Execute()
         {
             PC++;
-            SRE_Internal(ZeroPage());
+            SRE_Internal_Address(ZeroPage());
         }
 
         private void SRE_ZeroPageX_SetCycles()
@@ -3926,7 +3926,7 @@
         private void SRE_ZeroPageX_Execute()
         {
             PC++;
-            SRE_Internal(ZeroPageX());
+            SRE_Internal_Address(ZeroPageX());
         }
 
         private void SRE_Absolute_SetCycles()
@@ -3937,7 +3937,7 @@
         private void SRE_Absolute_Execute()
         {
             PC++;
-            SRE_Internal(Absolute());
+            SRE_Internal_Address(Absolute());
         }
 
         private void SRE_AbsoluteX_SetCycles()
@@ -3948,7 +3948,7 @@
         private void SRE_AbsoluteX_Execute()
         {
             PC++;
-            SRE_Internal(AbsoluteX());
+            SRE_Internal_Address(AbsoluteX());
         }
 
         private void SRE_AbsoluteY_SetCycles()
@@ -3959,7 +3959,7 @@
         private void SRE_AbsoluteY_Execute()
         {
             PC++;
-            SRE_Internal(AbsoluteY());
+            SRE_Internal_Address(AbsoluteY());
         }
 
         private void SRE_IndirectX_SetCycles()
@@ -3970,7 +3970,7 @@
         private void SRE_IndirectX_Execute()
         {
             PC++;
-            SRE_Internal(IndirectX());
+            SRE_Internal_Address(IndirectX());
         }
 
         private void SRE_IndirectY_SetCycles()
@@ -3981,14 +3981,14 @@
         private void SRE_IndirectY_Execute()
         {
             PC++;
-            SRE_Internal(IndirectY());
+            SRE_Internal_Address(IndirectY());
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void SRE_Internal(ushort address)
+        private void SRE_Internal_Address(ushort address)
         {
-            LSR_Internal(address);
-            EOR_Internal(address);
+            LSR_Internal_Address(address);
+            EOR_Internal_Address(address);
         }
 
         // Helper functions for stack operations
