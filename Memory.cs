@@ -1,5 +1,6 @@
 ﻿namespace Emulation
 {
+    using System.Runtime.CompilerServices;
     using static Globals;
     public class Memory
     {
@@ -53,6 +54,7 @@
         }
 
         // Read a byte from the specified address in memory
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte Read(ushort address)
         {
             if (address < 0x2000)
@@ -83,6 +85,7 @@
         }
 
         // Write a byte value to the specified address in memory
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Write(ushort address, byte value)
         {
             if (address < 0x2000)

@@ -51,6 +51,7 @@ namespace Emulation
             this.memory = memory;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte[] GetScreenBuffer()
         {
             return screenBuffer;
@@ -103,6 +104,7 @@ namespace Emulation
         }
 
         // Read a byte from the specified PPU register
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public byte ReadRegister(ushort address)
         {
             switch (address)
@@ -162,6 +164,7 @@ namespace Emulation
         }
 
         // Write a byte value to the specified PPU register
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteRegister(ushort address, byte value)
         {
             openBus = value;
@@ -260,6 +263,7 @@ namespace Emulation
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void WriteVRAM(ushort address, byte value)
         {
             if (address >= PATTERN_TABLE_0_START && address < PATTERN_TABLE_0_END)
@@ -649,8 +653,9 @@ namespace Emulation
             }
         }
 
-        bool shouldRender = false;
+        bool shouldRender;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool ShouldRenderFrame()
         {
             if (shouldRender)
