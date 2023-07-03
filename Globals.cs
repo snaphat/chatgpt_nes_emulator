@@ -7,15 +7,22 @@ namespace Emulation
         public const int VERTICAL_MIRRORING = 1;
 
         // PPU Constants
-        public const int PATTERN_TABLE_0_BASE_ADDRESS = 0x0000; // Address of the first name table
-        public const int PATTERN_TABLE_1_BASE_ADDRESS = 0x1000; // Address of the first name table
-        public const int NAME_TABLE_0_BASE_ADDRESS = 0x2000; // Address of the first name table
-        public const int NAME_TABLE_1_BASE_ADDRESS = 0x2400; // Address of the second name table
-        public const int NAME_TABLE_2_BASE_ADDRESS = 0x2800; // Address of the third name table
-        public const int NAME_TABLE_3_BASE_ADDRESS = 0x2c00; // Address of the fourth name table
-        public const int ATTRIBUTE_TABLE_BASE_ADDRESS = 0x23C0; // Address of the attribute table
-        public const int PALETTE_TABLE_BASE_ADDRESS = 0x3F00;
-        public const int PALETTE_TABLE_SPRITE_BASE_ADDRESS = PALETTE_TABLE_BASE_ADDRESS + 0x10;
+        public const int ATTRIBUTE_TABLE_START = 0x23C0; // Address of the attribute table
+        public const int PATTERN_TABLE_0_START = 0x0000;
+        public const int PATTERN_TABLE_0_END = 0x1000;
+        public const int PATTERN_TABLE_1_START = 0x1000;
+        public const int PATTERN_TABLE_1_END = 0x2000;
+        public const int NAME_TABLE_0_START = 0x2000;
+        public const int NAME_TABLE_0_END = 0x23FF;
+        public const int NAME_TABLE_1_START = 0x2400;
+        public const int NAME_TABLE_1_END = 0x27FF;
+        public const int NAME_TABLE_2_START = 0x2800;
+        public const int NAME_TABLE_2_END = 0x2BFF;
+        public const int NAME_TABLE_3_START = 0x2C00;
+        public const int NAME_TABLE_3_END = 0x2FFF;
+        public const int PALETTE_TABLE_START = 0x3F00;
+        public const int PALETTE_TABLE_SPRITE_START = 0x3F10;
+        public const int PALETTE_TABLE_END = 0x3F20;
 
         public const int OAM_SIZE = 0x1000;
         public const int PATTERN_TABLE_SIZE = 0x1000;

@@ -392,7 +392,7 @@ namespace Emulation
             }
         }
 
-        public void Start8x8Tile()
+        public void Start8PixelTile()
         {
             // Calculate the name table address for the current coordinates
             var nameTableAddress = (ushort)(NAME_TABLE_0_START | (v & 0x0FFF));
@@ -575,7 +575,7 @@ namespace Emulation
                                 v++; // coarse X++
                             }
                             // Start new 8x8 tile segment
-                            Start8x8Tile();
+                            Start8PixelTile();
                         }
                     }
                     else if (dot == 256)
