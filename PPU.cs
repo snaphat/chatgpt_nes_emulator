@@ -29,7 +29,6 @@ namespace Emulation
         private ushort v; // Current VRAM address (15 bits)
         private ushort t; // Temporary VRAM address (15 bits)
         private byte x; // Fine X scroll (3 bits)
-        public byte fine_x = 0;
         private bool w; // Write toggle flag
 
         // Open bus value
