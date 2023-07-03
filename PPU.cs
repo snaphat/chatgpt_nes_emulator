@@ -198,7 +198,7 @@ namespace Emulation
                         int attributeIndex = oamAddress & 3;
                         if (attributeIndex == 0)
                         {
-                            int spriteIndex = oamAddress / 4;
+                            int spriteIndex = oamAddress >> 2;
                             int oldY = oam[oamAddress];
                             int newY = value;
                             int x = oam[oamAddress + 3];
@@ -206,7 +206,7 @@ namespace Emulation
                         }
                         else if (attributeIndex == 3)
                         {
-                            int spriteIndex = oamAddress / 4;
+                            int spriteIndex = oamAddress >> 2;
                             int y = oam[oamAddress - 3];
                             int oldX = oam[oamAddress];
                             int newX = value;
