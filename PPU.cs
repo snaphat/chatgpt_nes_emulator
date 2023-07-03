@@ -35,9 +35,9 @@ namespace Emulation
         private byte openBus;
 
         // State to avoid recomputations
-        private byte patternDataLo;
-        private byte patternDataHi;
-        private int paletteTableOffset;
+        private byte backgroundPatternDataLo;
+        private byte backgroundPatternDataHi;
+        private int backgroundPaletteTableOffset;
         private int spriteHeight = 8;
         private readonly ulong[,] spritesPerDot = new ulong[SCREEN_HEIGHT, SCREEN_WIDTH];
 
@@ -418,17 +418,17 @@ namespace Emulation
                         if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
                         {
                             // Select the correct pixel within the tile
-                            var paletteIndex = (((patternDataHi << x) & 0x80) >> 6) | (((patternDataLo << x) & 0x80) >> 7); // Use the fine X scroll for the column within the tile
+                            var paletteIndex = (((backgroundPatternDataHi << x) & 0x80) >> 6) | (((backgroundPatternDataLo << x) & 0x80) >> 7); // Use the fine X scroll for the column within the tile
 
                             // Shift the pattern data registers each cycle to mimic the hardware shift registers
-                            patternDataHi <<= 1;
-                            patternDataLo <<= 1;
+                            backgroundPatternDataHi <<= 1;
+                            backgroundPatternDataLo <<= 1;
 
                             // Check if the pixel is transparent
                             if (paletteIndex != 0)
                             {
                                 // Fetch the color from the correct palette and color index
-                                paletteColor = vram[paletteTableOffset + paletteIndex];
+                                paletteColor = vram[backgroundPaletteTableOffset + paletteIndex];
                             }
                         }
 
@@ -446,13 +446,11 @@ namespace Emulation
 
                                 var oamEntry = spriteIndex * 4;
 
-                                // Get sprite X and Y from OAM
+                                // Get sprite X, Y, sprite tile, and attributes from OAM
                                 var spriteY = oam[oamEntry + 0];
-                                var spriteX = oam[oamEntry + 3];
-
-                                // Get sprite tile and attributes from OAM
                                 var spriteTile = oam[oamEntry + 1];
                                 var spriteAttributes = oam[oamEntry + 2];
+                                var spriteX = oam[oamEntry + 3];
 
                                 // Compute the tile row
                                 var row = scanline - spriteY;
@@ -465,14 +463,14 @@ namespace Emulation
                                 var patternTableAddress = ((ppuControl & SPRITE_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (spriteTile << 4) | row;
 
                                 // Read the pattern data
-                                var patternDataLo = vram[patternTableAddress];
-                                var patternDataHi = vram[patternTableAddress + 8];
+                                var spritePatternDataLo = vram[patternTableAddress];
+                                var spritePatternDataHi = vram[patternTableAddress + 8];
 
                                 // Flip horizontally if the attribute bit is set
-                                var x = (spriteAttributes & FLIP_SPRITE_HORIZONTALLY_FLAG) != 0 ? 7 - (dot - spriteX) : dot - spriteX;
+                                var selectX = (spriteAttributes & FLIP_SPRITE_HORIZONTALLY_FLAG) != 0 ? 7 - (dot - spriteX) : dot - spriteX;
 
                                 // Compute the pixel data
-                                var pixelData = ((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1);
+                                var pixelData = (((spritePatternDataHi << selectX) & 0x80) >> 6) | (((spritePatternDataLo << selectX) & 0x80) >> 7);
 
                                 // Skip transparent pixels (palette index 0)
                                 if (pixelData == 0)
@@ -481,15 +479,11 @@ namespace Emulation
                                     continue;
                                 }
                                 // Check sprite priority
-                                var spriteIsBehindBackground = (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0;
-                                if (spriteIsBehindBackground && paletteColor != 0) // background palette
+                                if (paletteColor != 0 && (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0) // background palette
                                 {
                                     spriteIndex++;
                                     continue;
                                 }
-
-                                // Compute the palette address
-                                var paletteAddress = PALETTE_TABLE_SPRITE_START + ((spriteAttributes & 0x03) << 2) + pixelData;
 
                                 // Check for sprite 0 hit
                                 if (spriteIndex == 0 && paletteColor != 0)
@@ -498,7 +492,7 @@ namespace Emulation
                                 }
 
                                 // Fetch the color for the sprite palette
-                                paletteColor = vram[paletteAddress];
+                                paletteColor = vram[PALETTE_TABLE_SPRITE_START + ((spriteAttributes & 0x03) << 2) + pixelData];
 
                                 break;
                             }
@@ -551,8 +545,8 @@ namespace Emulation
                             var patternTableAddress = ((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12); // Use the fine Y scroll for the row within the tile
 
                             // Get pattern table bytes
-                            patternDataLo = vram[patternTableAddress];
-                            patternDataHi = vram[patternTableAddress + 8];
+                            backgroundPatternDataLo = vram[patternTableAddress];
+                            backgroundPatternDataHi = vram[patternTableAddress + 8];
 
                             // Compute the attribute table address
                             var attributeTableAddress = (nameTableAddress & 0x3c00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07);
@@ -561,7 +555,7 @@ namespace Emulation
                             var attributeByte = vram[attributeTableAddress];
 
                             // Extract the correct bits
-                            paletteTableOffset = PALETTE_TABLE_START + (((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
+                            backgroundPaletteTableOffset = PALETTE_TABLE_START + (((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
                         }
                     }
                     else if (dot == 256)
