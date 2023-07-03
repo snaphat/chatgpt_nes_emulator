@@ -3992,12 +3992,14 @@
         }
 
         // Helper functions for stack operations
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void PushStack(byte value)
         {
             WriteMemory((ushort)(0x0100 | S), value);
             S--;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private byte PopStack()
         {
             S++;
