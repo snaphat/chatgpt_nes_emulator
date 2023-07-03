@@ -28,6 +28,7 @@ namespace Emulation
         private ushort v; // Current VRAM address (15 bits)
         private ushort t; // Temporary VRAM address (15 bits)
         private byte x; // Fine X scroll (3 bits)
+        public byte fine_x = 0;
         private bool w; // Write toggle flag
 
         // Open bus value
@@ -425,10 +426,14 @@ namespace Emulation
                 return 0;
 
             // Select the correct pixel within the tile
-            var pixelData = ((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1); // Use the fine X scroll for the column within the tile
+            var paletteIndex = ((patternDataHi << x) & 0x80) >> 6 | ((patternDataLo << x) & 0x80) >> 7; // Use the fine X scroll for the column within the tile
+
+            // Shift the pattern data registers each cycle to mimic the hardware shift registers
+            patternDataHi <<= 1;
+            patternDataLo <<= 1;
 
             // Check if the pixel is transparent
-            if (pixelData == 0)
+            if (paletteIndex == 0)
             {
                 screenBuffer[index] = 0;     // Blue component
                 screenBuffer[index + 1] = 0; // Green component
@@ -436,10 +441,8 @@ namespace Emulation
                 return 0;
             }
 
-            var paletteIndex = pixelData & 0x03; // Mask the pixel data to ensure it's 2 bits
-
             // Apply the attribute data to determine the correct palette index
-            var paletteOffset = (attributeData & 0x03) * 4;
+            var paletteOffset = attributeData * 4;
 
             // Fetch the color from the correct palette and color index
             paletteIndex = PALETTE_TABLE_START + paletteOffset + paletteIndex;
@@ -546,6 +549,8 @@ namespace Emulation
                     // Render a pixel for each dot on a visible scanline
                     if (dot < SCREEN_WIDTH)
                     {
+                        int tileOffset = dot % 8;
+
                         int backgroundPaletteColor = 0;
 
                         // Calculate the index in the screen buffer based on the scanline and pixel position
@@ -556,15 +561,10 @@ namespace Emulation
                         if ((ppuMask & SHOW_SPRITES) != 0 && (dot >= 8 || (ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) != 0))
                             RenderSprite(backgroundPaletteColor);
 
-                        // Increment fine X scroll
-                        if (x < 7)
+                        // Every 8 cycles (dots), increment v and start a new tile.
+                        if (tileOffset == 7)
                         {
-                            x++;
-                        }
-                        else
-                        {
-                            x = 0; // Reset fine X scroll
-                                   // Increment coarse X scroll
+                            // Increment coarse X scroll
                             if ((v & 0x1F) == 31) // If coarse X == 31
                             {
                                 v = (ushort)(v & ~0x1F); // coarse X = 0
