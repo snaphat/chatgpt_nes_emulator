@@ -421,7 +421,7 @@ namespace Emulation
         public int RenderBackground()
         {
             // Select the correct pixel within the tile
-            var paletteIndex = ((patternDataHi << x) & 0x80) >> 6 | ((patternDataLo << x) & 0x80) >> 7; // Use the fine X scroll for the column within the tile
+            var paletteIndex = (((patternDataHi << x) & 0x80) >> 6) | (((patternDataLo << x) & 0x80) >> 7); // Use the fine X scroll for the column within the tile
 
             // Shift the pattern data registers each cycle to mimic the hardware shift registers
             patternDataHi <<= 1;
@@ -440,7 +440,7 @@ namespace Emulation
             var paletteColor = vram[paletteTableOffset + paletteIndex];
 
             // Lookup pixel color
-            var pixelColor = ColorMap.LUT[paletteColor];
+            var pixelColor = ColorMap.LUT[0];
 
             // Set the RGB values in the screen buffer at the calculated index
             screenBuffer[screenIndex] = pixelColor[2];     // Blue component
@@ -548,7 +548,35 @@ namespace Emulation
                         screenIndex = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
 
                         if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
-                            backgroundPaletteColor = RenderBackground();
+                        {
+                            // Select the correct pixel within the tile
+                            var paletteIndex = (((patternDataHi << x) & 0x80) >> 6) | (((patternDataLo << x) & 0x80) >> 7); // Use the fine X scroll for the column within the tile
+
+                            // Shift the pattern data registers each cycle to mimic the hardware shift registers
+                            patternDataHi <<= 1;
+                            patternDataLo <<= 1;
+
+                            // Check if the pixel is transparent
+                            if (paletteIndex == 0)
+                            {
+                                screenBuffer[screenIndex] = 0;     // Blue component
+                                screenBuffer[screenIndex + 1] = 0; // Green component
+                                screenBuffer[screenIndex + 2] = 0; // Red component
+                            }
+                            else
+                            {
+                                // Fetch the color from the correct palette and color index
+                                backgroundPaletteColor = vram[paletteTableOffset + paletteIndex];
+
+                                // Lookup pixel color
+                                var pixelColor = ColorMap.LUT[backgroundPaletteColor];
+
+                                // Set the RGB values in the screen buffer at the calculated index
+                                screenBuffer[screenIndex] = pixelColor[2];     // Blue component
+                                screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
+                                screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
+                            }
+                        }
                         if ((ppuMask & SHOW_SPRITES) != 0 && (dot >= 8 || (ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) != 0))
                             RenderSprite(backgroundPaletteColor);
 
