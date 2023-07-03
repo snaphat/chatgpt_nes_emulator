@@ -393,141 +393,6 @@ namespace Emulation
             }
         }
 
-        public void Start8PixelTile()
-        {
-            // Calculate the name table address for the current coordinates
-            var nameTableAddress = (ushort)(NAME_TABLE_0_START | (v & 0x0FFF));
-
-            // Compute the tile index
-            var tileIndex = vram[nameTableAddress];
-
-            // Fetch the pixel data for the current tile and position
-            var patternTableAddress = ((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12); // Use the fine Y scroll for the row within the tile
-
-            // Get pattern table bytes
-            patternDataLo = vram[patternTableAddress];
-            patternDataHi = vram[patternTableAddress + 8];
-
-            // Compute the attribute table address
-            var attributeTableAddress = (nameTableAddress & 0x3c00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07);
-
-            // Read the attribute byte
-            var attributeByte = vram[attributeTableAddress];
-
-            // Extract the correct bits
-            paletteTableOffset = PALETTE_TABLE_START + (((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
-        }
-
-        public int RenderBackground()
-        {
-            // Select the correct pixel within the tile
-            var paletteIndex = (((patternDataHi << x) & 0x80) >> 6) | (((patternDataLo << x) & 0x80) >> 7); // Use the fine X scroll for the column within the tile
-
-            // Shift the pattern data registers each cycle to mimic the hardware shift registers
-            patternDataHi <<= 1;
-            patternDataLo <<= 1;
-
-            // Check if the pixel is transparent
-            if (paletteIndex == 0)
-            {
-                screenBuffer[screenIndex] = 0;     // Blue component
-                screenBuffer[screenIndex + 1] = 0; // Green component
-                screenBuffer[screenIndex + 2] = 0; // Red component
-                return 0;
-            }
-
-            // Fetch the color from the correct palette and color index
-            var paletteColor = vram[paletteTableOffset + paletteIndex];
-
-            // Lookup pixel color
-            var pixelColor = ColorMap.LUT[0];
-
-            // Set the RGB values in the screen buffer at the calculated index
-            screenBuffer[screenIndex] = pixelColor[2];     // Blue component
-            screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
-            screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
-
-            // Return palette color before lookup
-            return paletteColor;
-        }
-
-        public void RenderSprite(int backgroundPaletteColor)
-        {
-            ulong spriteMask = spritesPerDot[scanline, dot];
-
-            int i = 0;
-            while (spriteMask != 0)
-            {
-                int trailingZeros = BitOperations.TrailingZeroCount(spriteMask);
-                spriteMask >>= trailingZeros + 1;
-                i += trailingZeros;
-
-                // Get sprite X and Y from OAM
-                var spriteY = oam[(i * 4) + 0];
-                var spriteX = oam[(i * 4) + 3];
-
-                // Get sprite tile and attributes from OAM
-                var spriteTile = oam[(i * 4) + 1];
-                var spriteAttributes = oam[(i * 4) + 2];
-
-                // Compute the tile row
-                var row = scanline - spriteY;
-
-                // Flip vertically if the attribute bit is set
-                if ((spriteAttributes & FLIP_SPRITE_VERTICALLY_FLAG) != 0)
-                    row = spriteHeight - 1 - row;
-
-                // Compute the pattern table address
-                var patternTableAddress = ((ppuControl & SPRITE_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (spriteTile << 4) | row;
-
-                // Read the pattern data
-                var patternDataLo = vram[patternTableAddress];
-                var patternDataHi = vram[patternTableAddress + 8];
-
-                // Flip horizontally if the attribute bit is set
-                var x = (spriteAttributes & FLIP_SPRITE_HORIZONTALLY_FLAG) != 0 ? 7 - (dot - spriteX) : dot - spriteX;
-
-                // Compute the pixel data
-                var pixelData = ((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1);
-
-                // Skip transparent pixels (palette index 0)
-                if (pixelData == 0)
-                {
-                    i++;
-                    continue;
-                }
-                // Check sprite priority
-                var spriteIsBehindBackground = (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0;
-                if (spriteIsBehindBackground && backgroundPaletteColor != 0)
-                {
-                    i++;
-                    continue;
-                }
-
-                // Compute the palette address
-                var paletteAddress = PALETTE_TABLE_SPRITE_START + ((spriteAttributes & 0x03) << 2) + pixelData;
-
-                // Fetch the color from the palette
-                var paletteColor = vram[paletteAddress];
-
-                // Check for sprite 0 hit
-                if (i == 0 && backgroundPaletteColor != 0)
-                {
-                    ppuStatus |= SPRITE0_HIT_FLAG;
-                }
-
-                // Lookup pixel color
-                var pixelColor = ColorMap.LUT[paletteColor];
-
-                // Set the RGB values in the screen buffer at the calculated index
-                screenBuffer[screenIndex] = pixelColor[2];     // Blue component
-                screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
-                screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
-
-                break;
-            }
-        }
-
         public void RenderCycle()
         {
             if ((ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
@@ -547,6 +412,7 @@ namespace Emulation
                         // Calculate the index in the screen buffer based on the scanline and pixel position
                         screenIndex = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
 
+                        // Render background
                         if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
                         {
                             // Select the correct pixel within the tile
@@ -577,8 +443,84 @@ namespace Emulation
                                 screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
                             }
                         }
+
+                        // Render Sprites
                         if ((ppuMask & SHOW_SPRITES) != 0 && (dot >= 8 || (ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) != 0))
-                            RenderSprite(backgroundPaletteColor);
+                        {
+                            ulong spriteMask = spritesPerDot[scanline, dot];
+
+                            int i = 0;
+                            while (spriteMask != 0)
+                            {
+                                int trailingZeros = BitOperations.TrailingZeroCount(spriteMask);
+                                spriteMask >>= trailingZeros + 1;
+                                i += trailingZeros;
+
+                                // Get sprite X and Y from OAM
+                                var spriteY = oam[(i * 4) + 0];
+                                var spriteX = oam[(i * 4) + 3];
+
+                                // Get sprite tile and attributes from OAM
+                                var spriteTile = oam[(i * 4) + 1];
+                                var spriteAttributes = oam[(i * 4) + 2];
+
+                                // Compute the tile row
+                                var row = scanline - spriteY;
+
+                                // Flip vertically if the attribute bit is set
+                                if ((spriteAttributes & FLIP_SPRITE_VERTICALLY_FLAG) != 0)
+                                    row = spriteHeight - 1 - row;
+
+                                // Compute the pattern table address
+                                var patternTableAddress = ((ppuControl & SPRITE_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (spriteTile << 4) | row;
+
+                                // Read the pattern data
+                                var patternDataLo = vram[patternTableAddress];
+                                var patternDataHi = vram[patternTableAddress + 8];
+
+                                // Flip horizontally if the attribute bit is set
+                                var x = (spriteAttributes & FLIP_SPRITE_HORIZONTALLY_FLAG) != 0 ? 7 - (dot - spriteX) : dot - spriteX;
+
+                                // Compute the pixel data
+                                var pixelData = ((patternDataHi >> (7 - x)) & 1) << 1 | ((patternDataLo >> (7 - x)) & 1);
+
+                                // Skip transparent pixels (palette index 0)
+                                if (pixelData == 0)
+                                {
+                                    i++;
+                                    continue;
+                                }
+                                // Check sprite priority
+                                var spriteIsBehindBackground = (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0;
+                                if (spriteIsBehindBackground && backgroundPaletteColor != 0)
+                                {
+                                    i++;
+                                    continue;
+                                }
+
+                                // Compute the palette address
+                                var paletteAddress = PALETTE_TABLE_SPRITE_START + ((spriteAttributes & 0x03) << 2) + pixelData;
+
+                                // Fetch the color from the palette
+                                var paletteColor = vram[paletteAddress];
+
+                                // Check for sprite 0 hit
+                                if (i == 0 && backgroundPaletteColor != 0)
+                                {
+                                    ppuStatus |= SPRITE0_HIT_FLAG;
+                                }
+
+                                // Lookup pixel color
+                                var pixelColor = ColorMap.LUT[paletteColor];
+
+                                // Set the RGB values in the screen buffer at the calculated index
+                                screenBuffer[screenIndex] = pixelColor[2];     // Blue component
+                                screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
+                                screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
+
+                                break;
+                            }
+                        }
 
                         // Every 8 cycles (dots), increment v and start a new tile.
                         if (tileOffset == 7)
@@ -593,8 +535,30 @@ namespace Emulation
                             {
                                 v++; // coarse X++
                             }
+
                             // Start new 8x8 tile segment
-                            Start8PixelTile();
+
+                            // Calculate the name table address for the current coordinates
+                            var nameTableAddress = (ushort)(NAME_TABLE_0_START | (v & 0x0FFF));
+
+                            // Compute the tile index
+                            var tileIndex = vram[nameTableAddress];
+
+                            // Fetch the pixel data for the current tile and position
+                            var patternTableAddress = ((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12); // Use the fine Y scroll for the row within the tile
+
+                            // Get pattern table bytes
+                            patternDataLo = vram[patternTableAddress];
+                            patternDataHi = vram[patternTableAddress + 8];
+
+                            // Compute the attribute table address
+                            var attributeTableAddress = (nameTableAddress & 0x3c00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07);
+
+                            // Read the attribute byte
+                            var attributeByte = vram[attributeTableAddress];
+
+                            // Extract the correct bits
+                            paletteTableOffset = PALETTE_TABLE_START + (((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
                         }
                     }
                     else if (dot == 256)
