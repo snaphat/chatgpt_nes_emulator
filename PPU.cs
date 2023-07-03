@@ -396,10 +396,6 @@ namespace Emulation
             }
         }
 
-        // Tile offset reset every 8 cycles
-        int tileOffset;
-        int screenIndex;
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RenderCycle()
         {
@@ -504,6 +500,9 @@ namespace Emulation
                             }
                         }
 
+                        // Calculate the index in the screen buffer based on the scanline and pixel position
+                        int screenIndex = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
+
                         // Lookup pixel color
                         if (paletteColor != 0)
                         {
@@ -522,11 +521,8 @@ namespace Emulation
                             screenBuffer[screenIndex + 2] = 0; // Red component
                         }
 
-                        // Get offset into tile for background
-                        tileOffset++;
-
                         // Every 8 cycles (dots), increment v and start a new tile.
-                        if (tileOffset >= 8)
+                        if (dot % 8 == 7)
                         {
                             // Increment coarse X scroll
                             if ((v & 0x1F) == 31) // If coarse X == 31
@@ -562,9 +558,6 @@ namespace Emulation
 
                             // Extract the correct bits
                             paletteTableOffset = PALETTE_TABLE_START + (((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
-
-                            // Reset tile offset
-                            tileOffset = 0;
                         }
                     }
                     else if (dot == 256)
@@ -602,8 +595,6 @@ namespace Emulation
                     }
                 }
 
-                if (dot < SCREEN_WIDTH)
-                    screenIndex += 3;
             }
             else if (scanline == 261 && (ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
             {
@@ -648,7 +639,6 @@ namespace Emulation
                 if (scanline >= SCANLINES_PER_FRAME)
                 {
                     scanline = 0;
-                    screenIndex = 0;
                 }
             }
         }
