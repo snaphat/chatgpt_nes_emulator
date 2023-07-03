@@ -193,24 +193,29 @@ namespace Emulation
                     break;
 
                 case 0x2004: // OAM Data Register
-                    int spriteIndex = oamAddress / 4;
-                    int attributeIndex = oamAddress % 4;
-                    if (attributeIndex == 0 && oam[oamAddress] != value) // Check if the Y address has changed
+                    if (oam[oamAddress] != value)
                     {
-                        int oldY = oam[oamAddress];
-                        int newY = value;
-                        int x = oam[oamAddress + 3];
-                        CacheSpritesPerDot(spriteIndex, oldY, newY, x, x);
-                    }
-                    else if (attributeIndex == 3 && oam[oamAddress] != value) // Check if the X address has changed
-                    {
-                        int y = oam[oamAddress - 3];
-                        int oldX = oam[oamAddress];
-                        int newX = value;
-                        CacheSpritesPerDot(spriteIndex, y, y, oldX, newX);
+                        int attributeIndex = oamAddress % 4;
+                        if (attributeIndex == 0)
+                        {
+                            int spriteIndex = oamAddress / 4;
+                            int oldY = oam[oamAddress];
+                            int newY = value;
+                            int x = oam[oamAddress + 3];
+                            CacheSpritesPerDot(spriteIndex, oldY, newY, x, x);
+                        }
+                        else if (attributeIndex == 3)
+                        {
+                            int spriteIndex = oamAddress / 4;
+                            int y = oam[oamAddress - 3];
+                            int oldX = oam[oamAddress];
+                            int newX = value;
+                            CacheSpritesPerDot(spriteIndex, y, y, oldX, newX);
+                        }
+
+                        oam[oamAddress] = value;
                     }
 
-                    oam[oamAddress] = value;
                     oamAddress++;
                     oamAddress &= 0xFF;
                     break;
