@@ -501,6 +501,7 @@ namespace Emulation
                         // Calculate the index in the palette buffer based on the scanline and pixel position
                         int paletteColorIndex = (scanline * SCREEN_WIDTH) + dot;
 
+                        // Check if previous palette color has changed, if not don't update screen buffer
                         if (previousPaletteColor[paletteColorIndex] != paletteColor)
                         {
                             previousPaletteColor[paletteColorIndex] = paletteColor;
