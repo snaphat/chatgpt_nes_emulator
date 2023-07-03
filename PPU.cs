@@ -23,6 +23,7 @@ namespace Emulation
 
         // Screen buffer to store the rendered pixels
         private readonly byte[] screenBuffer = new byte[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
+        private readonly byte[] screenTest = new byte[SCREEN_WIDTH * SCREEN_HEIGHT];
 
         // PPU registers
         private ushort v; // Current VRAM address (15 bits)
@@ -393,13 +394,14 @@ namespace Emulation
 
         // Tile offset reset every 8 cycles
         int tileOffset;
+        int screenIndex;
 
         public void RenderCycle()
         {
-            if ((ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
+            // Check if we're rendering a visible scanline
+            if (scanline < SCREEN_HEIGHT)
             {
-                // Check if we're rendering a visible scanline
-                if (scanline < SCREEN_HEIGHT)
+                if ((ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
                 {
                     // Perform cycle-based rendering operations here
                     var paletteColor = 0;
@@ -407,9 +409,6 @@ namespace Emulation
                     // Render a pixel for each dot on a visible scanline
                     if (dot < SCREEN_WIDTH)
                     {
-                        // Calculate the index in the screen buffer based on the scanline and pixel position
-                        int screenIndex = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
-
                         // Render background
                         if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
                         {
@@ -598,23 +597,25 @@ namespace Emulation
                     }
                 }
 
-                if (scanline == 261)
+                if (dot < SCREEN_WIDTH)
+                    screenIndex += 3;
+            }
+            else if (scanline == 261 && (ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
+            {
+                if (dot is >= 280 and <= 304)
                 {
-                    if (dot is >= 280 and <= 304)
-                    {
-                        // At dots 280 to 304 of the pre-render scanline, copy vertical position from t to v
-                        // i.e., v: IHGF.ED CBA..... = t: IHGF.ED CBA.....
-                        v = (ushort)((v & ~0x7BE0) | (t & 0x7BE0));
-                    }
+                    // At dots 280 to 304 of the pre-render scanline, copy vertical position from t to v
+                    // i.e., v: IHGF.ED CBA..... = t: IHGF.ED CBA.....
+                    v = (ushort)((v & ~0x7BE0) | (t & 0x7BE0));
+                }
 
-                    if (dot >= 339)
-                    {
-                        // At the end of the pre-render scanline, copy t into v
-                        v = t;
+                if (dot >= 339)
+                {
+                    // At the end of the pre-render scanline, copy t into v
+                    v = t;
 
-                        // At the end of the pre-render scanline, clear sprite0 hit
-                        ppuStatus = (byte)(ppuStatus & ~SPRITE0_HIT_FLAG);
-                    }
+                    // At the end of the pre-render scanline, clear sprite0 hit
+                    ppuStatus = (byte)(ppuStatus & ~SPRITE0_HIT_FLAG);
                 }
             }
 
@@ -642,6 +643,7 @@ namespace Emulation
                 if (scanline >= SCANLINES_PER_FRAME)
                 {
                     scanline = 0;
+                    screenIndex = 0;
                 }
             }
         }
