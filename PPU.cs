@@ -396,6 +396,7 @@ namespace Emulation
         int tileOffset;
         int screenIndex;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void RenderCycle()
         {
             // Check if we're rendering a visible scanline
