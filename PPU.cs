@@ -37,8 +37,8 @@ namespace Emulation
         // State to avoid recomputations
         private byte patternDataLo;
         private byte patternDataHi;
-        private byte attributeData;
-        private int index;
+        private int paletteTableOffset;
+        private int screenIndex;
 
         private int spriteHeight = 8;
         private readonly ulong[,] spritesPerDot = new ulong[SCREEN_HEIGHT, SCREEN_WIDTH];
@@ -415,8 +415,7 @@ namespace Emulation
             var attributeByte = vram[attributeTableAddress];
 
             // Extract the correct bits
-            attributeData = (byte)((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03);
-
+            paletteTableOffset = PALETTE_TABLE_START + (((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
         }
 
         public int RenderBackground()
@@ -431,26 +430,22 @@ namespace Emulation
             // Check if the pixel is transparent
             if (paletteIndex == 0)
             {
-                screenBuffer[index] = 0;     // Blue component
-                screenBuffer[index + 1] = 0; // Green component
-                screenBuffer[index + 2] = 0; // Red component
+                screenBuffer[screenIndex] = 0;     // Blue component
+                screenBuffer[screenIndex + 1] = 0; // Green component
+                screenBuffer[screenIndex + 2] = 0; // Red component
                 return 0;
             }
 
-            // Apply the attribute data to determine the correct palette index
-            var paletteOffset = attributeData * 4;
-
             // Fetch the color from the correct palette and color index
-            paletteIndex = PALETTE_TABLE_START + paletteOffset + paletteIndex;
-            var paletteColor = vram[paletteIndex];
+            var paletteColor = vram[paletteTableOffset + paletteIndex];
 
             // Lookup pixel color
             var pixelColor = ColorMap.LUT[paletteColor];
 
             // Set the RGB values in the screen buffer at the calculated index
-            screenBuffer[index] = pixelColor[2];     // Blue component
-            screenBuffer[index + 1] = pixelColor[1]; // Green component
-            screenBuffer[index + 2] = pixelColor[0]; // Red component
+            screenBuffer[screenIndex] = pixelColor[2];     // Blue component
+            screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
+            screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
 
             // Return palette color before lookup
             return paletteColor;
@@ -525,9 +520,9 @@ namespace Emulation
                 var pixelColor = ColorMap.LUT[paletteColor];
 
                 // Set the RGB values in the screen buffer at the calculated index
-                screenBuffer[index] = pixelColor[2];     // Blue component
-                screenBuffer[index + 1] = pixelColor[1]; // Green component
-                screenBuffer[index + 2] = pixelColor[0]; // Red component
+                screenBuffer[screenIndex] = pixelColor[2];     // Blue component
+                screenBuffer[screenIndex + 1] = pixelColor[1]; // Green component
+                screenBuffer[screenIndex + 2] = pixelColor[0]; // Red component
 
                 break;
             }
@@ -550,7 +545,7 @@ namespace Emulation
                         int backgroundPaletteColor = 0;
 
                         // Calculate the index in the screen buffer based on the scanline and pixel position
-                        index = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
+                        screenIndex = (scanline * SCREEN_WIDTH * 3) + (dot * 3);
 
                         if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
                             backgroundPaletteColor = RenderBackground();
