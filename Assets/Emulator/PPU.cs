@@ -445,7 +445,8 @@ namespace Emulation
                             while (spriteMask != 0)
                             {
                                 var trailingZeros = Unity.Mathematics.math.tzcnt(spriteMask);
-                                spriteMask >>= trailingZeros + 1;
+                                spriteMask >>= trailingZeros;
+                                spriteMask >>= 1; // Down-shift by 1 separately from trailing Zeros to avoid shifting by 64 bits, which will result in unexpected results.
                                 spriteIndex += trailingZeros;
 
                                 var oamEntry = spriteIndex * 4;
