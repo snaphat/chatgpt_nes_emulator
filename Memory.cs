@@ -53,7 +53,7 @@
             else if (address <= 0x3FFF)
             {
                 // Access PPU registers
-                return ppu.ReadRegister(address);
+                return (byte)ppu.ReadRegister(address);
             }
             // Access PRG-ROM
             return memory[address];

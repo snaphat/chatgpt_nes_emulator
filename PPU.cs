@@ -10,33 +10,33 @@ namespace Emulation
         private int dot;
         private int scanline;
 
-        private readonly byte[] oam = new byte[OAM_SIZE]; // Object Attribute Memory
+        private readonly int[] oam = new int[OAM_SIZE]; // Object Attribute Memory
         private const int VRAM_SIZE = 0x4000;
-        private readonly byte[] vram = new byte[VRAM_SIZE];
+        private readonly int[] vram = new int[VRAM_SIZE];
 
         // PPU registers
-        public byte ppuControl; // PPU Control Register (0x2000)
-        private byte ppuMask; // PPU Mask Register (0x2001)
-        public byte ppuStatus; // PPU Status Register (0x2002)
-        private byte oamAddress; // OAM Address Register (0x2003)
-        private byte ppudataBuffer; // Internal read buffer for PPUDATA
+        public int ppuControl; // PPU Control Register (0x2000)
+        private int ppuMask; // PPU Mask Register (0x2001)
+        public int ppuStatus; // PPU Status Register (0x2002)
+        private int oamAddress; // OAM Address Register (0x2003)
+        private int ppudataBuffer; // Internal read buffer for PPUDATA
 
         // Screen buffer to store the rendered pixels
         private readonly byte[] screenBuffer = new byte[SCREEN_WIDTH * SCREEN_HEIGHT * 3];
         private readonly int[] previousPaletteColor = new int[SCREEN_WIDTH * SCREEN_HEIGHT]; // for caching the previous palette color
 
         // PPU registers
-        private ushort v; // Current VRAM address (15 bits)
-        private ushort t; // Temporary VRAM address (15 bits)
-        private byte x; // Fine X scroll (3 bits)
+        private int v; // Current VRAM address (15 bits)
+        private int t; // Temporary VRAM address (15 bits)
+        private int x; // Fine X scroll (3 bits)
         private bool w; // Write toggle flag
 
         // Open bus value
-        private byte openBus;
+        private int openBus;
 
         // State to avoid recomputations
-        private byte backgroundPatternDataLo;
-        private byte backgroundPatternDataHi;
+        private int backgroundPatternDataLo;
+        private int backgroundPatternDataHi;
         private int backgroundPaletteTableOffset;
         private int spriteHeight = 8;
         private readonly ulong[,] spritesPerDot = new ulong[SCREEN_HEIGHT, SCREEN_WIDTH];
@@ -57,9 +57,9 @@ namespace Emulation
         }
 
         // Read a byte from the specified PPU register
-        public byte DebugReadRegister(ushort address)
+        public byte DebugReadRegister(uint address)
         {
-            byte temp = openBus;
+            int temp = openBus;
             switch (address)
             {
                 case 0x2000: // PPU Control Register
@@ -99,12 +99,12 @@ namespace Emulation
                     break;
             }
 
-            return temp;
+            return (byte)temp;
         }
 
         // Read a byte from the specified PPU register
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public byte ReadRegister(ushort address)
+        public int ReadRegister(uint address)
         {
             switch (address & 0x7)
             {
@@ -115,7 +115,7 @@ namespace Emulation
                 case 0x2: // PPU Status Register
                     // Read and clear the vertical blank flag in the status register
                     openBus = ppuStatus;
-                    ppuStatus = (byte)(ppuStatus & ~IN_VBLANK_FLAG);
+                    ppuStatus &= ~IN_VBLANK_FLAG;
 
                     // Reset the address latch
                     w = false;
@@ -140,16 +140,16 @@ namespace Emulation
                         ppudataBuffer = vram[v];
 
                         // Increment the VRAM address based on the VRAM increment mode
-                        v += (ushort)((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1);
+                        v += (ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1;
                     }
                     else
                     {
                         // Read directly from VRAM and update the internal buffer
                         openBus = vram[v];
-                        ppudataBuffer = openBus;
+                        ppudataBuffer = vram[v];
 
                         // Increment the VRAM address based on the VRAM increment mode
-                        v += (ushort)((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1);
+                        v += (ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1;
                     }
                     v &= 0x7FFF; // Handle VRAM address overflow
                     break;
@@ -164,13 +164,13 @@ namespace Emulation
 
         // Write a byte value to the specified PPU register
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteRegister(ushort address, byte value)
+        public void WriteRegister(int address, int value)
         {
             openBus = value;
             switch (address & 0x7)
             {
                 case 0x0: // PPU Control Register
-                    ppuControl = (byte)(0xFC & value); // ignore bits 1-2 for storing ppuControl
+                    ppuControl = 0xFC & value; // ignore bits 1-2 for storing ppuControl
                     int newSpriteHeight = (ppuControl & SPRITE_SIZE_FLAG) != 0 ? 16 : 8;
                     if (newSpriteHeight != spriteHeight)
                     {
@@ -181,7 +181,7 @@ namespace Emulation
                     }
                     spriteHeight = newSpriteHeight;
 
-                    t = (ushort)((t & 0xF3FF) | ((value & 0x03) << 10)); // Update bits 10-11 of t with bits 1-2 of value
+                    t = (t & 0xF3FF) | ((value & 0x03) << 10); // Update bits 10-11 of t with bits 1-2 of value
                     break;
 
                 case 0x1: // PPU Mask Register
@@ -224,15 +224,15 @@ namespace Emulation
                     if (!w)
                     {
                         // First write to PPUSCROLL
-                        x = (byte)(value & 0x07); // Store fine X scroll
-                        t = (ushort)((t & 0xFFE0) | (value >> 3)); // Update coarse Y scroll in temporary VRAM address (t)
+                        x = value & 0x07; // Store fine X scroll
+                        t = (t & 0xFFE0) | (value >> 3); // Update coarse Y scroll in temporary VRAM address (t)
                         w = true;
                     }
                     else
                     {
                         // Second write to PPUSCROLL
-                        t = (ushort)((t & 0x8FFF) | ((value & 0x07) << 12)); // Update coarse X scroll in temporary VRAM address (t)
-                        t = (ushort)((t & 0xFC1F) | ((value & 0xF8) << 2)); // Update fine Y scroll in temporary VRAM address (t)
+                        t = (t & 0x8FFF) | ((value & 0x07) << 12); // Update coarse X scroll in temporary VRAM address (t)
+                        t = (t & 0xFC1F) | ((value & 0xF8) << 2); // Update fine Y scroll in temporary VRAM address (t)
                         w = false;
                     }
                     break;
@@ -241,13 +241,13 @@ namespace Emulation
                     if (!w)
                     {
                         // First write to PPUADDR
-                        t = (ushort)((t & 0x00FF) | ((value & 0x3F) << 8)); // Clear upper bits of temporary VRAM address (t)
+                        t = (t & 0x00FF) | ((value & 0x3F) << 8); // Clear upper bits of temporary VRAM address (t)
                         w = true;
                     }
                     else
                     {
                         // Second write to PPUADDR
-                        t = (ushort)((t & 0xFF00) | (value & 0xFF)); // Preserve the lower bits of temporary VRAM address (t)
+                        t = (t & 0xFF00) | (value & 0xFF); // Preserve the lower bits of temporary VRAM address (t)
                         v = t; // Copy temporary VRAM address (t) to current VRAM address (v)
                         w = false;
                     }
@@ -256,7 +256,7 @@ namespace Emulation
                 case 0x7: // VRAM Data Register
                     WriteVRAM(v, value);
                     // Increment v after writing
-                    v += (ushort)(((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0) ? 32 : 1);
+                    v += ((ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0) ? 32 : 1;
                     // Handle wrapping
                     v &= 0x7FFF; // Apply a bitwise AND operation to limit the address within the VRAM address space
                     break;
@@ -268,7 +268,7 @@ namespace Emulation
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void WriteVRAM(ushort address, byte value)
+        public void WriteVRAM(int address, int value)
         {
             if (address >= PATTERN_TABLE_0_START && address < PATTERN_TABLE_0_END)
             {
@@ -314,7 +314,7 @@ namespace Emulation
                 if ((address & 3) == 0)
                 {
                     // 0x3F00, 0x3F04, 0x3F08, 0x3F0C mirror to 0x3F10, 0x3F14, 0x3F18, 0x3F1C
-                    ushort mirrorAddress = (ushort)(address ^ 0x10);
+                    var mirrorAddress = address ^ 0x10;
                     vram[address] = value;
                     vram[mirrorAddress] = value;
                 }
@@ -534,7 +534,7 @@ namespace Emulation
                             // Increment coarse X scroll
                             if ((v & 0x1F) == 31) // If coarse X == 31
                             {
-                                v = (ushort)(v & ~0x1F); // coarse X = 0
+                                v &= ~0x1F; // coarse X = 0
                                 v ^= 0x400; // Switch horizontal nametable
                             }
                             else
@@ -545,7 +545,7 @@ namespace Emulation
                             // Start new 8x8 tile segment
 
                             // Calculate the name table address for the current coordinates
-                            var nameTableAddress = (ushort)(NAME_TABLE_0_START | (v & 0x0FFF));
+                            var nameTableAddress = NAME_TABLE_0_START | (v & 0x0FFF);
 
                             // Compute the tile index
                             var tileIndex = vram[nameTableAddress];
@@ -576,7 +576,7 @@ namespace Emulation
                         }
                         else
                         {
-                            v = (ushort)(v & ~0x7000); // fine Y = 0
+                            v &= ~0x7000; // fine Y = 0
                             int y = (v & 0x03E0) >> 5; // let y = coarse Y
                             if (y == 29)
                             {
@@ -591,17 +591,16 @@ namespace Emulation
                             {
                                 y++;  // coarse Y++
                             }
-                            v = (ushort)((v & ~0x03E0) | (y << 5)); // put coarse Y back into v
+                            v = (v & ~0x03E0) | (y << 5); // put coarse Y back into v
                         }
                     }
                     else if (dot == 257)
                     {
                         // At dot 257 of each scanline, copy horizontal position from t to v
                         // i.e., v: ....F.. ...EDCBA = t: ....F.. ...EDCBA
-                        v = (ushort)((v & ~0x041F) | (t & 0x041F));
+                        v = (v & ~0x041F) | (t & 0x041F);
                     }
                 }
-
             }
             else if (scanline == 261 && (ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
             {
@@ -609,7 +608,7 @@ namespace Emulation
                 {
                     // At dots 280 to 304 of the pre-render scanline, copy vertical position from t to v
                     // i.e., v: IHGF.ED CBA..... = t: IHGF.ED CBA.....
-                    v = (ushort)((v & ~0x7BE0) | (t & 0x7BE0));
+                    v = (v & ~0x7BE0) | (t & 0x7BE0);
                 }
 
                 if (dot >= 339)
@@ -618,7 +617,7 @@ namespace Emulation
                     v = t;
 
                     // At the end of the pre-render scanline, clear sprite0 hit
-                    ppuStatus = (byte)(ppuStatus & ~SPRITE0_HIT_FLAG);
+                    ppuStatus &= ~SPRITE0_HIT_FLAG;
                 }
             }
 
