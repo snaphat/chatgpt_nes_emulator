@@ -40,25 +40,26 @@ namespace Emulation
         public const int VBLANK_START_SCANLINE = 241;
 
         // PPUCONTROL Flags
-        public const byte VRAM_ADDRESS_INCREMENT_FLAG = 1 << 2;
-        public const byte SPRITE_PATTERN_TABLE_ADDRESS_FLAG = 1 << 3;
-        public const byte BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG = 1 << 4;
-        public const byte SPRITE_SIZE_FLAG = 1 << 5;
-        public const byte GENERATE_NMI_FLAG = 1 << 7;
+        public const int VRAM_ADDRESS_INCREMENT_FLAG = 1 << 2;
+        public const int SPRITE_PATTERN_TABLE_ADDRESS_FLAG = 1 << 3;
+        public const int BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG = 1 << 4;
+        public const int SPRITE_SIZE_FLAG = 1 << 5;
+        public const int GENERATE_NMI_FLAG = 1 << 7;
 
         // PPUMASK Flags
-        public const byte SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS = 1 << 1;
-        public const byte SHOW_SPRITES_IN_LEFTMOST_8_PIXELS = 1 << 2;
-        public const byte SHOW_BACKGROUND = 1 << 3;
-        public const byte SHOW_SPRITES = 1 << 4;
+        public const int SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS = 1 << 1;
+        public const int SHOW_SPRITES_IN_LEFTMOST_8_PIXELS = 1 << 2;
+        public const int SHOW_BACKGROUND = 1 << 3;
+        public const int SHOW_SPRITES = 1 << 4;
 
         // PPUSTATUS Flags
-        public const byte SPRITE0_HIT_FLAG = 1 << 6;
-        public const byte IN_VBLANK_FLAG = 1 << 7;
+        public const int SPRITE0_HIT_FLAG = 1 << 6;
+        public const int IN_VBLANK_FLAG = 1 << 7;
 
         // OAM Attribute Flags
-        public const byte SPRITE_PRIORITY_FLAG = 1 << 5;
-        public const byte FLIP_SPRITE_HORIZONTALLY_FLAG = 1 << 6;
-        public const byte FLIP_SPRITE_VERTICALLY_FLAG = 1 << 7;
+        public const int SPRITE_PALETTE = 0x3;
+        public const int SPRITE_PRIORITY_FLAG = 1 << 5;
+        public const int FLIP_SPRITE_HORIZONTALLY_FLAG = 1 << 6;
+        public const int FLIP_SPRITE_VERTICALLY_FLAG = 1 << 7;
     }
 }

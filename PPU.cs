@@ -492,7 +492,7 @@ namespace Emulation
                                 }
 
                                 // Fetch the color for the sprite palette
-                                paletteColor = vram[PALETTE_TABLE_SPRITE_START + ((spriteAttributes & 0x03) << 2) + pixelData];
+                                paletteColor = vram[PALETTE_TABLE_SPRITE_START + ((spriteAttributes & SPRITE_PALETTE) << 2) + pixelData];
 
                                 break;
                             }
