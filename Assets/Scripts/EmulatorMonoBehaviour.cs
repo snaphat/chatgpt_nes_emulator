@@ -25,6 +25,7 @@ public class EmulatorMonoBehaviour : MonoBehaviour
         spriteRenderer = GetComponent<SpriteRenderer>();
 
         Texture2D texture = new Texture2D(SCREEN_WIDTH, SCREEN_HEIGHT);
+        texture.filterMode = FilterMode.Point;
         spriteRenderer.sprite = Sprite.Create(texture, new Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT), new Vector2(0.5f, 0.5f), 1f);
         this.texture = spriteRenderer.sprite.texture;
 
