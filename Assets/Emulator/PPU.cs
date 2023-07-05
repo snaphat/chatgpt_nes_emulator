@@ -38,6 +38,7 @@ namespace Emulation
         // State to avoid recomputations
         private int backgroundPatternDataLo;
         private int backgroundPatternDataHi;
+        private int backgroundPaletteAttributeByte;
         private int backgroundPaletteTableOffset;
         private int spriteHeight = 8;
         private readonly ulong[,] spritesPerDot = new ulong[SCREEN_HEIGHT, SCREEN_WIDTH];
@@ -421,6 +422,39 @@ namespace Emulation
                         // Render background
                         if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
                         {
+
+                            if ((dot & 0x7) == 0) // Every 8th dot, which is every 8 pixels
+                            {
+                                // Calculate the name table address for the current coordinates
+                                var nameTableAddress = NAME_TABLE_0_START | (v & 0x0FFF);
+
+                                // Compute the tile index
+                                var tileIndex = vram[nameTableAddress];
+
+                                // Fetch the pixel data for the current tile and position
+                                var patternTableAddress = ((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12); // Use the fine Y scroll for the row within the tile
+
+                                // Get pattern table bytes
+                                backgroundPatternDataLo = vram[patternTableAddress];
+                                backgroundPatternDataHi = vram[patternTableAddress + 8];
+
+                                if ((dot & 0x1F) == 0) // Every 16th dot, which is every tile of the 2x2 tile group of 16x16 tiles
+                                {
+                                    if ((dot & 0x1F) == 0) // Every 32nd dot, which is every 2x2 tile group
+                                    {
+                                        // Compute the attribute table address
+                                        var attributeTableAddress = (nameTableAddress & 0x3c00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07);
+
+                                        // Read the attribute byte
+                                        backgroundPaletteAttributeByte = vram[attributeTableAddress];
+
+                                    }
+
+                                    // Extract the correct bits
+                                    backgroundPaletteTableOffset = PALETTE_TABLE_START + (((backgroundPaletteAttributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
+                                }
+                            }
+
                             // Select the correct pixel within the tile
                             var paletteIndex = (((backgroundPatternDataHi << x) & 0x80) >> 6) | (((backgroundPatternDataLo << x) & 0x80) >> 7); // Use the fine X scroll for the column within the tile
 
@@ -484,7 +518,7 @@ namespace Emulation
                                     continue;
                                 }
                                 // Check sprite priority
-                                if (paletteColor != 0 && (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0) // background palette
+                                if (paletteColor != 0 && (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0) // Priority (0: in front of background; 1: behind background)
                                 {
                                     spriteIndex++;
                                     continue;
@@ -543,30 +577,6 @@ namespace Emulation
                             {
                                 v++; // coarse X++
                             }
-
-                            // Start new 8x8 tile segment
-
-                            // Calculate the name table address for the current coordinates
-                            var nameTableAddress = NAME_TABLE_0_START | (v & 0x0FFF);
-
-                            // Compute the tile index
-                            var tileIndex = vram[nameTableAddress];
-
-                            // Fetch the pixel data for the current tile and position
-                            var patternTableAddress = ((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12); // Use the fine Y scroll for the row within the tile
-
-                            // Get pattern table bytes
-                            backgroundPatternDataLo = vram[patternTableAddress];
-                            backgroundPatternDataHi = vram[patternTableAddress + 8];
-
-                            // Compute the attribute table address
-                            var attributeTableAddress = (nameTableAddress & 0x3c00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07);
-
-                            // Read the attribute byte
-                            var attributeByte = vram[attributeTableAddress];
-
-                            // Extract the correct bits
-                            backgroundPaletteTableOffset = PALETTE_TABLE_START + (((attributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
                         }
                     }
                     else if (dot == 256)
