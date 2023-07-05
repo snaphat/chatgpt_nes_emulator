@@ -438,7 +438,7 @@ namespace Emulation
                                 backgroundPatternDataLo = vram[patternTableAddress];
                                 backgroundPatternDataHi = vram[patternTableAddress + 8];
 
-                                if ((dot & 0x1F) == 0) // Every 16th dot, which is every tile of the 2x2 tile group of 16x16 tiles
+                                if ((dot & 0x0F) == 0) // Every 16th dot, which is every tile of the 2x2 tile group of 16x16 tiles
                                 {
                                     if ((dot & 0x1F) == 0) // Every 32nd dot, which is every 2x2 tile group
                                     {
