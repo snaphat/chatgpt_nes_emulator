@@ -423,7 +423,8 @@ namespace Emulation
                         if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
                         {
 
-                            if ((dot & 0x7) == 0) // Every 8th dot, which is every 8 pixels
+                            // Preload the pattern table data the start of a line
+                            if (dot == 0)
                             {
                                 // Calculate the name table address for the current coordinates
                                 var nameTableAddress = NAME_TABLE_0_START | (v & 0x0FFF);
@@ -435,11 +436,27 @@ namespace Emulation
                                 var patternTableAddress = ((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12); // Use the fine Y scroll for the row within the tile
 
                                 // Get pattern table bytes
-                                backgroundPatternDataLo = vram[patternTableAddress];
-                                backgroundPatternDataHi = vram[patternTableAddress + 8];
+                                backgroundPatternDataLo = vram[patternTableAddress] << 8;
+                                backgroundPatternDataHi = vram[patternTableAddress + 8] << 8;
+                            }
+                            if ((dot & 0x7) == 0) // Load the next table data Every 8th dot, which is every 8 pixels
+                            {
+                                // Calculate the name table address for the next coordinates
+                                var nextNameTableAddress = NAME_TABLE_0_START | ((v + 1) & 0x1F) | (((v & ~0x1F) ^ (((v & 0x1F) == 0x1F) ? 0x400 : 0)) & 0xFFF);
 
-                                if ((dot & 0x0F) == 0) // Every 16th dot, which is every tile of the 2x2 tile group of 16x16 tiles
+                                // Compute the tile index
+                                var tileIndex = vram[nextNameTableAddress];
+
+                                // Fetch the pixel data for the current tile and position
+                                var patternTableAddress = ((ppuControl & BACKGROUND_PATTERN_TABLE_ADDRESS_FLAG) != 0 ? 0x1000 : 0x0000) | (tileIndex << 4) | (v >> 12); // Use the fine Y scroll for the row within the tile
+
+                                // Get pattern table bytes
+                                backgroundPatternDataLo |= vram[patternTableAddress];
+                                backgroundPatternDataHi |= vram[patternTableAddress + 8];
+
+                                if ((dot & 0x0F) == 0) // Load the background PaletteTableOffset every 16th dot, which is every tile of the 2x2 tile group of 16x16 tiles
                                 {
+                                    var nameTableAddress = NAME_TABLE_0_START | (v & 0x0FFF);
                                     if ((dot & 0x1F) == 0) // Every 32nd dot, which is every 2x2 tile group
                                     {
                                         // Compute the attribute table address
@@ -447,7 +464,6 @@ namespace Emulation
 
                                         // Read the attribute byte
                                         backgroundPaletteAttributeByte = vram[attributeTableAddress];
-
                                     }
 
                                     // Extract the correct bits
@@ -456,7 +472,7 @@ namespace Emulation
                             }
 
                             // Select the correct pixel within the tile
-                            var paletteIndex = (((backgroundPatternDataHi << x) & 0x80) >> 6) | (((backgroundPatternDataLo << x) & 0x80) >> 7); // Use the fine X scroll for the column within the tile
+                            var paletteIndex = (((backgroundPatternDataHi << x) & 0x8000) >> 14) | (((backgroundPatternDataLo << x) & 0x8000) >> 15); // Use the fine X scroll for the column within the tile
 
                             // Shift the pattern data registers each cycle to mimic the hardware shift registers
                             backgroundPatternDataHi <<= 1;
