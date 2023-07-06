@@ -38,8 +38,8 @@ namespace Emulation
         // State to avoid recomputations
         private int backgroundPatternDataLo;
         private int backgroundPatternDataHi;
-        private int backgroundPaletteAttributeByte;
         private int backgroundPaletteTableOffset;
+        private int backgroundPaletteTableOffsetNext;
         private int spriteHeight = 8;
         private readonly ulong[,] spritesPerDot = new ulong[SCREEN_HEIGHT, SCREEN_WIDTH];
 
@@ -422,7 +422,6 @@ namespace Emulation
                         // Render background
                         if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
                         {
-
                             // Preload the pattern table data the start of a line
                             if (dot == 0)
                             {
@@ -438,8 +437,19 @@ namespace Emulation
                                 // Get pattern table bytes
                                 backgroundPatternDataLo = vram[patternTableAddress] << 8;
                                 backgroundPatternDataHi = vram[patternTableAddress + 8] << 8;
+
+                                // Compute the attribute table address
+                                var attributeTableAddress = (nameTableAddress & 0x3c00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07);
+
+                                // Read the attribute byte
+                                var backgroundPaletteAttributeByte = vram[attributeTableAddress];
+
+                                // Extract the correct bits
+                                backgroundPaletteTableOffsetNext = PALETTE_TABLE_START + (((backgroundPaletteAttributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
                             }
-                            if ((dot & 0x7) == 0) // Load the next table data Every 8th dot, which is every 8 pixels
+
+                            var dotDiv8 = dot & 0x7;
+                            if (dotDiv8 == 0) // Load the next table data Every 8th dot, which is every 8 pixels
                             {
                                 // Calculate the name table address for the next coordinates
                                 var nextNameTableAddress = NAME_TABLE_0_START | ((v + 1) & 0x1F) | (((v & ~0x1F) ^ (((v & 0x1F) == 0x1F) ? 0x400 : 0)) & 0xFFF);
@@ -454,21 +464,16 @@ namespace Emulation
                                 backgroundPatternDataLo |= vram[patternTableAddress];
                                 backgroundPatternDataHi |= vram[patternTableAddress + 8];
 
-                                if ((dot & 0x0F) == 0) // Load the background PaletteTableOffset every 16th dot, which is every tile of the 2x2 tile group of 16x16 tiles
-                                {
-                                    var nameTableAddress = NAME_TABLE_0_START | (v & 0x0FFF);
-                                    if ((dot & 0x1F) == 0) // Every 32nd dot, which is every 2x2 tile group
-                                    {
-                                        // Compute the attribute table address
-                                        var attributeTableAddress = (nameTableAddress & 0x3c00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07);
+                                // Compute the attribute table address
+                                var attributeTableAddress = (nextNameTableAddress & 0x3c00) | 0x3C0 | ((nextNameTableAddress >> 4) & 0x38) | ((nextNameTableAddress >> 2) & 0x07);
 
-                                        // Read the attribute byte
-                                        backgroundPaletteAttributeByte = vram[attributeTableAddress];
-                                    }
+                                // Read the attribute byte
+                                var backgroundPaletteAttributeByte = vram[attributeTableAddress];
 
-                                    // Extract the correct bits
-                                    backgroundPaletteTableOffset = PALETTE_TABLE_START + (((backgroundPaletteAttributeByte >> ((((nameTableAddress & 0x40) >> 6) * 2) + ((nameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
-                                }
+                                backgroundPaletteTableOffset = backgroundPaletteTableOffsetNext;
+
+                                // Extract the correct bits
+                                backgroundPaletteTableOffsetNext = PALETTE_TABLE_START + (((backgroundPaletteAttributeByte >> ((((nextNameTableAddress & 0x40) >> 6) * 2) + ((nextNameTableAddress & 0x02) >> 1)) * 2) & 0x03) * 4);
                             }
 
                             // Select the correct pixel within the tile
@@ -482,7 +487,7 @@ namespace Emulation
                             if (paletteIndex != 0)
                             {
                                 // Fetch the color from the correct palette and color index
-                                paletteColor = vram[backgroundPaletteTableOffset + paletteIndex];
+                                paletteColor = vram[((dotDiv8 + x < 8) ? backgroundPaletteTableOffset : backgroundPaletteTableOffsetNext) + paletteIndex];
                             }
                         }
 
