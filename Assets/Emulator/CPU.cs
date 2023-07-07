@@ -850,7 +850,7 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsPageBoundaryCrossed_AbsoluteX()
         {
-            ushort address = (ushort)(ReadMemory(PC) | (ReadMemory((ushort)(PC + 1)) << 8));
+            ushort address = (ushort)(ReadMemory((ushort)(PC + 1)) | (ReadMemory((ushort)(PC + 2)) << 8));
             ushort finalAddress = (ushort)(address + X);
             return (address & 0xFF00) != (finalAddress & 0xFF00);
         }
@@ -865,7 +865,7 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsPageBoundaryCrossed_AbsoluteY()
         {
-            ushort address = (ushort)(ReadMemory(PC) | (ReadMemory((ushort)(PC + 1)) << 8));
+            ushort address = (ushort)(ReadMemory((ushort)(PC + 1)) | (ReadMemory((ushort)(PC + 2)) << 8));
             ushort finalAddress = (ushort)(address + Y);
             return (address & 0xFF00) != (finalAddress & 0xFF00);
         }
@@ -914,7 +914,7 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsPageBoundaryCrossed_IndirectY()
         {
-            byte zeroPageAddress = ReadMemory(PC);
+            byte zeroPageAddress = ReadMemory((ushort)(PC + 1));
             ushort address = ReadMemory(zeroPageAddress);
             address |= (ushort)(ReadMemory((byte)(zeroPageAddress + 1)) << 8);
             ushort finalAddress = (ushort)(address + Y);
@@ -930,7 +930,7 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int BranchCyclesNeeded_Relative(bool condition)
         {
-            sbyte offset = (sbyte)ReadMemory(PC);
+            sbyte offset = (sbyte)ReadMemory((ushort)(PC + 1));
             if (condition)
             {
                 ushort newAddress = (ushort)(PC + offset);
