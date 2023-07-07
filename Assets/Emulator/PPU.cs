@@ -438,7 +438,7 @@ namespace Emulation
                 if ((ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
                 {
                     // Perform cycle-based rendering operations here
-                    var paletteIndex = 0;
+                    var backgroundPaletteIndex = 0;
                     var paletteColor = 0;
 
                     // Render a pixel for each dot on a visible scanline
@@ -502,16 +502,26 @@ namespace Emulation
                             }
 
                             // Select the correct pixel within the tile
-                            paletteIndex = (((backgroundPatternDataHi << x) & 0x8000) >> 14) | (((backgroundPatternDataLo << x) & 0x8000) >> 15); // Use the fine X scroll for the column within the tile
+                            backgroundPaletteIndex = (((backgroundPatternDataHi << x) & 0x8000) >> 14) | (((backgroundPatternDataLo << x) & 0x8000) >> 15); // Use the fine X scroll for the column within the tile
 
                             // Shift the pattern data registers each cycle to mimic the hardware shift registers
                             backgroundPatternDataHi <<= 1;
                             backgroundPatternDataLo <<= 1;
 
                             // Fetch the color from the correct palette and color index
-                            paletteColor = vram[((dotDiv8 + x < 8) ? backgroundPaletteTableOffset : backgroundPaletteTableOffsetNext) + paletteIndex];
+                            if (backgroundPaletteIndex == 0) // if index is 0, use the first entry of the palette table
+                            {
+                                paletteColor = vram[PALETTE_TABLE_START];
+                            }
+                            else if (dotDiv8 + x < 8) // Check for fine-x scroll
+                            {
+                                paletteColor = vram[backgroundPaletteTableOffset + backgroundPaletteIndex];
+                            }
+                            else
+                            {
+                                paletteColor = vram[backgroundPaletteTableOffsetNext + backgroundPaletteIndex];
+                            }
                         }
-
                         // Render Sprites
                         if ((ppuMask & SHOW_SPRITES) != 0 && (dot >= 8 || (ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) != 0))
                         {
@@ -551,16 +561,16 @@ namespace Emulation
                                 var selectX = (spriteAttributes & FLIP_SPRITE_HORIZONTALLY_FLAG) != 0 ? 7 - (dot - spriteX) : dot - spriteX;
 
                                 // Compute the pixel data
-                                var pixelData = (((spritePatternDataHi << selectX) & 0x80) >> 6) | (((spritePatternDataLo << selectX) & 0x80) >> 7);
+                                var spritePaletteIndex = (((spritePatternDataHi << selectX) & 0x80) >> 6) | (((spritePatternDataLo << selectX) & 0x80) >> 7);
 
                                 // Skip transparent pixels (palette index 0)
-                                if (pixelData == 0)
+                                if (spritePaletteIndex == 0)
                                 {
                                     spriteIndex++;
                                     continue;
                                 }
                                 // Check sprite priority
-                                if (paletteIndex != 0 && (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0) // Priority (0: in front of background; 1: behind background)
+                                if (backgroundPaletteIndex != 0 && (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0) // Priority (0: in front of background; 1: behind background)
                                 {
                                     spriteIndex++;
                                     continue;
@@ -573,7 +583,7 @@ namespace Emulation
                                 }
 
                                 // Fetch the color for the sprite palette
-                                paletteColor = vram[PALETTE_TABLE_SPRITE_START + ((spriteAttributes & SPRITE_PALETTE) << 2) + pixelData];
+                                paletteColor = vram[PALETTE_TABLE_SPRITE_START + ((spriteAttributes & SPRITE_PALETTE) << 2) + spritePaletteIndex];
 
                                 break;
                             }
