@@ -50,9 +50,6 @@ namespace Emulation
         {
             this.emulator = emulator;
             this.memory = memory;
-
-            for (int i = 0; i < screenBuffer.Length; i++)
-                screenBuffer[i].a = 255;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -604,16 +601,12 @@ namespace Emulation
                                 var pixelColor = ColorMap.LUT[paletteColor];
 
                                 // Set the RGB values in the screen buffer at the calculated index
-                                screenBuffer[index].r = pixelColor[0]; // Blue component
-                                screenBuffer[index].g = pixelColor[1]; // Green component
-                                screenBuffer[index].b = pixelColor[2]; // Red component
+                                screenBuffer[index] = pixelColor;
                             }
                             else
                             {
                                 // Set the RGB values in the screen buffer at the calculated index
-                                screenBuffer[index].r = 0; // Blue component
-                                screenBuffer[index].g = 0; // Green component
-                                screenBuffer[index].b = 0; // Red component
+                                screenBuffer[index] = new Color32(0, 0, 0, 255);
                             }
                         }
 
