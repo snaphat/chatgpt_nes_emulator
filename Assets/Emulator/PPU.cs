@@ -569,17 +569,18 @@ namespace Emulation
                                     spriteIndex++;
                                     continue;
                                 }
+
+                                // Check for sprite 0 hit (check should be before checking sprite priority)
+                                if (spriteIndex == 0 && backgroundPaletteIndex != 0)
+                                {
+                                    ppuStatus |= SPRITE0_HIT_FLAG;
+                                }
+
                                 // Check sprite priority
                                 if (backgroundPaletteIndex != 0 && (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0) // Priority (0: in front of background; 1: behind background)
                                 {
                                     spriteIndex++;
                                     continue;
-                                }
-
-                                // Check for sprite 0 hit
-                                if (spriteIndex == 0 && paletteColor != 0)
-                                {
-                                    ppuStatus |= SPRITE0_HIT_FLAG;
                                 }
 
                                 // Fetch the color for the sprite palette
