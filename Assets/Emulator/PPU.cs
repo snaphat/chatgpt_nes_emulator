@@ -339,20 +339,15 @@ namespace Emulation
                     vram[address - (NAME_TABLE_SIZE * 2)] = value;
                 }
             }
-
             else if (address >= PALETTE_TABLE_START && address < PALETTE_TABLE_END)
             {
                 // Handle mirroring in Palette Table
+                vram[address] = value;
                 if ((address & 3) == 0)
                 {
                     // 0x3F00, 0x3F04, 0x3F08, 0x3F0C mirror to 0x3F10, 0x3F14, 0x3F18, 0x3F1C
                     var mirrorAddress = address ^ 0x10;
-                    vram[address] = value;
                     vram[mirrorAddress] = value;
-                }
-                else
-                {
-                    vram[address] = value;
                 }
             }
         }
@@ -443,6 +438,7 @@ namespace Emulation
                 if ((ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
                 {
                     // Perform cycle-based rendering operations here
+                    var paletteIndex = 0;
                     var paletteColor = 0;
 
                     // Render a pixel for each dot on a visible scanline
@@ -506,18 +502,14 @@ namespace Emulation
                             }
 
                             // Select the correct pixel within the tile
-                            var paletteIndex = (((backgroundPatternDataHi << x) & 0x8000) >> 14) | (((backgroundPatternDataLo << x) & 0x8000) >> 15); // Use the fine X scroll for the column within the tile
+                            paletteIndex = (((backgroundPatternDataHi << x) & 0x8000) >> 14) | (((backgroundPatternDataLo << x) & 0x8000) >> 15); // Use the fine X scroll for the column within the tile
 
                             // Shift the pattern data registers each cycle to mimic the hardware shift registers
                             backgroundPatternDataHi <<= 1;
                             backgroundPatternDataLo <<= 1;
 
-                            // Check if the pixel is transparent
-                            if (paletteIndex != 0)
-                            {
-                                // Fetch the color from the correct palette and color index
-                                paletteColor = vram[((dotDiv8 + x < 8) ? backgroundPaletteTableOffset : backgroundPaletteTableOffsetNext) + paletteIndex];
-                            }
+                            // Fetch the color from the correct palette and color index
+                            paletteColor = vram[((dotDiv8 + x < 8) ? backgroundPaletteTableOffset : backgroundPaletteTableOffsetNext) + paletteIndex];
                         }
 
                         // Render Sprites
@@ -568,7 +560,7 @@ namespace Emulation
                                     continue;
                                 }
                                 // Check sprite priority
-                                if (paletteColor != 0 && (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0) // Priority (0: in front of background; 1: behind background)
+                                if (paletteIndex != 0 && (spriteAttributes & SPRITE_PRIORITY_FLAG) != 0) // Priority (0: in front of background; 1: behind background)
                                 {
                                     spriteIndex++;
                                     continue;
