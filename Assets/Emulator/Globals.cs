@@ -13,13 +13,13 @@ namespace Emulation
         public const int PATTERN_TABLE_1_START = 0x1000;
         public const int PATTERN_TABLE_1_END = 0x2000;
         public const int NAME_TABLE_0_START = 0x2000;
-        public const int NAME_TABLE_0_END = 0x23FF;
+        public const int NAME_TABLE_0_END = 0x2400;
         public const int NAME_TABLE_1_START = 0x2400;
-        public const int NAME_TABLE_1_END = 0x27FF;
+        public const int NAME_TABLE_1_END = 0x2800;
         public const int NAME_TABLE_2_START = 0x2800;
-        public const int NAME_TABLE_2_END = 0x2BFF;
+        public const int NAME_TABLE_2_END = 0x2C00;
         public const int NAME_TABLE_3_START = 0x2C00;
-        public const int NAME_TABLE_3_END = 0x2FFF;
+        public const int NAME_TABLE_3_END = 0x3000;
         public const int PALETTE_TABLE_START = 0x3F00;
         public const int PALETTE_TABLE_SPRITE_START = 0x3F10;
         public const int PALETTE_TABLE_END = 0x3F20;

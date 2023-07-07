@@ -283,36 +283,63 @@ namespace Emulation
             {
                 vram[address] = value;
             }
-            else if ((address >= NAME_TABLE_0_START && address < NAME_TABLE_0_END) || (address >= NAME_TABLE_2_START && address < NAME_TABLE_2_END))
+            else if (address >= NAME_TABLE_0_START && address < NAME_TABLE_0_END)
             {
+                vram[address] = value;
                 if (memory.mirrorArrangement == HORIZONTAL_MIRRORING)
                 {
                     // Mirror horizontally - left to right
-                    vram[address] = value;
-                    vram[address + NAME_TABLE_1_START - NAME_TABLE_0_START] = value;  // Horizontal Mirror
+                    vram[address + NAME_TABLE_SIZE] = value;
                 }
-                else
+                else if (memory.mirrorArrangement == VERTICAL_MIRRORING)
                 {
                     // Mirror vertically - top to bottom
-                    vram[address] = value;
-                    vram[address + NAME_TABLE_2_START - NAME_TABLE_0_START] = value;  // Vertical Mirror
+                    vram[address + (NAME_TABLE_SIZE * 2)] = value;
                 }
             }
-            else if ((address >= NAME_TABLE_1_START && address < NAME_TABLE_1_END) || (address >= NAME_TABLE_3_START && address < NAME_TABLE_3_END))
+            else if (address >= NAME_TABLE_1_START && address < NAME_TABLE_1_END)
             {
+                vram[address] = value;
                 if (memory.mirrorArrangement == HORIZONTAL_MIRRORING)
                 {
                     // Mirror horizontally - right to left
-                    vram[address] = value;
-                    vram[address - NAME_TABLE_1_START + NAME_TABLE_0_START] = value;  // Horizontal Mirror
+                    vram[address - NAME_TABLE_SIZE] = value;
                 }
-                else
+                else if (memory.mirrorArrangement == VERTICAL_MIRRORING)
                 {
                     // Mirror vertically - bottom to top
-                    vram[address] = value;
-                    vram[address - NAME_TABLE_3_START + NAME_TABLE_1_START] = value;  // Vertical Mirror
+                    vram[address + (NAME_TABLE_SIZE * 2)] = value;
                 }
             }
+            else if (address >= NAME_TABLE_2_START && address < NAME_TABLE_2_END)
+            {
+                vram[address] = value;
+                if (memory.mirrorArrangement == HORIZONTAL_MIRRORING)
+                {
+                    // Mirror horizontally - left to right
+                    vram[address + NAME_TABLE_SIZE] = value;
+                }
+                else if (memory.mirrorArrangement == VERTICAL_MIRRORING)
+                {
+                    // Mirror vertically - top to bottom
+                    vram[address - (NAME_TABLE_SIZE * 2)] = value;
+                }
+            }
+            else if (address >= NAME_TABLE_3_START && address < NAME_TABLE_3_END)
+            {
+                vram[address] = value;
+                if (memory.mirrorArrangement == HORIZONTAL_MIRRORING)
+                {
+                    // Mirror horizontally - right to left
+                    vram[address - NAME_TABLE_SIZE] = value;
+                }
+                else if (memory.mirrorArrangement == VERTICAL_MIRRORING)
+                {
+                    // Mirror vertically - bottom to top
+                    vram[address - (NAME_TABLE_SIZE * 2)] = value;
+                }
+            }
+
             else if (address >= PALETTE_TABLE_START && address < PALETTE_TABLE_END)
             {
                 // Handle mirroring in Palette Table
@@ -439,7 +466,7 @@ namespace Emulation
                                 backgroundPatternDataHi = vram[patternTableAddress + 8] << 8;
 
                                 // Compute the attribute table address
-                                var attributeTableAddress = (nameTableAddress & 0x3c00) | 0x3C0 | ((nameTableAddress >> 4) & 0x38) | ((nameTableAddress >> 2) & 0x07);
+                                var attributeTableAddress = (nameTableAddress & 0x3c00) | 0x3C0 | ((nameTableAddress & 0x380) >> 4) | ((nameTableAddress & 0x1C) >> 2);
 
                                 // Read the attribute byte
                                 var backgroundPaletteAttributeByte = vram[attributeTableAddress];
@@ -465,7 +492,7 @@ namespace Emulation
                                 backgroundPatternDataHi |= vram[patternTableAddress + 8];
 
                                 // Compute the attribute table address
-                                var attributeTableAddress = (nextNameTableAddress & 0x3c00) | 0x3C0 | ((nextNameTableAddress >> 4) & 0x38) | ((nextNameTableAddress >> 2) & 0x07);
+                                var attributeTableAddress = (nextNameTableAddress & 0x3c00) | 0x3C0 | ((nextNameTableAddress & 0x380) >> 4) | ((nextNameTableAddress & 0x1C) >> 2);
 
                                 // Read the attribute byte
                                 var backgroundPaletteAttributeByte = vram[attributeTableAddress];
