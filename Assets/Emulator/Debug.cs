@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Text;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 
 namespace Emulation
 {
@@ -189,15 +189,17 @@ namespace Emulation
 
         public static void DisplayInstruction(CPU cpu)
         {
-            string instructionDetails = $"A:{cpu.A:X2} X:{cpu.X:X2} Y:{cpu.Y:X2} S:{cpu.S:X2} P:{GetPFlags(cpu)} $00:{cpu.PC - 1:X4}: {InstructionHexToString(cpu)}";
+            if (cpu.opcode > 0xff)
+                return;
+            string instructionDetails = $"A:{cpu.A:X2} X:{cpu.X:X2} Y:{cpu.Y:X2} S:{cpu.S:X2} P:{GetPFlags(cpu)} $00:{cpu.debugOpcodeAddress:X4}: {InstructionHexToString(cpu)}";
             writer.WriteLine(instructionDetails);
-            Console.WriteLine(instructionDetails);
+            //Console.WriteLine(instructionDetails);
         }
 
         public static void DisplayLine(string str)
         {
             writer.WriteLine(str);
-            Console.WriteLine(str);
+            //Console.WriteLine(str);
         }
 
         private static string GetPFlags(CPU cpu)
@@ -216,7 +218,7 @@ namespace Emulation
 
         public static string InstructionHexToString(CPU cpu)
         {
-            byte opcode = cpu.DebugReadMemory((ushort)(cpu.PC - 1));
+            byte opcode = cpu.DebugReadMemory(cpu.debugOpcodeAddress);
 
             if (opcodeMap.TryGetValue(opcode, out var opcodeData))
             {
@@ -254,15 +256,15 @@ namespace Emulation
 
         private static string GetImmediateAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte immediateValue = cpu.DebugReadMemory(cpu.PC);
+            byte immediateValue = cpu.DebugReadMemory(cpu.debugOpcodeAddress);
 
             return $"{opcode:X2} {immediateValue:X2}     {mnemonic} #${immediateValue:X2}";
         }
 
         private static string GetAbsoluteAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte lowByte = cpu.DebugReadMemory(cpu.PC);
-            byte highByte = cpu.DebugReadMemory((ushort)(cpu.PC + 1));
+            byte lowByte = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 1));
+            byte highByte = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 2));
             ushort absoluteAddress = BitConverter.ToUInt16(new[] { lowByte, highByte });
 
             var opString = $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4}";
@@ -273,16 +275,16 @@ namespace Emulation
 
         private static string GetRelativeAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte relativeOffset = cpu.DebugReadMemory(cpu.PC);
-            ushort targetAddress = (ushort)(cpu.PC + 1 + (sbyte)relativeOffset);
+            byte relativeOffset = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 1));
+            ushort targetAddress = (ushort)((ushort)(cpu.debugOpcodeAddress + 1) + (sbyte)relativeOffset);
 
             return $"{opcode:X2} {relativeOffset:X2}     {mnemonic} ${targetAddress:X4}";
         }
 
         private static string GetAbsoluteXAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte lowByte = cpu.DebugReadMemory(cpu.PC);
-            byte highByte = cpu.DebugReadMemory((ushort)(cpu.PC + 1));
+            byte lowByte = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 1));
+            byte highByte = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 2));
             ushort absoluteAddress = (ushort)(BitConverter.ToUInt16(new[] { lowByte, highByte }) + cpu.X);
 
             var opString = $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4},X";
@@ -293,8 +295,8 @@ namespace Emulation
 
         private static string GetAbsoluteYAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte lowByte = cpu.DebugReadMemory(cpu.PC);
-            byte highByte = cpu.DebugReadMemory((ushort)(cpu.PC + 1));
+            byte lowByte = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 1));
+            byte highByte = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 2));
             ushort absoluteAddress = (ushort)(BitConverter.ToUInt16(new[] { lowByte, highByte }) + cpu.Y);
 
             var opString = $"{opcode:X2} {lowByte:X2} {highByte:X2}  {mnemonic} ${absoluteAddress:X4},Y";
@@ -305,7 +307,7 @@ namespace Emulation
 
         private static string GetZeroPageAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte zeroPageAddress = cpu.DebugReadMemory(cpu.PC);
+            byte zeroPageAddress = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 1));
 
             var opString = $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2}";
             if (mnemonic is "LDA" or "LDX" or "LDY" or "STA" or "STX" or "STY" or "ADC" or "SBC" or "INC" or "DEC")
@@ -315,7 +317,7 @@ namespace Emulation
 
         private static string GetZeroPageXAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte zeroPageAddress = cpu.DebugReadMemory(cpu.PC);
+            byte zeroPageAddress = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 1));
             byte effectiveAddress = (byte)(zeroPageAddress + cpu.X);
 
             var opString = $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2},X @ ${effectiveAddress:X2}";
@@ -326,7 +328,7 @@ namespace Emulation
 
         private static string GetZeroPageYAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte zeroPageAddress = cpu.DebugReadMemory(cpu.PC);
+            byte zeroPageAddress = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 1));
             byte effectiveAddress = (byte)(zeroPageAddress + cpu.Y);
 
             var opString = $"{opcode:X2} {zeroPageAddress:X2}     {mnemonic} ${zeroPageAddress:X2},Y @ ${effectiveAddress:X2}";
@@ -337,7 +339,7 @@ namespace Emulation
 
         private static string GetIndexedIndirectAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte zeroPageAddress = cpu.DebugReadMemory(cpu.PC);
+            byte zeroPageAddress = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 1));
             byte effectiveAddress = (byte)(zeroPageAddress + cpu.X);
             ushort indirectAddress = (ushort)(cpu.DebugReadMemory((ushort)(effectiveAddress + 1)) << 8 | cpu.DebugReadMemory(effectiveAddress));
 
@@ -349,7 +351,7 @@ namespace Emulation
 
         private static string GetIndirectIndexedAddressString(CPU cpu, byte opcode, string mnemonic)
         {
-            byte zeroPageAddress = cpu.DebugReadMemory(cpu.PC);
+            byte zeroPageAddress = cpu.DebugReadMemory((ushort)(cpu.debugOpcodeAddress + 1));
             ushort indirectAddress = (ushort)(cpu.DebugReadMemory((ushort)(zeroPageAddress + 1)) << 8 | cpu.DebugReadMemory(zeroPageAddress));
             ushort effectiveAddress = (ushort)(indirectAddress + cpu.Y);
 
