@@ -26,7 +26,8 @@
         private byte dmaAddress;
         public int dmaCycleCounter;
 
-        private int opcode;
+        public int opcode;
+        public ushort debugOpcodeAddress;
 
         // Allocate an array for the opcode jump table
         private readonly Action[] opcodeExecuteJumpTable = new Action[258];
@@ -656,6 +657,11 @@
 
             InitializeSetCyclesJumpTable();
             InitializeExecutionJumpTable();
+
+            // Lookup next operation
+            opcode = ReadMemory(PC);
+            debugOpcodeAddress = PC;
+            opcodeSetCyclesJumpTable[opcode]();
         }
 
         private void UnknownOpcodeHandler()
@@ -713,6 +719,7 @@
 
             // Lookup next operation
             opcode = ReadMemory(PC);
+            debugOpcodeAddress = PC;
             opcodeSetCyclesJumpTable[opcode]();
         }
 
