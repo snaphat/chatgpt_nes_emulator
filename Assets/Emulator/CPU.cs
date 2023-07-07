@@ -2789,9 +2789,6 @@
 
         private void BEQ_Relative_SetCycles()
         {
-            int aaa;
-            if (debugOpcodeAddress != 0xe0d8)
-                aaa = 1;
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
             remainingCycles += BranchCyclesNeeded_Relative(Z);
         }
