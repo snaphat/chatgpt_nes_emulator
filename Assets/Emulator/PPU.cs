@@ -24,7 +24,6 @@ namespace Emulation
 
         // Screen buffer to store the rendered pixels
         private readonly Color32[] screenBuffer = new Color32[SCREEN_WIDTH * SCREEN_HEIGHT];
-        private readonly int[] previousPaletteColor = new int[SCREEN_WIDTH * SCREEN_HEIGHT]; // for caching the previous palette color
 
         // PPU registers
         private int v; // Current VRAM address (15 bits)
@@ -590,25 +589,8 @@ namespace Emulation
                         // Calculate the index in the palette buffer based on the scanline and pixel position
                         int index = ((SCREEN_HEIGHT - 1 - scanline) * SCREEN_WIDTH) + dot;
 
-                        // Check if previous palette color has changed, if not don't update screen buffer
-                        if (previousPaletteColor[index] != paletteColor)
-                        {
-                            previousPaletteColor[index] = paletteColor;
-
-                            // Lookup pixel color
-                            if (paletteColor != 0)
-                            {
-                                var pixelColor = ColorMap.LUT[paletteColor];
-
-                                // Set the RGB values in the screen buffer at the calculated index
-                                screenBuffer[index] = pixelColor;
-                            }
-                            else
-                            {
-                                // Set the RGB values in the screen buffer at the calculated index
-                                screenBuffer[index] = new Color32(0, 0, 0, 255);
-                            }
-                        }
+                        // Set the RGB values in the screen buffer at the calculated index
+                        screenBuffer[index] = ColorMap.LUT[paletteColor];
 
                         // Every 8 cycles (dots), increment v and start a new tile.
                         if ((dot & 7) == 7)
