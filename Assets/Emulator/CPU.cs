@@ -850,7 +850,8 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsPageBoundaryCrossed_AbsoluteX()
         {
-            ushort address = (ushort)(ReadMemory((ushort)(PC + 1)) | (ReadMemory((ushort)(PC + 2)) << 8));
+            var nextPC = (ushort)(PC + 1); // +1 to to pass opcode
+            ushort address = (ushort)(ReadMemory(nextPC++) | (ReadMemory(nextPC++) << 8));
             ushort finalAddress = (ushort)(address + X);
             return (address & 0xFF00) != (finalAddress & 0xFF00);
         }
@@ -865,7 +866,8 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsPageBoundaryCrossed_AbsoluteY()
         {
-            ushort address = (ushort)(ReadMemory((ushort)(PC + 1)) | (ReadMemory((ushort)(PC + 2)) << 8));
+            var nextPC = (ushort)(PC + 1); // +1 to to pass opcode
+            ushort address = (ushort)(ReadMemory(nextPC++) | (ReadMemory(nextPC++) << 8));
             ushort finalAddress = (ushort)(address + Y);
             return (address & 0xFF00) != (finalAddress & 0xFF00);
         }
@@ -914,7 +916,8 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsPageBoundaryCrossed_IndirectY()
         {
-            byte zeroPageAddress = ReadMemory((ushort)(PC + 1));
+            var nextPC = (ushort)(PC + 1); // +1 to pass opcode
+            byte zeroPageAddress = ReadMemory(nextPC++);
             ushort address = ReadMemory(zeroPageAddress);
             address |= (ushort)(ReadMemory((byte)(zeroPageAddress + 1)) << 8);
             ushort finalAddress = (ushort)(address + Y);
@@ -930,11 +933,12 @@
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int BranchCyclesNeeded_Relative(bool condition)
         {
-            sbyte offset = (sbyte)ReadMemory((ushort)(PC + 1));
+            var nextPC = (ushort)(PC + 1); // +1 to to pass opcode
+            sbyte offset = (sbyte)ReadMemory(nextPC++); // +1 to pass relative offset
             if (condition)
             {
-                ushort newAddress = (ushort)(PC + offset);
-                if ((PC & 0xFF00) != (newAddress & 0xFF00))
+                ushort newAddress = (ushort)(short)(nextPC + offset);
+                if ((nextPC & 0xFF00) != (newAddress & 0xFF00))
                 {
                     // Crossing a page boundary
                     return 2;
@@ -2785,6 +2789,9 @@
 
         private void BEQ_Relative_SetCycles()
         {
+            int aaa;
+            if (debugOpcodeAddress != 0xe0d8)
+                aaa = 1;
             remainingCycles = 2; // +1 if branch succeeds, +2 if to a new page
             remainingCycles += BranchCyclesNeeded_Relative(Z);
         }
