@@ -47,17 +47,21 @@ namespace Emulation
         public const int GENERATE_NMI_FLAG = 1 << 7;
 
         // PPUMASK Flags
-        public const int SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS = 1 << 1;
-        public const int SHOW_SPRITES_IN_LEFTMOST_8_PIXELS = 1 << 2;
-        public const int SHOW_BACKGROUND = 1 << 3;
-        public const int SHOW_SPRITES = 1 << 4;
+        public const int GREYSCALE_FLAG = 1 << 0;
+        public const int SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS_FLAG = 1 << 1;
+        public const int SHOW_SPRITES_IN_LEFTMOST_8_PIXELS_FLAG = 1 << 2;
+        public const int SHOW_BACKGROUND_FLAG = 1 << 3;
+        public const int SHOW_SPRITES_FLAG = 1 << 4;
+        public const int EMPHASIZE_RED_FLAG = 1 << 5;
+        public const int EMPHASIZE_GREEN_FLAG = 1 << 6;
+        public const int EMPHASIZE_BLUE_FLAG = 1 << 7;
 
         // PPUSTATUS Flags
         public const int SPRITE0_HIT_FLAG = 1 << 6;
         public const int IN_VBLANK_FLAG = 1 << 7;
 
         // OAM Attribute Flags
-        public const int SPRITE_PALETTE = 0x3;
+        public const int SPRITE_PALETTE_FLAG = 1 << 1 | 1 << 0;
         public const int SPRITE_PRIORITY_FLAG = 1 << 5;
         public const int FLIP_SPRITE_HORIZONTALLY_FLAG = 1 << 6;
         public const int FLIP_SPRITE_VERTICALLY_FLAG = 1 << 7;

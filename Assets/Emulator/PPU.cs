@@ -92,6 +92,9 @@ namespace Emulation
                     {
                         // Read directly from VRAM and update the internal buffer
                         temp = vram[v];
+
+                        if ((ppuMask & GREYSCALE_FLAG) != 0)
+                            temp &= 0x30;
                     }
                     break;
 
@@ -143,11 +146,17 @@ namespace Emulation
                         // Increment the VRAM address based on the VRAM increment mode
                         v += (ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1;
                     }
-                    else
+                    else // Reading from Palette Memory (0x3F00 to 0x3FFF)
                     {
                         // Read directly from VRAM and update the internal buffer
                         openBus = vram[v];
-                        ppudataBuffer = vram[v];
+
+                        // Greyscale if enabled
+                        if ((ppuMask & GREYSCALE_FLAG) != 0)
+                            openBus &= 0x30;
+
+                        // Update buffer
+                        ppudataBuffer = openBus;
 
                         // Increment the VRAM address based on the VRAM increment mode
                         v += (ppuControl & VRAM_ADDRESS_INCREMENT_FLAG) != 0 ? 32 : 1;
@@ -431,7 +440,7 @@ namespace Emulation
             // Check if we're rendering a visible scanline
             if (scanline < SCREEN_HEIGHT)
             {
-                if ((ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
+                if ((ppuMask & (SHOW_BACKGROUND_FLAG | SHOW_SPRITES_FLAG)) != 0)
                 {
                     // Perform cycle-based rendering operations here
                     var backgroundPaletteIndex = 0;
@@ -441,7 +450,7 @@ namespace Emulation
                     if (dot < SCREEN_WIDTH)
                     {
                         // Render background
-                        if ((ppuMask & SHOW_BACKGROUND) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS) != 0))
+                        if ((ppuMask & SHOW_BACKGROUND_FLAG) != 0 && (dot >= 8 || (ppuMask & SHOW_BACKGROUND_IN_LEFTMOST_8_PIXELS_FLAG) != 0))
                         {
                             // Preload the pattern table data the start of a line
                             if (dot == 0)
@@ -517,9 +526,14 @@ namespace Emulation
                             {
                                 paletteColor = vram[backgroundPaletteTableOffsetNext + backgroundPaletteIndex];
                             }
+
+                            // Greyscale if enabled
+                            if ((ppuMask & GREYSCALE_FLAG) != 0)
+                                paletteColor &= 0x30;
+
                         }
                         // Render Sprites
-                        if ((ppuMask & SHOW_SPRITES) != 0 && (dot >= 8 || (ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS) != 0))
+                        if ((ppuMask & SHOW_SPRITES_FLAG) != 0 && (dot >= 8 || (ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS_FLAG) != 0))
                         {
                             ulong spriteMask = spritesPerDot[scanline, dot];
 
@@ -580,7 +594,11 @@ namespace Emulation
                                 }
 
                                 // Fetch the color for the sprite palette
-                                paletteColor = vram[PALETTE_TABLE_SPRITE_START + ((spriteAttributes & SPRITE_PALETTE) << 2) + spritePaletteIndex];
+                                paletteColor = vram[PALETTE_TABLE_SPRITE_START + ((spriteAttributes & SPRITE_PALETTE_FLAG) << 2) + spritePaletteIndex];
+
+                                // Greyscale if enabled
+                                if ((ppuMask & GREYSCALE_FLAG) != 0)
+                                    paletteColor &= 0x30;
 
                                 break;
                             }
@@ -642,7 +660,7 @@ namespace Emulation
                     }
                 }
             }
-            else if (scanline == 261 && (ppuMask & (SHOW_BACKGROUND | SHOW_SPRITES)) != 0)
+            else if (scanline == 261 && (ppuMask & (SHOW_BACKGROUND_FLAG | SHOW_SPRITES_FLAG)) != 0)
             {
                 if (dot is >= 280 and <= 304)
                 {
