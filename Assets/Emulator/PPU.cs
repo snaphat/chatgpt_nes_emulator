@@ -362,7 +362,7 @@ namespace Emulation
         {
             for (int i = 0; i < 64; i++)
             {
-                int yAddress = oam[i * 4];
+                int yAddress = oam[i * 4] + 1;
                 int xAddress = oam[(i * 4) + 3];
                 ulong bitmask = ~(1UL << i); // Create a bitmask with the i-th bit cleared
 
@@ -381,7 +381,7 @@ namespace Emulation
         {
             for (int i = 0; i < 64; i++)
             {
-                int yAddress = oam[i * 4];
+                int yAddress = oam[i * 4] + 1;
                 int xAddress = oam[(i * 4) + 3];
                 ulong bitmask = 1UL << i; // Create a bitmask with only the i-th bit set
 
@@ -402,6 +402,7 @@ namespace Emulation
             ulong spriteMask = 1UL << i;
 
             // Calculate the dot range based on old and new X and Y coordinates
+            oldY++; // Sprites are rendered with 1 scanline delay
             int endX = oldX + 8;
             if (SCREEN_WIDTH < endX) endX = SCREEN_WIDTH;
             int endY = oldY + spriteHeight;
@@ -417,6 +418,7 @@ namespace Emulation
             }
 
             // Calculate the dot range for the new X and Y coordinates
+            newY++; // Sprites are rendered with 1 scanline delay
             endX = newX + 8;
             if (SCREEN_WIDTH < endX) endX = SCREEN_WIDTH;
             endY = newY + spriteHeight;
@@ -534,7 +536,7 @@ namespace Emulation
                                 var oamEntry = spriteIndex * 4;
 
                                 // Get sprite X, Y, sprite tile, and attributes from OAM
-                                var spriteY = oam[oamEntry + 0];
+                                var spriteY = oam[oamEntry + 0] + 1; // Sprites are rendered with 1 scanline delay
                                 var spriteTile = oam[oamEntry + 1];
                                 var spriteAttributes = oam[oamEntry + 2];
                                 var spriteX = oam[oamEntry + 3];
