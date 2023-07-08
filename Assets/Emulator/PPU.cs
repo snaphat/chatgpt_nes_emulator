@@ -45,10 +45,14 @@ namespace Emulation
         private Emulator emulator = null!;
         private Memory memory = null!;
 
+        private static Color32[] colorLUT;
+
         public void Initialize(Emulator emulator, Memory memory)
         {
             this.emulator = emulator;
             this.memory = memory;
+
+            colorLUT = ColorMap.LUT_000;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -196,6 +200,20 @@ namespace Emulation
 
                 case 0x1: // PPU Mask Register
                     ppuMask = value;
+
+                    // Get emphasis bits in BGR order
+                    var emphasis = (ppuMask & (EMPHASIZE_RED_FLAG | EMPHASIZE_GREEN_FLAG | EMPHASIZE_BLUE_FLAG)) >> 5;
+                    switch (emphasis)
+                    {
+                        case 0b000: colorLUT = ColorMap.LUT_000; break;
+                        case 0b001: colorLUT = ColorMap.LUT_001; break;
+                        case 0b010: colorLUT = ColorMap.LUT_010; break;
+                        case 0b011: colorLUT = ColorMap.LUT_011; break;
+                        case 0b100: colorLUT = ColorMap.LUT_100; break;
+                        case 0b101: colorLUT = ColorMap.LUT_101; break;
+                        case 0b110: colorLUT = ColorMap.LUT_110; break;
+                        case 0b111: colorLUT = ColorMap.LUT_111; break;
+                    }
                     break;
 
                 case 0x3: // OAM Address Register
@@ -530,7 +548,6 @@ namespace Emulation
                             // Greyscale if enabled
                             if ((ppuMask & GREYSCALE_FLAG) != 0)
                                 paletteColor &= 0x30;
-
                         }
                         // Render Sprites
                         if ((ppuMask & SHOW_SPRITES_FLAG) != 0 && (dot >= 8 || (ppuMask & SHOW_SPRITES_IN_LEFTMOST_8_PIXELS_FLAG) != 0))
@@ -608,7 +625,7 @@ namespace Emulation
                         int index = ((SCREEN_HEIGHT - 1 - scanline) * SCREEN_WIDTH) + dot;
 
                         // Set the RGB values in the screen buffer at the calculated index
-                        screenBuffer[index] = ColorMap.LUT[paletteColor];
+                        screenBuffer[index] = colorLUT[paletteColor];
 
                         // Every 8 cycles (dots), increment v and start a new tile.
                         if ((dot & 7) == 7)
