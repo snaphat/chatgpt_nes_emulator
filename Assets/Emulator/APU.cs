@@ -100,6 +100,29 @@ public class APU
 
         return value;
     }
+
+    public void TriggerLengthCounters()
+    {
+        pulse1.TriggerLengthCounter();
+        pulse2.TriggerLengthCounter();
+        triangle.TriggerLengthCounter();
+        noise.TriggerLengthCounter();
+    }
+
+    public void SetLinearCounterReload(bool reloadFlag)
+    {
+        triangle.SetLinearCounterReload(reloadFlag);
+    }
+
+    public void TriggerDmcIrq()
+    {
+        dmc.TriggerIrq();
+    }
+
+    public void ClearDmcIrq()
+    {
+        dmc.ClearIrq();
+    }
 }
 
 public class PulseChannel
@@ -385,6 +408,14 @@ public class PulseChannel
 
         return output;
     }
+
+    public void TriggerLengthCounter()
+    {
+        if (lengthCounterHalt && lengthCounter > 0)
+        {
+            lengthCounter--;
+        }
+    }
 }
 
 public class TriangleChannel
@@ -549,6 +580,23 @@ public class TriangleChannel
         }
 
         return output;
+    }
+
+    public void TriggerLengthCounter()
+    {
+        if (lengthCounter > 0)
+        {
+            lengthCounter--;
+        }
+    }
+
+    public void SetLinearCounterReload(bool reloadFlag)
+    {
+        linearCounterReloadFlag = reloadFlag;
+        if (!reloadFlag)
+        {
+            linearCounter = 0;
+        }
     }
 }
 
@@ -751,6 +799,14 @@ public class NoiseChannel
             timer--;
         }
     }
+
+    public void TriggerLengthCounter()
+    {
+        if (lengthCounter > 0)
+        {
+            lengthCounter--;
+        }
+    }
 }
 
 public class DmcChannel
@@ -773,6 +829,8 @@ public class DmcChannel
         0x1AC, 0x17C, 0x154, 0x140, 0x11E, 0x0FE, 0x0E2, 0x0D6,
         0x0BE, 0x0A0, 0x08E, 0x080, 0x06A, 0x054, 0x048, 0x036
     };
+
+    private bool irqFlag;
 
     public DmcChannel()
     {
@@ -907,6 +965,21 @@ public class DmcChannel
         // Placeholder. Replace with actual memory read.
         return 0;
     }
+
+    public void TriggerIrq()
+    {
+        irqFlag = true;
+    }
+
+    public void ClearIrq()
+    {
+        irqFlag = false;
+    }
+
+    public bool IsIrqActive()
+    {
+        return irqEnabled && irqFlag;
+    }
 }
 
 public class FrameCounter
@@ -962,5 +1035,27 @@ public class FrameCounter
                 currentStep = 0;
             }
         }
+    }
+
+    public void Reset()
+    {
+        ticks = 0;
+        fiveStepMode = false;
+        currentStep = 0;
+    }
+
+    public int GetSequenceLength()
+    {
+        return fiveStepMode ? 5 : 4;
+    }
+
+    public bool IsSequenceEnd()
+    {
+        return currentStep == GetSequenceLength() - 1;
+    }
+
+    public bool IsHalfFrameStep()
+    {
+        return currentStep == 0 || currentStep == 2;
     }
 }
