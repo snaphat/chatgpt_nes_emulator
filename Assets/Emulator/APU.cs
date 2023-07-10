@@ -119,6 +119,13 @@ public class PulseChannel
     private bool isEnabled;
     private bool frameCounterMode;
 
+    // Additional fields
+    private byte envelopeDecayLevel;
+    private bool envelopeStartFlag;
+    private bool sweepEnabled;
+    private bool sweepReloadFlag;
+    private bool lengthCounterHalt;
+
     public PulseChannel()
     {
         this.sequenceStep = 0;
@@ -127,7 +134,120 @@ public class PulseChannel
 
     public void Step(FrameCounter frameCounter)
     {
-        // Pulse channel implementation
+        // Timer Unit
+        if (this.timer > 0)
+        {
+            this.timer--;
+        }
+        else
+        {
+            this.timer = (ushort)(this.frequency * (16 * (this.timer + 1)));
+            this.sequenceStep = (byte)((this.sequenceStep + 1) % 8);
+        }
+
+        // Length Counter
+        if (!this.frameCounterMode && this.lengthCounter > 0 && !this.lengthCounterHalt)
+        {
+            this.lengthCounter--;
+        }
+
+        // Envelope Unit
+        if (this.constantVolume)
+        {
+            // In constant volume mode, the volume is used directly
+            this.volume = this.volume;
+        }
+        else
+        {
+            // In envelope decay mode, the envelope decay level is used as the volume
+            // The envelope decay level is clocked every envelope period (volume + 1)
+            if (this.cycleCount % (this.volume + 1) == 0)
+            {
+                if (this.envelopeStartFlag)
+                {
+                    this.volume = 15;
+                    this.envelopeStartFlag = false;
+                }
+                else if (this.envelopeLoop)
+                {
+                    this.volume = 15;
+                }
+                else if (this.volume > 0)
+                {
+                    this.volume--;
+                }
+            }
+        }
+
+        // Sweep Unit
+        if (this.cycleCount % (this.sweepPeriod + 1) == 0 && this.sweepShift > 0)
+        {
+            int changeAmount = this.timer >> this.sweepShift;
+            if (this.sweepNegate)
+            {
+                this.timer -= (ushort)changeAmount;
+                if (this.timer < 8)
+                {
+                    this.isEnabled = false;
+                }
+            }
+            else
+            {
+                this.timer += (ushort)changeAmount;
+                if (this.timer > 0x7FF)
+                {
+                    this.isEnabled = false;
+                }
+            }
+            this.frequency = (ushort)(1789773 / (16 * (this.timer + 1)));
+        }
+
+        // Silence the channel under certain conditions
+        if (!this.isEnabled || this.lengthCounter == 0 || this.timer < 8 || this.timer > 2047)
+        {
+            this.isEnabled = false;
+        }
+
+        // Frame Counter
+        if (frameCounter.fiveStepMode && frameCounter.currentStep % 5 == 4 || !frameCounter.fiveStepMode && frameCounter.currentStep % 4 == 3)
+        {
+            if (this.lengthCounter > 0 && !this.lengthCounterHalt)
+            {
+                this.lengthCounter--;
+            }
+        }
+
+        // Sweep Reload Flag
+        if (this.sweepReloadFlag && this.sweepEnabled)
+        {
+            this.timer = this.frequency;
+            this.sweepReloadFlag = false;
+        }
+
+        this.cycleCount++;
+    }
+
+
+    public void Reset()
+    {
+        this.dutyCycle = 0;
+        this.volume = 0;
+        this.lengthCounter = 0;
+        this.timer = 0;
+        this.sweepShift = 0;
+        this.sweepNegate = false;
+        this.sweepPeriod = 0;
+        this.envelopeLoop = false;
+        this.constantVolume = false;
+        this.envelopeDivider = 0;
+
+        this.sequenceStep = 0;
+        this.frequency = 0;
+
+        this.cycleCount = 0;
+
+        this.isEnabled = false;
+        this.frameCounterMode = false;
     }
 
     public void WriteRegister(int registerIndex, byte value)
@@ -635,8 +755,56 @@ public class DmcChannel
 
 public class FrameCounter
 {
+    private int ticks;
+    public bool fiveStepMode;
+    public int currentStep;
+
+    public FrameCounter()
+    {
+        this.ticks = 0;
+        this.fiveStepMode = false;
+        this.currentStep = 0;
+    }
+
+    public void SetMode(bool fiveStepMode)
+    {
+        this.fiveStepMode = fiveStepMode;
+        if (this.fiveStepMode)
+        {
+            // In 5-step mode, the sequence length is 5 steps (375 ticks per step)
+            this.currentStep = this.ticks / 375;
+        }
+        else
+        {
+            // In 4-step mode, the sequence length is 4 steps (372 ticks per step)
+            this.currentStep = this.ticks / 372;
+        }
+    }
+
     public void Step()
     {
-        // Frame counter implementation
+        this.ticks++;
+        if (this.fiveStepMode)
+        {
+            // In 5-step mode, the sequence length is 5 steps (375 ticks per step)
+            this.currentStep = this.ticks / 375;
+            if (this.currentStep > 4)
+            {
+                // Reset the sequence after 5 steps
+                this.ticks = 0;
+                this.currentStep = 0;
+            }
+        }
+        else
+        {
+            // In 4-step mode, the sequence length is 4 steps (372 ticks per step)
+            this.currentStep = this.ticks / 372;
+            if (this.currentStep > 3)
+            {
+                // Reset the sequence after 4 steps
+                this.ticks = 0;
+                this.currentStep = 0;
+            }
+        }
     }
 }
