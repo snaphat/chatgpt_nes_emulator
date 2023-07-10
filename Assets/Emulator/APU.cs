@@ -71,10 +71,14 @@ public class APU
                 dmc.WriteRegister((ushort)(address - 0x4010), value);
                 break;
             case 0x4015:
-                // TODO: Handle write to status register
+                pulse1.SetEnable((value & 0x01) != 0);
+                pulse2.SetEnable((value & 0x02) != 0);
+                triangle.SetEnable((value & 0x04) != 0);
+                noise.SetEnable((value & 0x08) != 0);
+                dmc.SetEnable((value & 0x10) != 0);
                 break;
             case 0x4017:
-                // TODO: Handle write to frame counter register
+                frameCounter.SetMode((value & 0x80) != 0);
                 break;
         }
     }
@@ -86,11 +90,11 @@ public class APU
         switch (address)
         {
             case 0x4015:
-                // TODO: Handle read from status register
-                break;
-            default:
-                // Open bus: the most recent value put on the bus is returned
-                //value = openBus;
+                value |= (byte)(pulse1.Output() != 0 ? 0x01 : 0);
+                value |= (byte)(pulse2.Output() != 0 ? 0x02 : 0);
+                value |= (byte)(triangle.Output() != 0 ? 0x04 : 0);
+                value |= (byte)(noise.Output() != 0 ? 0x08 : 0);
+                value |= (byte)(dmc.Output() != 0 ? 0x10 : 0);
                 break;
         }
 
@@ -128,152 +132,171 @@ public class PulseChannel
 
     public PulseChannel()
     {
-        this.sequenceStep = 0;
-        this.cycleCount = 0;
+        sequenceStep = 0;
+        cycleCount = 0;
+
+        // Initialize additional fields
+        envelopeDecayLevel = 0;
+        envelopeStartFlag = false;
+        sweepEnabled = false;
+        sweepReloadFlag = false;
+        lengthCounterHalt = false;
     }
 
     public void Step(FrameCounter frameCounter)
     {
         // Timer Unit
-        if (this.timer > 0)
+        if (timer > 0)
         {
-            this.timer--;
+            timer--;
         }
         else
         {
-            this.timer = (ushort)(this.frequency * (16 * (this.timer + 1)));
-            this.sequenceStep = (byte)((this.sequenceStep + 1) % 8);
+            timer = (ushort)(frequency * (16 * (timer + 1)));
+            sequenceStep = (byte)((sequenceStep + 1) % 8);
         }
 
         // Length Counter
-        if (!this.frameCounterMode && this.lengthCounter > 0 && !this.lengthCounterHalt)
+        if (!frameCounterMode && lengthCounter > 0 && !lengthCounterHalt)
         {
-            this.lengthCounter--;
+            lengthCounter--;
         }
 
         // Envelope Unit
-        if (this.constantVolume)
+        if (constantVolume)
         {
             // In constant volume mode, the volume is used directly
-            this.volume = this.volume;
+            this.volume = volume;
         }
         else
         {
             // In envelope decay mode, the envelope decay level is used as the volume
             // The envelope decay level is clocked every envelope period (volume + 1)
-            if (this.cycleCount % (this.volume + 1) == 0)
+            if (cycleCount % (volume + 1) == 0)
             {
-                if (this.envelopeStartFlag)
+                if (envelopeStartFlag)
                 {
-                    this.volume = 15;
-                    this.envelopeStartFlag = false;
+                    volume = 15;
+                    envelopeStartFlag = false;
                 }
-                else if (this.envelopeLoop)
+                else if (envelopeLoop)
                 {
-                    this.volume = 15;
+                    volume = 15;
                 }
-                else if (this.volume > 0)
+                else if (volume > 0)
                 {
-                    this.volume--;
+                    volume--;
                 }
             }
         }
 
         // Sweep Unit
-        if (this.cycleCount % (this.sweepPeriod + 1) == 0 && this.sweepShift > 0)
+        if (cycleCount % (sweepPeriod + 1) == 0 && sweepShift > 0)
         {
-            int changeAmount = this.timer >> this.sweepShift;
-            if (this.sweepNegate)
+            int changeAmount = timer >> sweepShift;
+            if (sweepNegate)
             {
-                this.timer -= (ushort)changeAmount;
-                if (this.timer < 8)
+                timer -= (ushort)changeAmount;
+                if (timer < 8)
                 {
-                    this.isEnabled = false;
+                    isEnabled = false;
                 }
             }
             else
             {
-                this.timer += (ushort)changeAmount;
-                if (this.timer > 0x7FF)
+                timer += (ushort)changeAmount;
+                if (timer > 0x7FF)
                 {
-                    this.isEnabled = false;
+                    isEnabled = false;
                 }
             }
-            this.frequency = (ushort)(1789773 / (16 * (this.timer + 1)));
+            frequency = (ushort)(1789773 / (16 * (timer + 1)));
         }
 
         // Silence the channel under certain conditions
-        if (!this.isEnabled || this.lengthCounter == 0 || this.timer < 8 || this.timer > 2047)
+        if (!isEnabled || lengthCounter == 0 || timer < 8 || timer > 2047)
         {
-            this.isEnabled = false;
+            isEnabled = false;
         }
 
         // Frame Counter
         if (frameCounter.fiveStepMode && frameCounter.currentStep % 5 == 4 || !frameCounter.fiveStepMode && frameCounter.currentStep % 4 == 3)
         {
-            if (this.lengthCounter > 0 && !this.lengthCounterHalt)
+            if (lengthCounter > 0 && !lengthCounterHalt)
             {
-                this.lengthCounter--;
+                lengthCounter--;
             }
         }
 
         // Sweep Reload Flag
-        if (this.sweepReloadFlag && this.sweepEnabled)
+        if (sweepReloadFlag && sweepEnabled)
         {
-            this.timer = this.frequency;
-            this.sweepReloadFlag = false;
+            timer = frequency;
+            sweepReloadFlag = false;
         }
 
-        this.cycleCount++;
+        cycleCount++;
     }
-
 
     public void Reset()
     {
-        this.dutyCycle = 0;
-        this.volume = 0;
-        this.lengthCounter = 0;
-        this.timer = 0;
-        this.sweepShift = 0;
-        this.sweepNegate = false;
-        this.sweepPeriod = 0;
-        this.envelopeLoop = false;
-        this.constantVolume = false;
-        this.envelopeDivider = 0;
+        dutyCycle = 0;
+        volume = 0;
+        lengthCounter = 0;
+        timer = 0;
+        sweepShift = 0;
+        sweepNegate = false;
+        sweepPeriod = 0;
+        envelopeLoop = false;
+        constantVolume = false;
+        envelopeDivider = 0;
 
-        this.sequenceStep = 0;
-        this.frequency = 0;
+        sequenceStep = 0;
+        frequency = 0;
 
-        this.cycleCount = 0;
+        cycleCount = 0;
 
-        this.isEnabled = false;
-        this.frameCounterMode = false;
+        isEnabled = false;
+        frameCounterMode = false;
+
+        // Reset additional fields
+        envelopeDecayLevel = 0;
+        envelopeStartFlag = false;
+        sweepEnabled = false;
+        sweepReloadFlag = false;
+        lengthCounterHalt = false;
     }
 
-    public void WriteRegister(int registerIndex, byte value)
+    public void WriteRegister(ushort address, byte value)
     {
-        switch (registerIndex)
+        switch (address)
         {
-            case 0:
-                this.dutyCycle = (byte)(value >> 6);
-                this.volume = (byte)(value & 0x0F);
-                this.envelopeLoop = ((value & 0x20) != 0);
-                this.constantVolume = ((value & 0x10) != 0);
+            case 0x4000:
+                dutyCycle = (byte)((value >> 6) & 0x03);
+                lengthCounterHalt = ((value & 0x20) != 0);
+                constantVolume = ((value & 0x10) != 0);
+                volume = (byte)(value & 0x0F);
+                envelopeDivider = (ushort)(volume + 1);
+                envelopeDecayLevel = 15;
+                envelopeStartFlag = true;
                 break;
-            case 1:
-                this.sweepShift = (ushort)(value & 0x07);
-                this.sweepNegate = ((value & 0x08) != 0);
-                this.sweepPeriod = (ushort)((value >> 4) & 0x07);
+            case 0x4001:
+                sweepEnabled = ((value & 0x80) != 0);
+                sweepPeriod = (ushort)(((value >> 4) & 0x07) + 1);
+                sweepNegate = ((value & 0x08) != 0);
+                sweepShift = (ushort)(value & 0x07);
+                sweepReloadFlag = true;
                 break;
-            case 2:
-                this.timer = (ushort)((this.timer & 0xFF00) | value);
-                this.frequency = (ushort)(1789773 / (16 * (this.timer + 1)));
+            case 0x4002:
+                timer = (ushort)((timer & 0xFF00) | value);
+                frequency = (ushort)(1789773 / (16 * (timer + 1)));
                 break;
-            case 3:
-                this.lengthCounter = (byte)(value >> 3);
-                this.timer = (ushort)((this.timer & 0x00FF) | ((value & 0x07) << 8));
-                this.sequenceStep = 0; // Reset sequence on timer write
-                this.frequency = (ushort)(1789773 / (16 * (this.timer + 1)));
+            case 0x4003:
+                timer = (ushort)((timer & 0x00FF) | ((value & 0x07) << 8));
+                lengthCounter = (byte)(64 - (value & 0x3F));
+                sequenceStep = 0;
+                frequency = (ushort)(1789773 / (16 * (timer + 1)));
+                envelopeStartFlag = true;
                 break;
         }
     }
@@ -281,80 +304,83 @@ public class PulseChannel
     public void SetEnable(bool isEnabled)
     {
         this.isEnabled = isEnabled;
-        if (!this.isEnabled)
+        if (!isEnabled)
         {
-            this.lengthCounter = 0;
+            lengthCounter = 0;
         }
     }
 
     public void SetFrameCounterMode(bool mode)
     {
-        this.frameCounterMode = mode;
+        frameCounterMode = mode;
     }
 
     public byte Output()
     {
         // If the channel is not enabled, output 0
-        if (!this.isEnabled)
+        if (!isEnabled)
         {
             return 0;
         }
 
         byte[] sequenceLookup = { 0b01000000, 0b01100000, 0b01111000, 0b10011111 };
-        byte sequence = sequenceLookup[this.dutyCycle];
-        byte output = (byte)((sequence >> (7 - this.sequenceStep)) & 1);
-        output *= this.volume;
+        byte sequence = sequenceLookup[dutyCycle];
+        byte output = (byte)((sequence >> (7 - sequenceStep)) & 1);
+        output *= volume;
 
         // Move to the next step in the sequence every (timer + 1) APU cycles
-        this.cycleCount++;
-        if (this.cycleCount >= this.timer + 1)
+        cycleCount++;
+        if (cycleCount >= timer + 1)
         {
-            this.cycleCount = 0;
-            this.sequenceStep = (byte)((this.sequenceStep + 1) % 8);
+            cycleCount = 0;
+            sequenceStep = (byte)((sequenceStep + 1) % 8);
         }
 
         // Update the timer based on the sweep unit
-        if (this.sweepPeriod != 0 && this.sweepShift != 0 && this.cycleCount % (this.sweepPeriod * 2) == 0)
+        if (sweepPeriod != 0 && sweepShift != 0 && cycleCount % (sweepPeriod * 2) == 0)
         {
-            if (this.sweepNegate)
+            if (sweepNegate)
             {
-                this.timer -= (ushort)(this.timer >> this.sweepShift);
+                timer -= (ushort)(timer >> sweepShift);
             }
             else
             {
-                this.timer += (ushort)(this.timer >> this.sweepShift);
+                timer += (ushort)(timer >> sweepShift);
             }
-            this.frequency = (ushort)(1789773 / (16 * (this.timer + 1)));
+            frequency = (ushort)(1789773 / (16 * (timer + 1)));
         }
 
         // Update the volume based on the envelope
-        if (!this.constantVolume && this.cycleCount % 240 == 0) // APU frame counter runs at 60Hz
+        if (!constantVolume && cycleCount % envelopeDivider == 0)
         {
-            if (this.envelopeDivider == 0)
+            if (envelopeStartFlag)
             {
-                this.envelopeDivider = this.volume;
-                if (this.volume == 0)
-                {
-                    if (this.envelopeLoop)
-                    {
-                        this.volume = 0x0F;
-                    }
-                }
-                else
-                {
-                    this.volume--;
-                }
+                envelopeDecayLevel = 15;
+                envelopeStartFlag = false;
+            }
+            else if (envelopeDecayLevel > 0)
+            {
+                envelopeDecayLevel--;
+            }
+            else if (envelopeLoop)
+            {
+                envelopeDecayLevel = 15;
+            }
+
+            if (envelopeDecayLevel == 0 && !envelopeLoop)
+            {
+                volume = 0;
             }
             else
             {
-                this.envelopeDivider--;
+                volume = envelopeDecayLevel;
             }
         }
 
         // Update the length counter
-        if (this.lengthCounter > 0 && this.cycleCount % (this.frameCounterMode ? 3728 : 29830) == 0) // APU frame counter runs at 240Hz or 192Hz depending on the mode
+        if (lengthCounter > 0 && cycleCount % (frameCounterMode ? 3728 : 29830) == 0)
         {
-            this.lengthCounter--;
+            lengthCounter--;
         }
 
         return output;
@@ -398,7 +424,50 @@ public class TriangleChannel
 
     public void Step(FrameCounter frameCounter)
     {
-        // Triangle channel implementation
+        // Timer Unit
+        if (timer > 0)
+        {
+            timer--;
+        }
+        else
+        {
+            timer = (timerReload + 1) * 2;
+            if (lengthCounter > 0 && linearCounter > 0)
+            {
+                sequencePos = (sequencePos + 1) % SequenceLength;
+            }
+        }
+
+        // Length Counter
+        if (!frameCounterMode && lengthCounter > 0 && linearCounter > 0)
+        {
+            lengthCounter--;
+        }
+
+        // Linear Counter
+        if (!linearCounterReloadFlag)
+        {
+            linearCounter = linearCounterReloadValue;
+        }
+        else if (linearCounter > 0)
+        {
+            linearCounter--;
+        }
+
+        // Silence the channel under certain conditions
+        if (!isEnabled || lengthCounter == 0 || linearCounter == 0)
+        {
+            isEnabled = false;
+        }
+
+        // Frame Counter
+        if (frameCounter.fiveStepMode && frameCounter.currentStep % 5 == 4 || !frameCounter.fiveStepMode && frameCounter.currentStep % 4 == 3)
+        {
+            if (lengthCounter > 0 && linearCounter > 0)
+            {
+                lengthCounter--;
+            }
+        }
     }
 
     public void WriteRegister(ushort address, byte data)
@@ -412,11 +481,11 @@ public class TriangleChannel
             case 0x4009: // Unused
                 break;
             case 0x400A: // TRIANGLE_TIMER_LOW
-                this.timerReload = (this.timerReload & 0xFF00) | data;
+                timerReload = (timerReload & 0xFF00) | data;
                 break;
             case 0x400B: // TRIANGLE_TIMER_HIGH
-                this.timerReload = (this.timerReload & 0x00FF) | (data << 8);
-                this.lengthCounter = lengthCounterTable[data >> 3];
+                timerReload = (timerReload & 0x00FF) | (data << 8);
+                lengthCounter = lengthCounterTable[data >> 3];
                 break;
         }
     }
@@ -424,15 +493,15 @@ public class TriangleChannel
     public void SetEnable(bool isEnabled)
     {
         this.isEnabled = isEnabled;
-        if (!this.isEnabled)
+        if (!isEnabled)
         {
-            this.lengthCounter = 0;
+            lengthCounter = 0;
         }
     }
 
     public void SetFrameCounterMode(bool mode)
     {
-        this.frameCounterMode = mode;
+        frameCounterMode = mode;
     }
 
     public void ClockLinearCounter()
@@ -455,28 +524,28 @@ public class TriangleChannel
     public byte Output()
     {
         // If the channel is not enabled or the linear counter is zero, output 0
-        if (!this.isEnabled || linearCounter == 0)
+        if (!isEnabled || linearCounter == 0)
         {
             return 0;
         }
 
         byte output = 0;
 
-        if (this.timer < TimerMin)
+        if (timer < TimerMin)
         {
-            this.timer = this.timerReload;
-            this.sequencePos = (this.sequencePos + 1) % SequenceLength;
-            output = triangleSequence[this.sequencePos];
+            timer = timerReload;
+            sequencePos = (sequencePos + 1) % SequenceLength;
+            output = triangleSequence[sequencePos];
         }
         else
         {
-            this.timer--;
+            timer--;
         }
 
         // Update the length counter
-        if (this.lengthCounter > 0 && this.cycleCount % (this.frameCounterMode ? 3728 : 29830) == 0) // APU frame counter runs at 240Hz or 192Hz depending on the mode
+        if (lengthCounter > 0 && cycleCount % (frameCounterMode ? 3728 : 29830) == 0) // APU frame counter runs at 240Hz or 192Hz depending on the mode
         {
-            this.lengthCounter--;
+            lengthCounter--;
         }
 
         return output;
@@ -521,7 +590,72 @@ public class NoiseChannel
 
     public void Step(FrameCounter frameCounter)
     {
-        // Noise channel implementation
+        // Timer Unit
+        if (timer > 0)
+        {
+            timer--;
+        }
+        else
+        {
+            int feedback;
+            if (modeFlag)
+            {
+                feedback = ((shiftRegister >> 6) ^ (shiftRegister >> 5)) & 1;
+            }
+            else
+            {
+                feedback = ((shiftRegister >> 1) ^ shiftRegister) & 1;
+            }
+
+            shiftRegister = (shiftRegister >> 1) | (feedback << 14);
+            timer = timerReload;
+        }
+
+        // Length Counter
+        if (!frameCounterMode && lengthCounter > 0)
+        {
+            lengthCounter--;
+        }
+
+        // Envelope Unit
+        if (envelopeStartFlag)
+        {
+            volume = 15;
+            envelopeDivider = envelope;
+            envelopeStartFlag = false;
+        }
+        else if (envelopeDivider > 0)
+        {
+            envelopeDivider--;
+        }
+        else
+        {
+            if (volume > 0)
+            {
+                volume--;
+            }
+            else if (envelopeDecayLevelCounter > 0)
+            {
+                volume = 15;
+            }
+            envelopeDivider = envelope;
+        }
+
+        // Silence the channel under certain conditions
+        if (!isEnabled || lengthCounter == 0 || (shiftRegister & 1) == 1)
+        {
+            isEnabled = false;
+        }
+
+        // Frame Counter
+        if (frameCounter.fiveStepMode && frameCounter.currentStep % 5 == 4 ||
+            !frameCounter.fiveStepMode && frameCounter.currentStep % 4 == 3)
+        {
+            if (lengthCounter > 0 && !frameCounterMode)
+            {
+                lengthCounter--;
+            }
+        }
     }
 
     public void WriteRegister(ushort address, byte data)
@@ -553,15 +687,15 @@ public class NoiseChannel
     public void SetEnable(bool isEnabled)
     {
         this.isEnabled = isEnabled;
-        if (!this.isEnabled)
+        if (!isEnabled)
         {
-            this.lengthCounter = 0;
+            lengthCounter = 0;
         }
     }
 
     public void SetFrameCounterMode(bool mode)
     {
-        this.frameCounterMode = mode;
+        frameCounterMode = mode;
     }
 
     public void ClockEnvelope()
@@ -597,11 +731,11 @@ public class NoiseChannel
     public byte Output()
     {
         // If the channel is not enabled, output 0
-        if (!this.isEnabled || this.lengthCounter == 0 || (this.shiftRegister & 1) == 1)
+        if (!isEnabled || lengthCounter == 0 || (shiftRegister & 1) == 1)
         {
             return 0;
         }
-        return (byte)this.volume;
+        return (byte)volume;
     }
 
     public void Clock()
@@ -647,6 +781,28 @@ public class DmcChannel
     public void Step(FrameCounter frameCounter)
     {
         // DMC channel implementation
+        if (sampleBufferEmpty)
+        {
+            // Fetch the next sample if the sample buffer is empty
+            if (sampleCurrentLength > 0)
+            {
+                nextSample = ReadMemory(sampleCurrentAddress);
+                sampleCurrentAddress = (sampleCurrentAddress + 1) & 0xFFFF;
+                sampleCurrentLength--;
+                sampleBufferEmpty = false;
+            }
+            else if (loopFlag)
+            {
+                // Restart the sample if loop flag is set
+                sampleCurrentAddress = sampleAddress;
+                sampleCurrentLength = sampleLength;
+            }
+            else if (irqEnabled)
+            {
+                // Trigger IRQ if enabled and sample has finished playing
+                // Trigger IRQ logic goes here
+            }
+        }
     }
 
     public void WriteRegister(ushort address, byte data)
@@ -673,7 +829,7 @@ public class DmcChannel
     public void SetEnable(bool isEnabled)
     {
         this.isEnabled = isEnabled;
-        if (!this.isEnabled)
+        if (!isEnabled)
         {
             sampleCurrentLength = 0;
         }
@@ -692,11 +848,11 @@ public class DmcChannel
     public byte Output()
     {
         // If the channel is not enabled, output 0
-        if (!this.isEnabled || sampleBufferEmpty)
+        if (!isEnabled || sampleBufferEmpty)
         {
             return 0;
         }
-        return (byte)this.shiftRegister;
+        return (byte)shiftRegister;
     }
 
     public void Clock()
@@ -761,49 +917,49 @@ public class FrameCounter
 
     public FrameCounter()
     {
-        this.ticks = 0;
-        this.fiveStepMode = false;
-        this.currentStep = 0;
+        ticks = 0;
+        fiveStepMode = false;
+        currentStep = 0;
     }
 
     public void SetMode(bool fiveStepMode)
     {
         this.fiveStepMode = fiveStepMode;
-        if (this.fiveStepMode)
+        if (fiveStepMode)
         {
             // In 5-step mode, the sequence length is 5 steps (375 ticks per step)
-            this.currentStep = this.ticks / 375;
+            currentStep = ticks / 375;
         }
         else
         {
             // In 4-step mode, the sequence length is 4 steps (372 ticks per step)
-            this.currentStep = this.ticks / 372;
+            currentStep = ticks / 372;
         }
     }
 
     public void Step()
     {
-        this.ticks++;
-        if (this.fiveStepMode)
+        ticks++;
+        if (fiveStepMode)
         {
             // In 5-step mode, the sequence length is 5 steps (375 ticks per step)
-            this.currentStep = this.ticks / 375;
-            if (this.currentStep > 4)
+            currentStep = ticks / 375;
+            if (currentStep > 4)
             {
                 // Reset the sequence after 5 steps
-                this.ticks = 0;
-                this.currentStep = 0;
+                ticks = 0;
+                currentStep = 0;
             }
         }
         else
         {
             // In 4-step mode, the sequence length is 4 steps (372 ticks per step)
-            this.currentStep = this.ticks / 372;
-            if (this.currentStep > 3)
+            currentStep = ticks / 372;
+            if (currentStep > 3)
             {
                 // Reset the sequence after 4 steps
-                this.ticks = 0;
-                this.currentStep = 0;
+                ticks = 0;
+                currentStep = 0;
             }
         }
     }
